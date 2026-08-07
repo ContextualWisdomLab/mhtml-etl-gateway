@@ -26,6 +26,12 @@ Palme, J., Hopmann, A., & Shelness, N. (1999). *MIME encapsulation of aggregate 
 
 PostgreSQL Global Development Group. (2026). *PostgreSQL 18.4 release notes*. https://www.postgresql.org/docs/release/18.4/
 
+Python Packaging Authority. (2026). *Secure installs*. pip documentation (Version 26.1.2). https://pip.pypa.io/en/stable/topics/secure-installs/
+
+Python Packaging Authority. (2026). *Requirements file format*. pip documentation (Version 26.1.2). https://pip.pypa.io/en/stable/reference/requirements-file-format/
+
+Python Software Foundation. (2026, February 3). *coverage 7.13.3* [Software distribution metadata]. Python Package Index. https://pypi.org/project/coverage/7.13.3/
+
 SLSA Community. (2026). *Supply-chain levels for software artifacts specification, version 1.2*. https://slsa.dev/spec/v1.2/
 
 SPDX Workgroup. (n.d.). *SPDX specification 3.0.1*. Retrieved August 7, 2026, from https://spdx.github.io/spdx-spec/v3.0.1/
