@@ -1,0 +1,10 @@
+# CI-only quality tool lock for CPython 3.11-3.14 on ubuntu-24.04 x86_64.
+# Hashes are the reviewed PyPI artifacts for coverage 7.13.3. Keep
+# --only-binary=:all: and --require-hashes in the consuming workflow so an
+# unreviewed sdist or artifact cannot satisfy this lock.
+coverage==7.13.3 \
+    --hash=sha256:0c2be202a83dde768937a61cdc5d06bf9fb204048ca199d93479488e6247656c \
+    --hash=sha256:8bb09e83c603f152d855f666d70a71765ca8e67332e5829e62cb9466c176af23 \
+    --hash=sha256:16d23d6579cf80a474ad160ca14d8b319abaa6db62759d6eef53b2fc979b58c8 \
+    --hash=sha256:06e49c5897cb12e3f7ecdc111d44e97c4f6d0557b81a7a0204ed70a8b038f86f \
+    --hash=sha256:90a8af9dba6429b2573199622d72e0ebf024d6276f16abce394ad4d181bb0910
