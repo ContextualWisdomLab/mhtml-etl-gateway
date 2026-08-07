@@ -40,3 +40,4 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Default reports and logs exclude data rows, header values, raw Content-Location, and embedded resource payloads.
 - Customer MHTML artifacts are prohibited from the public repository.
 - PII protection uses access, encryption, tenant, lifecycle, export, and audit controls instead of destructive default masking.
+- Repository quality CI installs its coverage tool from a reviewed SHA-256 hash lock in pip hash-checking and binary-only mode, and pull-request quality jobs explicitly check out and verify the exact contributor head rather than GitHub's synthetic merge ref.
