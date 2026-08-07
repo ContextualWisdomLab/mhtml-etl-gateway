@@ -1,7 +1,8 @@
-"""Supply-chain contracts for repository-owned quality dependencies."""
+"""Supply-chain and exact-source contracts for repository-owned CI."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
@@ -18,11 +19,16 @@ COVERAGE_HASHES = {
 }
 
 
+def _workflow_source() -> str:
+    """Return the complete repository-quality workflow as inert text."""
+    return CI_WORKFLOW.read_text(encoding="utf-8")
+
+
 def test_quality_dependency_is_hash_locked_and_installed_fail_closed() -> None:
     """Require the CI-only coverage tool to use an exact hash-checked lock."""
     assert QUALITY_LOCK.is_file(), "requirements-quality.txt must be committed"
     lock = QUALITY_LOCK.read_text(encoding="utf-8")
-    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    workflow = _workflow_source()
 
     assert f"coverage=={COVERAGE_VERSION}" in lock
     for digest in COVERAGE_HASHES:
@@ -34,3 +40,33 @@ def test_quality_dependency_is_hash_locked_and_installed_fail_closed() -> None:
     )
     assert install_command in workflow
     assert "pip install --disable-pip-version-check coverage==" not in workflow
+
+
+def test_pull_request_quality_checks_bind_to_the_exact_source_head() -> None:
+    """Reject GitHub's synthetic merge ref as repository test evidence."""
+    workflow = _workflow_source()
+    checkout = re.search(
+        r"(?ms)^      - name: Checkout\n"
+        r"        uses: actions/checkout@[0-9a-f]{40}.*?\n"
+        r"        with:\n"
+        r"(?P<inputs>(?:          .+\n)+?)"
+        r"      - name: ",
+        workflow,
+    )
+    assert checkout is not None, "the named Checkout step must remain structurally bounded"
+    checkout_inputs = checkout.group("inputs")
+    assert "persist-credentials: false" in checkout_inputs
+    assert (
+        "ref: ${{ github.event_name == 'pull_request' && "
+        "github.event.pull_request.head.sha || github.sha }}"
+        in checkout_inputs
+    )
+
+    verification = (
+        "- name: Verify exact pull-request head\n"
+        "        if: github.event_name == 'pull_request'\n"
+        "        env:\n"
+        "          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n"
+        "        run: test \"$(git rev-parse HEAD)\" = \"$EXPECTED_HEAD_SHA\""
+    )
+    assert verification in workflow
