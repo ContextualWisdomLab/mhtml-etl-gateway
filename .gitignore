@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+*.egg-info/
+.venv/
+.env
+*.mhtml
+*.mht

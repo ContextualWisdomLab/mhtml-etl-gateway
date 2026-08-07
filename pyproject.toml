@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools==82.0.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mhtml-etl-gateway"
+version = "0.1.0"
+description = "Deterministic enterprise MHTML inspection and PostgreSQL ingestion gateway."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "ContextualWisdomLab"}]
+keywords = ["mhtml", "etl", "postgresql", "sap", "lineage"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.scripts]
+mhtml-etl-gateway = "mhtml_etl_gateway.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.coverage.run]
+branch = true
+source = ["mhtml_etl_gateway", "scripts"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = false
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+]

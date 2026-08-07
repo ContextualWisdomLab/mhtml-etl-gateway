@@ -1,0 +1,120 @@
+name: Hourly Product Development
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+
+concurrency:
+  group: hourly-product-gap-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  develop-one-gap:
+    name: Select and implement one buyer-visible gap
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - name: Checkout protected default branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Python for deterministic gate
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Collect live single-flight evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" > "${RUNNER_TEMP}/open-pulls.json"
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=agent-task&per_page=100" > "${RUNNER_TEMP}/agent-issues.json"
+      - name: Evaluate product-development gate
+        id: product_gate
+        env:
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+        run: |
+          python scripts/hourly_product_gap.py \
+            --pull-requests-json "${RUNNER_TEMP}/open-pulls.json" \
+            --issues-json "${RUNNER_TEMP}/agent-issues.json" \
+            --github-output "${GITHUB_OUTPUT}"
+      - name: Ensure one durable agent task
+        id: ensure_task
+        if: steps.product_gate.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXISTING_TASK_NUMBER: ${{ steps.product_gate.outputs.task_number }}
+        run: |
+          set -euo pipefail
+          task_number="$EXISTING_TASK_NUMBER"
+          if [ -z "$task_number" ]; then
+            gh label create agent-task \
+              --color 7C3AED \
+              --description "Durable bounded product-development task" \
+              --force
+            task_url="$(gh issue create \
+              --title "[Agent Task] Complete one buyer-visible product gap" \
+              --label agent-task \
+              --body "This durable task lease was created by hourly run ${GITHUB_RUN_ID} at default-branch commit ${GITHUB_SHA}. The OpenCode agent must update this issue with evidence, create at most one PR, and close the issue only after the verified PR exists.")"
+            task_number="${task_url##*/}"
+          fi
+          if ! [[ "$task_number" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Durable agent-task number is malformed: ${task_number:-<empty>}"
+            exit 1
+          fi
+          echo "task_number=$task_number" >> "$GITHUB_OUTPUT"
+
+      - name: Record bounded no-op reason
+        if: steps.product_gate.outputs.eligible != 'true'
+        run: echo "Hourly product development did not dispatch — ${{ steps.product_gate.outputs.reason }}."
+      - name: Run OpenCode on one bounded product gap
+        if: steps.product_gate.outputs.eligible == 'true'
+        uses: anomalyco/opencode/github@1ec6bdc8c666e315ba85ef5276fac9b0eb7ba109 # v1.18.15
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+        with:
+          model: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5
+          share: false
+          prompt: |
+            Work on ContextualWisdomLab/mhtml-etl-gateway as an autonomous product-development agent.
+            Continue durable agent-task issue #${{ steps.ensure_task.outputs.task_number }}. Read its full
+            history before choosing or resuming work, and keep every action within that one task lease.
+
+            Re-read AGENTS.md, CLAUDE.md, docs/PRD.md, docs/TRD.md, docs/ARCHITECTURE.md,
+            docs/TEST_STRATEGY.md, docs/SECURITY.md, CHANGELOG.md, all open issues, and the current
+            default-branch source. Select exactly one highest-leverage buyer-visible product gap that can
+            be completed safely in one bounded pull request. Do not merge, publish, tag, or release.
+
+            Use test-driven development: first add a failing realistic test, then implement the minimal
+            production behavior, then refactor while preserving green tests. Production statement and
+            branch coverage and public API docstrings must remain 100%. Preserve immutable source lineage,
+            do not execute MHTML active content or fetch external resources, never commit customer data,
+            and never expose PII in logs or default reports. PII handling must use tenant isolation,
+            encryption, least privilege, purpose limitation, retention, and audit rather than destructive
+            masking that makes the operational dataset unusable.
+
+            Update PRD/TRD/architecture/ADR/security/test/operability documentation and CHANGELOG when the
+            product contract changes. Put current authoritative standards or primary research in
+            docs/doctoring/REFERENCES.md using APA 7th style. Use multiword snake_case for every database
+            object. Consider modular integration with ContextualWisdomLab/.github, naruon, pg-erd-cloud,
+            pg-llm-batch, and contextual-orchestrator, but add only the integration that materially improves
+            this slice and keeps the standalone product excellent.
+
+            Run the complete repository verification suite. Update the durable agent-task issue with the
+            selected gap, verification evidence, and exact blocker when work cannot proceed. Otherwise create
+            one feature branch and one pull request against main containing the verified change. Close the
+            agent-task issue only after the verified pull request exists and link both directions. The
+            organization central required workflows own review, security, branch freshness, and merge; do not
+            add another merge scheduler.
