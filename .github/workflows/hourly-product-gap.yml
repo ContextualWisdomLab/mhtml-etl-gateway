@@ -1,25 +1,28 @@
-name: Hourly Product Development
+name: Hourly Autonomous Development
 
 on:
   schedule:
     - cron: "23 * * * *"
 
 concurrency:
-  group: hourly-product-gap-${{ github.repository }}
+  group: hourly-autonomous-development-${{ github.repository }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  develop-one-gap:
-    name: Select and implement one buyer-visible gap
+  autonomous-loop:
+    name: Maintain one PR or develop one buyer-visible gap
     runs-on: ubuntu-24.04
     permissions:
-      id-token: write
+      actions: write
+      checks: read
       contents: write
+      id-token: write
       issues: write
       pull-requests: write
+      statuses: read
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
@@ -34,15 +37,19 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      - name: Collect live single-flight evidence
+      - name: Collect live queue evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" > "${RUNNER_TEMP}/open-pulls.json"
-          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=agent-task&per_page=100" > "${RUNNER_TEMP}/agent-issues.json"
-      - name: Evaluate product-development gate
-        id: product_gate
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
+            > "${RUNNER_TEMP}/open-pulls.json"
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=agent-task&per_page=100" \
+            > "${RUNNER_TEMP}/agent-issues.json"
+      - name: Select exact-head loop mode
+        id: loop_gate
         env:
           NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
         run: |
@@ -52,10 +59,12 @@ jobs:
             --github-output "${GITHUB_OUTPUT}"
       - name: Ensure one durable agent task
         id: ensure_task
-        if: steps.product_gate.outputs.eligible == 'true'
+        if: >-
+          steps.loop_gate.outputs.eligible == 'true' &&
+          steps.loop_gate.outputs.mode == 'develop_product_gap'
         env:
           GH_TOKEN: ${{ github.token }}
-          EXISTING_TASK_NUMBER: ${{ steps.product_gate.outputs.task_number }}
+          EXISTING_TASK_NUMBER: ${{ steps.loop_gate.outputs.task_number }}
         run: |
           set -euo pipefail
           task_number="$EXISTING_TASK_NUMBER"
@@ -67,7 +76,7 @@ jobs:
             task_url="$(gh issue create \
               --title "[Agent Task] Complete one buyer-visible product gap" \
               --label agent-task \
-              --body "This durable task lease was created by hourly run ${GITHUB_RUN_ID} at default-branch commit ${GITHUB_SHA}. The OpenCode agent must update this issue with evidence, create at most one PR, and close the issue only after the verified PR exists.")"
+              --body "Created by hourly run ${GITHUB_RUN_ID} at default-branch commit ${GITHUB_SHA}. Reuse this lease until one verified PR exists; do not open parallel product PRs.")"
             task_number="${task_url##*/}"
           fi
           if ! [[ "$task_number" =~ ^[1-9][0-9]*$ ]]; then
@@ -75,12 +84,78 @@ jobs:
             exit 1
           fi
           echo "task_number=$task_number" >> "$GITHUB_OUTPUT"
+      - name: Record fail-closed gate reason
+        if: steps.loop_gate.outputs.eligible != 'true'
+        run: |
+          echo "Hourly autonomous development did not dispatch — ${{ steps.loop_gate.outputs.reason }}."
+      - name: Run OpenCode PR maintenance
+        if: >-
+          steps.loop_gate.outputs.eligible == 'true' &&
+          steps.loop_gate.outputs.mode == 'maintain_pull_request'
+        uses: anomalyco/opencode/github@1ec6bdc8c666e315ba85ef5276fac9b0eb7ba109 # v1.18.15
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          TARGET_PR_NUMBER: ${{ steps.loop_gate.outputs.pull_request_number }}
+          TARGET_PR_EXPECTED_HEAD_SHA: ${{ steps.loop_gate.outputs.pull_request_head_sha }}
+          TARGET_PR_HEAD_REF: ${{ steps.loop_gate.outputs.pull_request_head_ref }}
+          TARGET_PR_BASE_REF: ${{ steps.loop_gate.outputs.pull_request_base_ref }}
+          TARGET_PR_WRITABLE: ${{ steps.loop_gate.outputs.pull_request_writable }}
+          OPEN_PR_COUNT: ${{ steps.loop_gate.outputs.open_pull_request_count }}
+        with:
+          model: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5
+          share: false
+          prompt: |
+            Maintain pull request #${{ steps.loop_gate.outputs.pull_request_number }} in
+            ContextualWisdomLab/mhtml-etl-gateway. The scheduler selected expected head
+            ${{ steps.loop_gate.outputs.pull_request_head_sha }}, head ref
+            ${{ steps.loop_gate.outputs.pull_request_head_ref }}, and base
+            ${{ steps.loop_gate.outputs.pull_request_base_ref }} from a live queue containing
+            ${{ steps.loop_gate.outputs.open_pull_request_count }} open pull request(s).
 
-      - name: Record bounded no-op reason
-        if: steps.product_gate.outputs.eligible != 'true'
-        run: echo "Hourly product development did not dispatch — ${{ steps.product_gate.outputs.reason }}."
-      - name: Run OpenCode on one bounded product gap
-        if: steps.product_gate.outputs.eligible == 'true'
+            Root-cause analysis is mandatory before any mutation. Re-fetch the PR, exact live head,
+            exact base tip, mergeability, requested reviewers, submitted reviews, unresolved review
+            threads, commit statuses, check runs, workflow runs/jobs/logs, code-scanning findings, and
+            branch-policy evidence. Classify every blocker as an actionable repository defect, a
+            transient infrastructure failure, stale or superseded evidence, an external policy or
+            independent-approval dependency, or a genuine merge conflict. Do not stop at naming the
+            category: prove that the proposed action is technically possible with the available
+            repository permissions, branch ownership, credentials, APIs, and current-head evidence,
+            and prove that it can actually change the blocker rather than merely generating activity.
+
+            Treat the supplied head as an initial lease only; refetch the exact live head immediately before every write. If another actor changed the head, base, review state, or target blob,
+            discard stale work, reconcile from live state, and do not overwrite concurrent changes.
+            When TARGET_PR_WRITABLE is false, remain read-only on the head repository.
+
+            For an actionable repository defect, reproduce it with the smallest realistic failing test,
+            implement the minimal fix on the existing PR branch, run the complete repository verification
+            suite, and push only if the exact-head lease still matches. Address valid human, CodeRabbit,
+            GitHub Advanced Security, Dependabot, OpenCode, Noema, Strix, and other automated findings;
+            separate them from stale, duplicate, rate-limited, predecessor-head, synthetic-merge-only, or
+            infrastructure-only evidence. Resolve only threads whose findings are actually fixed.
+
+            For a transient infrastructure failure, rerun only failed or cancelled GitHub Actions jobs
+            after confirming the source and configuration do not need a code fix and the PR head remains
+            exact. Never treat queued, pending, skipped-required, neutral-required, absent, stale-head, or
+            cancelled evidence as passing. Do not repeatedly rerun queued work or spam comments.
+
+            For an external policy or independent-approval dependency, never synthesize or submit an approval and never weaken protection. Verify whether the organization central review workflow
+            is actually configured and triggered. If a repository-owned integration defect exists, fix it
+            test-first. If the remaining dependency is genuinely outside this repository's write boundary,
+            preserve one precise, deduplicated blocker record and continue every other repository-owned
+            action. Use remaining capacity to refine one next buyer-visible gap in a single durable
+            agent-task issue, but do not create a second pull request while any PR remains open.
+
+            Preserve immutable source lineage, active-content isolation, metadata-only public diagnostics,
+            PII access controls, multiword snake_case database names, 100% production statement and branch
+            coverage, and 100% public API docstrings. Update architecture, ADR, security, tests, doctoring
+            references, and CHANGELOG when the contract changes.
+
+            Never merge, enable auto-merge, approve, tag, publish, or release. The central organization
+            workflows remain the sole review, security, branch-freshness, and merge authority.
+      - name: Run OpenCode product development
+        if: >-
+          steps.loop_gate.outputs.eligible == 'true' &&
+          steps.loop_gate.outputs.mode == 'develop_product_gap'
         uses: anomalyco/opencode/github@1ec6bdc8c666e315ba85ef5276fac9b0eb7ba109 # v1.18.15
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
@@ -90,31 +165,31 @@ jobs:
           prompt: |
             Work on ContextualWisdomLab/mhtml-etl-gateway as an autonomous product-development agent.
             Continue durable agent-task issue #${{ steps.ensure_task.outputs.task_number }}. Read its full
-            history before choosing or resuming work, and keep every action within that one task lease.
+            history and re-fetch the current default-branch head, open issues, and PR queue before writing.
+            If a PR appeared after the gate, stop product writes and switch to read-only reconciliation.
 
-            Re-read AGENTS.md, CLAUDE.md, docs/PRD.md, docs/TRD.md, docs/ARCHITECTURE.md,
-            docs/TEST_STRATEGY.md, docs/SECURITY.md, CHANGELOG.md, all open issues, and the current
-            default-branch source. Select exactly one highest-leverage buyer-visible product gap that can
-            be completed safely in one bounded pull request. Do not merge, publish, tag, or release.
+            Select exactly one highest-leverage buyer-visible gap that fits one bounded PR. Validate that the
+            proposed solution is realistic before implementation: identify the required APIs, permissions,
+            dependencies, storage, deployment assumptions, and verification method, and reject approaches
+            that cannot operate in the actual GitHub or product environment.
 
-            Use test-driven development: first add a failing realistic test, then implement the minimal
-            production behavior, then refactor while preserving green tests. Production statement and
-            branch coverage and public API docstrings must remain 100%. Preserve immutable source lineage,
-            do not execute MHTML active content or fetch external resources, never commit customer data,
-            and never expose PII in logs or default reports. PII handling must use tenant isolation,
-            encryption, least privilege, purpose limitation, retention, and audit rather than destructive
-            masking that makes the operational dataset unusable.
+            Use test-driven development: observe a realistic failing test, implement the minimum behavior,
+            refactor only while green, and run the complete repository verification suite. When any step
+            fails, perform root-cause analysis, distinguish code/configuration faults from infrastructure or
+            external-policy dependencies, and execute every feasible repository-owned remedy rather than
+            merely reporting the blocker.
 
-            Update PRD/TRD/architecture/ADR/security/test/operability documentation and CHANGELOG when the
-            product contract changes. Put current authoritative standards or primary research in
-            docs/doctoring/REFERENCES.md using APA 7th style. Use multiword snake_case for every database
-            object. Consider modular integration with ContextualWisdomLab/.github, naruon, pg-erd-cloud,
-            pg-llm-batch, and contextual-orchestrator, but add only the integration that materially improves
-            this slice and keeps the standalone product excellent.
+            Preserve immutable source lineage, never execute MHTML active content or fetch external resources,
+            never commit customer data, and never expose PII in logs or default reports. Protect usable PII
+            through tenant isolation, encryption, least privilege, purpose limitation, retention, export
+            approval, and audit rather than destructive masking. Maintain 100% production statement and
+            branch coverage, 100% public API docstrings, and multiword snake_case database objects.
 
-            Run the complete repository verification suite. Update the durable agent-task issue with the
-            selected gap, verification evidence, and exact blocker when work cannot proceed. Otherwise create
-            one feature branch and one pull request against main containing the verified change. Close the
-            agent-task issue only after the verified pull request exists and link both directions. The
-            organization central required workflows own review, security, branch freshness, and merge; do not
-            add another merge scheduler.
+            Update PRD, TRD, architecture, ADR, security, test, operability, doctoring references, and
+            CHANGELOG when contracts change. Use current authoritative standards or primary research and APA
+            7th references. Consider .github, naruon, pg-erd-cloud, pg-llm-batch, and contextual-orchestrator
+            integrations only when they materially improve this bounded slice and preserve standalone quality.
+
+            Create one feature branch and one PR against main only after complete verification. Link the
+            durable issue and close it only after the verified PR exists. Never merge, enable auto-merge,
+            approve, tag, publish, or release; central organization workflows own those gates.

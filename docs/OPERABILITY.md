@@ -43,6 +43,12 @@ Incidents are classified by source leakage, tenant-boundary failure, data corrup
 
 Resource limits are per document and independent of deployment capacity. A future worker pool adds queue quotas, tenant concurrency, backpressure, and hard memory limits. Large input does not justify disabling parser budgets.
 
-## Hourly development operation
+## Hourly autonomous-development operation
 
-The product-development workflow is not runtime processing. It runs hourly on the protected default branch, keeps sessions private, uses one durable task lease, and stops when a PR already exists. Central organization workflows process review and merge independently.
+The scheduled workflow is not runtime processing. It runs hourly from the protected default branch, uses private NVIDIA NIM sessions, and serializes runs with a repository-wide non-cancelling concurrency group.
+
+When pull requests are open, the deterministic gate validates the full queue, selects the lowest-numbered PR, and passes an exact head/base lease to PR-maintenance mode. The agent performs RCA, proves remediation feasibility, fixes repository-owned defects on the existing branch, and may rerun only exact-head failed or cancelled Actions jobs that are demonstrably transient. Fork heads are read-only. Queued, pending, skipped-required, absent, stale-head, and cancelled evidence is never treated as passing.
+
+When the PR queue is empty, the workflow resumes or creates one durable `agent-task` issue and develops one bounded buyer-visible gap. A newly appeared PR cancels product writes through live reconciliation. The workflow never approves, merges, enables auto-merge, tags, publishes, or releases; central organization workflows remain authoritative for those actions.
+
+The scheduler file must be present on the default branch before GitHub executes its cron. A PR containing scheduler changes is therefore verified manually and by PR CI, but cannot use the new schedule to repair itself before merge.

@@ -15,7 +15,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Synthetic SAP-style, hostile-input, CLI, workflow, privacy, MIME-cardinality, and documentation tests.
 - Repository PRD, TRD, architecture, data, API, security, threat, test, operating, compliance, roadmap, ADR, research-traceability, and APA 7th doctoring baselines.
 - Exact-head Python 3.11–3.14 quality workflow.
-- Default-branch-only hourly OpenCode product-development workflow using NVIDIA NIM and a durable single-flight `agent-task` lease.
+- Default-branch-only hourly OpenCode autonomous loop using NVIDIA NIM, exact-head PR maintenance, and a durable single-flight `agent-task` lease for empty-queue product work.
 
 ### Changed
 
@@ -23,6 +23,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - RFC 2387 `type` omission is recorded as `missing_related_type` for known enterprise exports; contradictory declared types fail closed.
 - Unknown enterprise Content-Transfer-Encoding values remain an identity-decoding compatibility path with a generic diagnostic.
 - The hourly OpenCode workflow explicitly disables session sharing for the public repository.
+- An open PR now selects deterministic RCA-and-repair mode instead of disabling the hourly loop; product PR creation remains blocked until the PR queue is empty.
 
 ### Fixed
 
@@ -32,6 +33,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Defective structured MIME headers that affect root selection fail closed.
 - Nested suppressed elements, span overlap, trailing rowspans, and later-column rowspan gaps are normalized deterministically.
 - Public errors no longer echo source paths, Content-ID values, charsets, transfer encodings, or declared media types.
+- The autonomous scheduler no longer treats review or check latency as a blanket no-op when repository-owned fixes or bounded job reruns are feasible.
 
 ### Security
 
@@ -41,3 +43,4 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Customer MHTML artifacts are prohibited from the public repository.
 - PII protection uses access, encryption, tenant, lifecycle, export, and audit controls instead of destructive default masking.
 - Repository quality CI installs its coverage tool from a reviewed SHA-256 hash lock in pip hash-checking and binary-only mode, and pull-request quality jobs explicitly check out and verify the exact contributor head rather than GitHub's synthetic merge ref.
+- PR maintenance validates exact head/base metadata, treats fork heads as read-only, discards stale leases before writes, and never synthesizes approval or weakens central merge gates.

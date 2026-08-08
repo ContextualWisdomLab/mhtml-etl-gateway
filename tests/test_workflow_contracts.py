@@ -19,13 +19,17 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_every_action_reference_is_an_immutable_sha(self) -> None:
         """Mutable action tags cannot enter either workflow."""
-        references = re.findall(r"^\s*uses:\s*([^\s#]+)", self.ci_text + "\n" + self.hourly_text, re.MULTILINE)
+        references = re.findall(
+            r"^\s*uses:\s*([^\s#]+)",
+            self.ci_text + "\n" + self.hourly_text,
+            re.MULTILINE,
+        )
         self.assertGreaterEqual(len(references), 4)
         for reference in references:
             self.assertRegex(reference, r"^[^@]+@[0-9a-f]{40}$")
 
     def test_hourly_loop_uses_nvidia_nim_and_never_copilot(self) -> None:
-        """The development scheduler binds only the approved NIM secret contract."""
+        """The scheduler binds only the approved NIM secret contract."""
         combined = self.hourly_text + self.opencode_text
         self.assertIn("NVIDIA_NIM_API_KEY", combined)
         self.assertIn("NVIDIA_API_KEY", combined)
@@ -34,7 +38,7 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_hourly_loop_never_shares_public_agent_sessions(self) -> None:
         """Public repositories must keep scheduled OpenCode sessions private."""
-        self.assertIn("share: false", self.hourly_text)
+        self.assertGreaterEqual(self.hourly_text.count("share: false"), 2)
 
     def test_hourly_loop_is_default_branch_schedule_only(self) -> None:
         """No branch-selectable privileged manual trigger is shipped."""
@@ -43,25 +47,64 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("pull_request", self.hourly_text.split("jobs:", 1)[0])
 
     def test_hourly_loop_has_single_flight_and_preflight_gate(self) -> None:
-        """Overlapping agent runs and duplicate PR work are structurally blocked."""
+        """Overlapping runs and stale queue assumptions are structurally blocked."""
         self.assertIn("cancel-in-progress: false", self.hourly_text)
         self.assertIn("scripts/hourly_product_gap.py", self.hourly_text)
-        self.assertIn("steps.product_gate.outputs.eligible == 'true'", self.hourly_text)
+        self.assertIn("id: loop_gate", self.hourly_text)
+        self.assertIn("steps.loop_gate.outputs.eligible == 'true'", self.hourly_text)
 
-    def test_hourly_loop_uses_durable_agent_task_lease(self) -> None:
-        """A failed agent run is resumable without creating duplicate branches or PRs."""
+    def test_hourly_loop_has_separate_pr_maintenance_and_product_modes(self) -> None:
+        """An open PR triggers repair work instead of disabling the scheduler."""
+        self.assertIn("Run OpenCode PR maintenance", self.hourly_text)
+        self.assertIn("steps.loop_gate.outputs.mode == 'maintain_pull_request'", self.hourly_text)
+        self.assertIn("Run OpenCode product development", self.hourly_text)
+        self.assertIn("steps.loop_gate.outputs.mode == 'develop_product_gap'", self.hourly_text)
+        self.assertIn("steps.loop_gate.outputs.pull_request_head_sha", self.hourly_text)
+        self.assertIn("steps.loop_gate.outputs.pull_request_writable", self.hourly_text)
+
+    def test_pr_maintenance_has_permissions_for_evidence_and_bounded_reruns(self) -> None:
+        """The agent can inspect checks and retry transient Actions jobs without merge authority."""
+        self.assertIn("actions: write", self.hourly_text)
+        self.assertIn("checks: read", self.hourly_text)
+        self.assertIn("statuses: read", self.hourly_text)
+        self.assertNotIn("security-events: write", self.hourly_text)
+
+    def test_pr_maintenance_prompt_requires_rca_feasibility_and_exact_head_lease(self) -> None:
+        """The agent must prove a remedy is actionable before mutating the PR."""
+        required_phrases = (
+            "Root-cause analysis is mandatory before any mutation",
+            "actionable repository defect",
+            "transient infrastructure failure",
+            "stale or superseded evidence",
+            "external policy or independent-approval dependency",
+            "prove that the proposed action is technically possible",
+            "refetch the exact live head immediately before every write",
+            "discard stale work",
+            "rerun only failed or cancelled GitHub Actions jobs",
+            "never synthesize or submit an approval",
+            "do not create a second pull request",
+        )
+        for phrase in required_phrases:
+            self.assertIn(phrase, self.hourly_text)
+
+    def test_hourly_loop_uses_durable_agent_task_only_for_product_mode(self) -> None:
+        """A follow-on product PR cannot be opened while PR maintenance owns the lease."""
         self.assertIn("Ensure one durable agent task", self.hourly_text)
         self.assertIn("agent-task", self.hourly_text)
         self.assertIn("steps.ensure_task.outputs.task_number", self.hourly_text)
         self.assertIn("id-token: write", self.hourly_text)
-        self.assertIn("Close the", self.hourly_text)
-        self.assertIn("agent-task issue only after", self.hourly_text)
+        section = self.hourly_text.split("- name: Ensure one durable agent task", 1)[1].split("- name:", 1)[0]
+        self.assertIn("steps.loop_gate.outputs.mode == 'develop_product_gap'", section)
 
     def test_repository_does_not_duplicate_central_merge_scheduler(self) -> None:
-        """Local automation owns product work, not PR review or merge governance."""
+        """Local automation repairs and verifies but never approves or merges."""
         self.assertNotIn("merge_pull_request", self.hourly_text)
         self.assertNotIn("enable_auto_merge", self.hourly_text)
         self.assertNotIn("pr-review-merge-scheduler", self.hourly_text)
+        self.assertIn(
+            "Never merge, enable auto-merge, approve, tag, publish, or release",
+            self.hourly_text,
+        )
 
     def test_ci_requires_exact_line_and_branch_coverage(self) -> None:
         """The local quality lane rejects anything below 100 percent."""

@@ -19,7 +19,7 @@ MHTML ETL Gateway converts untrusted enterprise MHTML exports into governed Post
 - explicit local `--include-header-values` opt-in for protected schema-design workflows;
 - Python 3.11–3.14 support;
 - 100% production statement, branch, and public-docstring gates;
-- a private, bounded hourly OpenCode product-development loop using `NVIDIA_NIM_API_KEY`;
+- a private hourly OpenCode loop that first maintains one exact-head PR through RCA and feasible repository-owned repair, then develops one bounded product gap only when the PR queue is empty;
 - inherited organization-wide review, security, and merge governance from `ContextualWisdomLab/.github`.
 
 ## Install and inspect
