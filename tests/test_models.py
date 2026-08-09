@@ -41,8 +41,10 @@ class ModelContractTests(unittest.TestCase):
         """A normalized table cannot contain rows of different widths."""
         with self.assertRaisesRegex(ValueError, "rectangular"):
             ExtractedTable(
-                table_index=0,
-                rows=((TableCell("a", False),), (TableCell("b", False), TableCell("c", False))),
+                rows=(
+                    (TableCell("a", False),),
+                    (TableCell("b", False), TableCell("c", False)),
+                ),
                 header_row_index=0,
                 diagnostics=(),
             )
@@ -51,7 +53,6 @@ class ModelContractTests(unittest.TestCase):
         """The declared header row must exist."""
         with self.assertRaisesRegex(ValueError, "header_row_index"):
             ExtractedTable(
-                table_index=0,
                 rows=((TableCell("a", True),),),
                 header_row_index=2,
                 diagnostics=(),
@@ -59,16 +60,15 @@ class ModelContractTests(unittest.TestCase):
 
     def test_empty_table_can_have_no_header(self) -> None:
         """An empty table has no header row and zero dimensions."""
-        table = ExtractedTable(table_index=0, rows=(), header_row_index=None, diagnostics=())
+        table = ExtractedTable(rows=(), header_row_index=None, diagnostics=())
         self.assertEqual(table.row_count, 0)
         self.assertEqual(table.column_count, 0)
         self.assertEqual(table.headers, ())
         self.assertEqual(table.header_source, "none")
 
-    def test_table_properties_expose_dimensions_and_headers(self) -> None:
-        """Dimension and header properties derive from normalized cells."""
+    def test_table_properties_expose_dimensions_and_headers_internally(self) -> None:
+        """Internal extraction properties derive from normalized cells."""
         table = ExtractedTable(
-            table_index=1,
             rows=(
                 (TableCell("MANDT", True), TableCell("TITLE", True)),
                 (TableCell("100", False), TableCell("문의", False)),
@@ -85,51 +85,51 @@ class ModelContractTests(unittest.TestCase):
     def test_positional_header_source_is_explicit(self) -> None:
         """A cell-derived first row is distinguished from semantic th markup."""
         table = ExtractedTable(
-            table_index=0,
             rows=((TableCell("MANDT", False),),),
             header_row_index=0,
             diagnostics=(Diagnostic("positional_header", "Header inferred"),),
         )
         self.assertEqual(table.header_source, "positional")
 
-    def test_inspection_report_serialization_excludes_data_rows(self) -> None:
-        """The default report exposes structure but never source row values."""
+    def test_inspection_report_serialization_excludes_values_and_ordinals(self) -> None:
+        """The public report exposes structure but no source row or table identity."""
         report = InspectionReport(
             source_hash_sha256="a" * 64,
             source_size_bytes=123,
-            root_content_type="text/html",
-            root_content_location_scheme="file",
             root_content_location_hash_sha256="b" * 64,
-            diagnostics=(Diagnostic("identity_transfer_encoding", "Used identity decoding"),),
+            diagnostics=(
+                Diagnostic("identity_transfer_encoding", "Used identity decoding"),
+            ),
             tables=(
                 TableInspection(
-                    table_index=0,
                     row_count=2,
                     data_row_count=1,
                     column_count=2,
                     header_row_index=0,
                     header_source="semantic",
                     header_value_count=2,
-                    header_values_included=False,
-                    headers=(),
                     diagnostics=(),
                 ),
             ),
         )
         serialized = report.to_dict()
         self.assertEqual(serialized["table_count"], 1)
-        self.assertEqual(serialized["tables"][0]["headers"], [])
-        self.assertFalse(serialized["tables"][0]["header_values_included"])
-        self.assertEqual(serialized["root_content_location_scheme"], "file")
+        self.assertNotIn("table_index", serialized["tables"][0])
+        self.assertNotIn("headers", serialized["tables"][0])
         self.assertEqual(serialized["root_content_location_hash_sha256"], "b" * 64)
-        self.assertNotIn("root_content_location", serialized)
+        self.assertNotIn("root_content_type", serialized)
+        self.assertNotIn("root_content_location_scheme", serialized)
         self.assertNotIn("rows", serialized["tables"][0])
         self.assertNotIn("문의", repr(serialized))
 
-    def test_error_can_be_serialized_for_cli(self) -> None:
-        """Expected parser failures expose a compact JSON-ready shape."""
-        error = MhtmlGatewayError(ErrorCode.INVALID_MIME, "Malformed message")
-        self.assertEqual(error.to_dict(), {"error_code": "invalid_mime", "message": "Malformed message"})
+    def test_error_serialization_discards_caller_detail(self) -> None:
+        """Expected failures expose a fixed JSON-ready message per error code."""
+        error = MhtmlGatewayError(ErrorCode.INVALID_MIME, "attacker controlled")
+        self.assertEqual(
+            error.to_dict(),
+            {"error_code": "invalid_mime", "message": "MHTML input is invalid"},
+        )
+        self.assertNotIn("attacker", str(error))
 
 
 if __name__ == "__main__":
