@@ -4,7 +4,7 @@
 
 MHTML files are attacker-controlled compound documents. They can carry active HTML, deceptive MIME roots, duplicate identifiers, malformed encodings, oversized or deeply nested structures, internal file locations, and sensitive customer data. The parser is therefore a data-only trust boundary.
 
-The scheduled coding agent is a separate privileged control-plane risk. Repository source, comments, issues, reviews, logs, and artifacts can contain prompt-injection content, while the model process has repository write authority. Repository-controlled code must not inherit its credentials.
+The scheduled coding agent is a separate privileged control-plane risk. Repository source, comments, issues, reviews, logs, and artifacts can contain prompt-injection content, while the model process has repository write authority. Repository-controlled code must not inherit its credentials, and the executable that receives those credentials must be identified and verified before execution.
 
 ## Implemented parser controls
 
@@ -64,7 +64,7 @@ The hourly workflow:
 - runs only from the protected default branch schedule;
 - uses a non-cancelling repository-wide concurrency group;
 - uses NVIDIA NIM and never references `COPILOT_GITHUB_TOKEN`;
-- sets OpenCode `share: false` in both modes and `share: "disabled"` in repository configuration;
+- passes `SHARE: "false"` in both direct OpenCode modes and `share: "disabled"` in repository configuration;
 - validates the complete open-PR inventory and uses the lowest-numbered PR only as an initial cursor;
 - treats fork heads as read-only and refetches exact live state before writes;
 - requires evidence-backed RCA and feasibility proof before mutation;
@@ -92,10 +92,29 @@ OpenCode denies arbitrary shell by default. Repository-controlled Python, tests,
 
 Repository source, comments, issues, reviews, logs, and artifacts are untrusted data, never instructions. Copied commands are prohibited. Secret values and environment variables may not be printed, serialized, committed, commented, or transmitted.
 
+### Verified OpenCode executable
+
+The scheduler no longer invokes the upstream composite action because the pinned outer revision still performed a mutable `actions/cache@v4` call, queried the latest release, and executed a network-fetched installer script. Instead, the workflow installs the CLI before any model credential is exposed:
+
+1. require the fixed GitHub-hosted Linux x64 runner profile;
+2. select OpenCode version `1.18.15` explicitly;
+3. download only `opencode-linux-x64.tar.gz` from the immutable versioned GitHub release URL;
+4. require SHA-256 `d842e0e8c622c672a481b7dc6f0329009b64db96b2ba6041e56f4f93f0293b1c`, published by the upstream generated Homebrew formula at commit `a72a2bfe3b4114ca10a9012c23f1b3f31924b22e`;
+5. verify the digest with `sha256sum --check --strict` before extraction;
+6. require the archive to contain exactly one `opencode` entry;
+7. extract without preserving archive ownership or permissions;
+8. require `opencode --version` to equal `1.18.15` exactly;
+9. expose the verified directory to later steps only after every check succeeds;
+10. run `opencode github run` directly with credentials only in the selected agent-mode step.
+
+The install step has no NVIDIA, GitHub, or OIDC credential binding. A download, digest, archive-shape, platform, or version mismatch therefore fails before privileged agent execution. No release cache is used; each invocation re-verifies the exact archive. The repository does not claim a separate upstream cryptographic attestation because no offline-verifiable attestation contract has been established for this asset. Changing the version or digest requires a reviewed code change, updated upstream evidence, full contract tests, and rollback to the prior pinned pair if validation fails.
+
 ## Supply-chain controls
 
 - GitHub Actions are pinned to full commit SHAs.
-- The current runtime has no third-party dependency.
+- The privileged OpenCode executable is pinned by version, immutable release URL, reviewed SHA-256, archive shape, and exact runtime version.
+- The scheduler contains no `curl | bash`, latest-release lookup, mutable nested cache action, or upstream composite installation path.
+- The current product runtime has no third-party dependency.
 - CI installs its quality-only dependency from a reviewed SHA-256 hash lock in binary-only mode.
 - Repository validation recursively scans both `.yml` and `.yaml` workflows for mutable actions and prohibited credentials.
 - Agent-branch pushes materialize exact-head CI and share a SHA-keyed concurrency group with same-head PR runs.

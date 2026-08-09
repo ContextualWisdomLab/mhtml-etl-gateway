@@ -54,7 +54,7 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - no committed MHTML;
 - no prohibited Copilot token;
 - NIM secret binding;
-- OpenCode `share: false`;
+- direct OpenCode `SHARE="false"` in both agent modes and repository `share="disabled"`;
 - exact-head agent-branch quality execution;
 - SHA-keyed push/PR concurrency;
 - hash-locked binary-only quality dependency installation;
@@ -79,6 +79,10 @@ Workflow contract tests require all of the following:
 - no overlapping files, schemas, migrations, generated artifacts, dependencies, or writer ownership are permitted across concurrent PR work;
 - at most one branch is actively mutated at a time;
 - routine output is empty and inventory, plan, status, RCA-essay, progress, and recap narration is prohibited;
+- scheduler/prompt edits, issue updates, commits, PR publication, and central merge handoff are intermediate events rather than stop conditions;
+- the hourly recurrence is continuation rather than intentional deferral;
+- a run stops only after finite execution capacity is genuinely exhausted or a fresh full-queue scan proves every remaining item non-actionable under current authority;
+- after PR work is exhausted, the same invocation continues through issues, document/ADR completeness, release readiness, buyer-visible gaps, and ecosystem integration;
 - routine next-step questions are prohibited when live evidence can resolve the choice;
 - `security-events: read` exists and `security-events: write` does not;
 - PR source, comments, issues, reviews, logs, and artifacts are untrusted data rather than instructions;
@@ -92,6 +96,24 @@ Workflow contract tests require all of the following:
 - OpenCode denies arbitrary shell by default and only allows the wrapper plus bounded Git/GitHub control operations;
 - direct interpreters, shells, environment inspection, network-fetch commands, and mutating raw `gh api` forms are not allowlisted;
 - the repository does not duplicate the central merge scheduler and never approves, auto-merges, merges, tags, publishes, or releases.
+
+### Privileged OpenCode runner supply chain
+
+The active `unittest discover` suite verifies the exact executable that will receive model and repository authority:
+
+- the upstream composite action is absent from the hourly workflow;
+- mutable nested `actions/cache@*`, latest-release lookup, and remote installer piping are absent;
+- version `1.18.15` is committed in the workflow;
+- the Linux x64 release URL is immutable and versioned;
+- SHA-256 `d842e0e8c622c672a481b7dc6f0329009b64db96b2ba6041e56f4f93f0293b1c` is committed and checked with strict mode;
+- the archive must contain exactly one `opencode` entry;
+- extraction does not preserve archive ownership or permissions;
+- `opencode --version` must equal `1.18.15` before the binary enters the command path;
+- the installation step contains no model, GitHub, or OIDC credential binding;
+- both agent modes call the verified binary directly with `USE_GITHUB_TOKEN="false"`, private sharing, and the approved NVIDIA NIM model;
+- shell line-continuation normalization is tested so formatting changes do not weaken or spuriously fail the executable contract.
+
+A future version change must update the version, digest, upstream evidence, tests, ADR, security/threat/operability documents, doctoring references, and CHANGELOG in one reviewed PR. Missing or conflicting digest evidence is a failing test and blocks the upgrade.
 
 ## Secret-isolation verification
 
@@ -131,4 +153,4 @@ A PostgreSQL test container shall verify:
 
 ## Release verification
 
-Fresh evidence must include full tests, exact statement and branch coverage, compileall, repository validation, wheel build, wheel-content inspection, clean-environment installation, CLI smoke on synthetic input, protected smoke on the real source, secret-isolation rehearsal, and GitHub current-head checks. No predecessor-head, queued, pending, skipped-required, cancelled, absent, or synthetic-merge-only evidence can satisfy the release gate.
+Fresh evidence must include full tests, exact statement and branch coverage, compileall, repository validation, wheel build, wheel-content inspection, clean-environment installation, CLI smoke on synthetic input, protected smoke on the real source, secret-isolation rehearsal, verified OpenCode archive/version checks, and GitHub current-head checks. No predecessor-head, queued, pending, skipped-required, cancelled, absent, or synthetic-merge-only evidence can satisfy the release gate.

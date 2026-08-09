@@ -22,6 +22,10 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Granular OpenCode command permissions that deny arbitrary shell execution and permit repository code execution only through `cwl-safe-exec`.
 - Work-conserving scheduler contracts that continue from blocked PR actions to other PRs, shared blockers, and one proven-disjoint buyer-visible slice.
 - Zero-narration execution contracts that reject status-only termination after one patch, PR, failed remedy, queued check, review delay, or external approval dependency.
+- Scheduler continuation regression tests that require material progress, prohibit prompt-only completion, and enforce narrow full-queue stop conditions in both PR-maintenance and product-development modes.
+- Verified OpenCode runner contract tests covering immutable release selection, SHA-256 verification, archive shape, exact CLI version, credential-free installation, and direct execution in both agent modes.
+- ADR-0011 and update/rollback runbook evidence for the privileged OpenCode executable.
+- ADR-0013 and regression tests enforcing a separate read-only fork-PR triage job with no OIDC or repository-write authority.
 
 ### Changed
 
@@ -35,6 +39,9 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - PR maintenance is work-conserving across the complete open queue: an externally blocked initial PR records one deduplicated boundary and yields to the next independently actionable item while branch mutation remains serialized.
 - Existing open PRs no longer form a blanket prohibition on one additional draft product PR when fresh evidence proves complete non-overlap and full verification.
 - A gate-clean PR waiting for central merge no longer idles the local loop.
+- The hourly recurrence is explicitly continuation rather than deferral; prompt edits, issue updates, commits, PR publication, and central merge handoff are intermediate events rather than stop conditions.
+- After the PR queue reaches zero or only external blockers remain, the same invocation continues through issues, documentation completeness, release readiness, buyer-visible gaps, and CWL ecosystem integration.
+- The autonomous loop may stop only after exhausting its finite execution budget or after a fresh full-queue scan proves every remaining item non-actionable under current authority.
 - The autonomous job has read-only code-scanning access so the security-evidence inspection required by its prompt is technically possible.
 - Pull-request source, comments, issue bodies, reviews, logs, and artifacts are explicitly treated as untrusted data rather than privileged instructions.
 - Repository quality CI runs on `agent/**` pushes and uses the exact head SHA as its concurrency key, so branch writes materialize current-head evidence without duplicating same-SHA pull-request work.
@@ -42,6 +49,10 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - The CLI isolates argument-limit `ValueError` handling from inspection-layer domain failures.
 - Container-style embedded resources and the void `embed` element now use separate parser policies.
 - File-based parser and inspection entry points now share one chunked bounded reader and reuse the exact same `ParseLimits` instance for read and parse phases.
+- The scheduler installs OpenCode `1.18.15` from its immutable Linux x64 release URL, verifies the reviewed SHA-256 and exact version, and invokes `opencode github run` directly instead of using the upstream composite action.
+- OpenCode session privacy is expressed as `SHARE="false"` in both direct run steps and `share="disabled"` in repository configuration.
+- Hourly execution is split into a read-only selector job, a no-OIDC/no-write fork triage job, and a write-capable same-repository maintenance/product job.
+- Fork evidence is collected deterministically with a read-scoped job token before the model runs without any GitHub credential.
 
 ### Fixed
 
@@ -60,6 +71,9 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - A low-numbered PR with only an unchanged external approval or policy dependency can no longer starve later executable work for the entire invocation.
 - The repository-owned gate script no longer runs before secret isolation is installed.
 - The unprivileged agent identity no longer inherits the runner's default group.
+- The privileged agent runner no longer performs a latest-release lookup, uses mutable `actions/cache@v4`, or pipes a remote installer script into a shell before execution.
+- Continuation wording checks are whitespace- and capitalization-insensitive, preventing formatting-only prompt changes from failing exact-head CI.
+- Fork read-only behavior is no longer a prompt-only promise: fork decisions cannot reach `opencode github run`, repository-write permissions, workflow-rerun authority, or an OIDC token.
 
 ### Security
 
@@ -75,3 +89,6 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Repository-controlled tests, builds, package managers, scripts, and gate code cannot inherit the NVIDIA model key, GitHub token, OIDC request token, or other provider credentials from the privileged OpenCode process.
 - `cwl-untrusted` receives group access only to `GITHUB_WORKSPACE` through `cwl-workspace`, not through the runner's default group.
 - Direct environment inspection, arbitrary shell, direct interpreter/package-manager execution, network-fetch commands, and mutating raw GitHub API calls are denied by the OpenCode permission policy.
+- The OpenCode archive is pinned to SHA-256 `d842e0e8c622c672a481b7dc6f0329009b64db96b2ba6041e56f4f93f0293b1c`, must contain exactly one binary, and must report version `1.18.15` before credentials are bound.
+- The verified OpenCode installation step receives no model, GitHub, or OIDC credentials and has no digest-free fallback or trusted cross-run cache.
+- Fork PR triage runs under read-only `actions`, `checks`, `contents`, `issues`, `pull-requests`, `security-events`, and `statuses` permissions, with no `id-token` and no GitHub token in the model step.

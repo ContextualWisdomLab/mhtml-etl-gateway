@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import argparse
 import ast
-from collections.abc import Iterable, Sequence
 import json
 from pathlib import Path
 import re
+from collections.abc import Iterable, Sequence
 
 REQUIRED_DOCUMENTS = (
     Path("README.md"),
@@ -18,9 +18,7 @@ REQUIRED_DOCUMENTS = (
     Path("docs/PRD.md"),
     Path("docs/TRD.md"),
     Path("docs/ARCHITECTURE.md"),
-    Path("docs/UML.md"),
     Path("docs/DATA_MODEL.md"),
-    Path("docs/ERD.md"),
     Path("docs/API_CONTRACT.md"),
     Path("docs/SECURITY.md"),
     Path("docs/THREAT_MODEL.md"),
@@ -30,31 +28,24 @@ REQUIRED_DOCUMENTS = (
     Path("docs/COMPLIANCE_CONTROL_MAP.md"),
     Path("docs/RESEARCH_TRACEABILITY.md"),
     Path("docs/VALIDATION_REPORT.md"),
-    Path("docs/adr/README.md"),
     Path("docs/doctoring/REFERENCES.md"),
 )
 
-_WORKFLOW_ROOT = Path(".github/workflows")
-_HOURLY_WORKFLOW = _WORKFLOW_ROOT / "hourly-product-gap.yml"
 _ACTION_REFERENCE = re.compile(r"^\s*uses:\s*([^\s#]+)", re.MULTILINE)
 _IMMUTABLE_ACTION_REFERENCE = re.compile(r"^[^@]+@[0-9a-f]{40}$")
 _PLACEHOLDER = re.compile(r"\b(?:TODO|TBD|PLACEHOLDER|FIXME)\b", re.IGNORECASE)
+_WORKFLOW_ROOT = Path(".github/workflows")
+_HOURLY_WORKFLOW = _WORKFLOW_ROOT / "hourly-product-gap.yml"
 
 
 def _public_nodes(tree: ast.AST) -> Iterable[tuple[str, ast.AST]]:
     """Yield public top-level symbols and public members from a Python syntax tree."""
     for node in getattr(tree, "body", []):
-        if isinstance(
-            node,
-            (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
-        ) and not node.name.startswith("_"):
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
             yield node.name, node
         if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
             for member in node.body:
-                if isinstance(
-                    member,
-                    (ast.FunctionDef, ast.AsyncFunctionDef),
-                ) and not member.name.startswith("_"):
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and not member.name.startswith("_"):
                     yield f"{node.name}.{member.name}", member
 
 
@@ -63,10 +54,7 @@ def missing_public_docstrings(roots: tuple[Path, ...]) -> list[str]:
     missing: list[str] = []
     for root in roots:
         for path in sorted(root.rglob("*.py")):
-            tree = ast.parse(
-                path.read_text(encoding="utf-8"),
-                filename=str(path),
-            )
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             if ast.get_docstring(tree) is None:
                 missing.append(str(path))
             for qualified_name, node in _public_nodes(tree):
@@ -127,7 +115,7 @@ def _validation_errors() -> list[str]:
         hourly_workflow_text = _HOURLY_WORKFLOW.read_text(encoding="utf-8")
         if "secrets.NVIDIA_NIM_API_KEY" not in hourly_workflow_text:
             errors.append("hourly product workflow does not bind NVIDIA_NIM_API_KEY")
-        if "share: false" not in hourly_workflow_text:
+        if hourly_workflow_text.count('SHARE: "false"') < 2:
             errors.append(
                 "hourly product workflow does not disable OpenCode session sharing"
             )

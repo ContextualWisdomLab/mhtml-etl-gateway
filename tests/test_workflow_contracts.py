@@ -10,6 +10,19 @@ import unittest
 _ROOT = Path(__file__).resolve().parents[1]
 
 
+def _job_section(workflow_text: str, job_name: str) -> str:
+    """Return one top-level job without a following sibling job."""
+    marker = f"  {job_name}:\n"
+    start = workflow_text.index(marker)
+    match = re.search(
+        r"(?m)^  [a-z0-9_-]+:\n",
+        workflow_text[start + len(marker) :],
+    )
+    if match is None:
+        return workflow_text[start:]
+    return workflow_text[start : start + len(marker) + match.start()]
+
+
 def _step_section(workflow_text: str, step_name: str) -> str:
     """Return one named workflow step as a stable text region."""
     marker = f"      - name: {step_name}"
@@ -23,7 +36,7 @@ class WorkflowContractTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        """Load workflow and OpenCode configuration text once."""
+        """Load workflows, bounded jobs, prompts, and OpenCode configuration."""
         cls.ci_text = (_ROOT / ".github/workflows/ci.yml").read_text(
             encoding="utf-8"
         )
@@ -31,18 +44,19 @@ class WorkflowContractTests(unittest.TestCase):
             _ROOT / ".github/workflows/hourly-product-gap.yml"
         ).read_text(encoding="utf-8")
         cls.hourly_flat = " ".join(cls.hourly_text.split())
-        cls.maintenance_flat = " ".join(
-            _step_section(
-                cls.hourly_text,
-                "Run OpenCode PR maintenance",
-            ).split()
+        cls.select_job = _job_section(cls.hourly_text, "select-loop")
+        cls.fork_job = _job_section(cls.hourly_text, "fork-read-only")
+        cls.write_job = _job_section(cls.hourly_text, "write-loop")
+        cls.maintenance_step = _step_section(
+            cls.write_job,
+            "Run OpenCode PR maintenance",
         )
-        cls.product_flat = " ".join(
-            _step_section(
-                cls.hourly_text,
-                "Run OpenCode product development",
-            ).split()
+        cls.product_step = _step_section(
+            cls.write_job,
+            "Run OpenCode product development",
         )
+        cls.maintenance_flat = " ".join(cls.maintenance_step.split())
+        cls.product_flat = " ".join(cls.product_step.split())
         cls.opencode_text = (_ROOT / "opencode.jsonc").read_text(
             encoding="utf-8"
         )
@@ -54,7 +68,7 @@ class WorkflowContractTests(unittest.TestCase):
             self.ci_text + "\n" + self.hourly_text,
             re.MULTILINE,
         )
-        self.assertGreaterEqual(len(references), 4)
+        self.assertGreaterEqual(len(references), 6)
         for reference in references:
             self.assertRegex(reference, r"^[^@]+@[0-9a-f]{40}$")
 
@@ -67,8 +81,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("COPILOT_GITHUB_TOKEN", combined)
 
     def test_hourly_loop_never_shares_public_agent_sessions(self) -> None:
-        """Public repositories keep all OpenCode entry points private."""
-        self.assertGreaterEqual(self.hourly_text.count("share: false"), 2)
+        """Every OpenCode entry point disables public sharing."""
+        self.assertGreaterEqual(self.hourly_text.count('SHARE: "false"'), 3)
         self.assertIn('"share": "disabled"', self.opencode_text)
 
     def test_hourly_loop_is_default_branch_schedule_only(self) -> None:
@@ -77,38 +91,55 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("workflow_dispatch", self.hourly_text)
         self.assertNotIn("pull_request", self.hourly_text.split("jobs:", 1)[0])
 
-    def test_hourly_loop_has_single_flight_and_preflight_gate(self) -> None:
-        """Overlapping runs and stale queue assumptions are structurally blocked."""
+    def test_hourly_loop_has_single_flight_and_three_authority_lanes(self) -> None:
+        """Queue selection, fork triage, and writable execution are separated."""
         self.assertIn("cancel-in-progress: false", self.hourly_text)
-        self.assertIn("scripts/hourly_product_gap.py", self.hourly_text)
-        self.assertIn("id: loop_gate", self.hourly_text)
-        self.assertIn("steps.loop_gate.outputs.eligible == 'true'", self.hourly_text)
+        self.assertIn("scripts/hourly_product_gap.py", self.select_job)
+        self.assertIn("id: loop_gate", self.select_job)
+        self.assertIn("select-loop:", self.hourly_text)
+        self.assertIn("fork-read-only:", self.hourly_text)
+        self.assertIn("write-loop:", self.hourly_text)
+        self.assertIn("needs: select-loop", self.fork_job)
+        self.assertIn("needs: select-loop", self.write_job)
 
     def test_hourly_loop_has_separate_pr_maintenance_and_product_modes(self) -> None:
-        """An open PR triggers repair work instead of disabling the scheduler."""
-        self.assertIn("Run OpenCode PR maintenance", self.hourly_text)
+        """An open writable PR triggers repair while an empty queue selects product work."""
+        self.assertIn("Run OpenCode PR maintenance", self.write_job)
         self.assertIn(
-            "steps.loop_gate.outputs.mode == 'maintain_pull_request'",
-            self.hourly_text,
+            "needs.select-loop.outputs.mode == 'maintain_pull_request'",
+            self.maintenance_step,
         )
-        self.assertIn("Run OpenCode product development", self.hourly_text)
         self.assertIn(
-            "steps.loop_gate.outputs.mode == 'develop_product_gap'",
-            self.hourly_text,
+            "needs.select-loop.outputs.pull_request_writable == 'true'",
+            self.maintenance_step,
         )
-        self.assertIn("steps.loop_gate.outputs.pull_request_head_sha", self.hourly_text)
-        self.assertIn("steps.loop_gate.outputs.pull_request_writable", self.hourly_text)
+        self.assertIn("Run OpenCode product development", self.write_job)
+        self.assertIn(
+            "needs.select-loop.outputs.mode == 'develop_product_gap'",
+            self.product_step,
+        )
+        self.assertIn(
+            "needs.select-loop.outputs.pull_request_head_sha",
+            self.write_job,
+        )
+        self.assertIn(
+            "needs.select-loop.outputs.pull_request_writable",
+            self.write_job,
+        )
 
     def test_pr_maintenance_has_permissions_for_evidence_and_bounded_reruns(self) -> None:
-        """The agent can inspect security evidence and retry Actions without merge authority."""
-        self.assertIn("actions: write", self.hourly_text)
-        self.assertIn("checks: read", self.hourly_text)
-        self.assertIn("security-events: read", self.hourly_text)
-        self.assertIn("statuses: read", self.hourly_text)
+        """The writable job can inspect evidence and retry Actions without merge authority."""
+        for permission in (
+            "actions: write",
+            "checks: read",
+            "security-events: read",
+            "statuses: read",
+        ):
+            self.assertIn(permission, self.write_job)
         self.assertNotIn("security-events: write", self.hourly_text)
 
     def test_pr_maintenance_prompt_requires_rca_feasibility_and_exact_head_lease(self) -> None:
-        """The agent must prove a remedy is actionable before mutating the PR."""
+        """The agent must prove a remedy is actionable before mutating a writable PR."""
         required_phrases = (
             "RCA only as needed",
             "Before every mutation, re-fetch the PR",
@@ -119,13 +150,13 @@ class WorkflowContractTests(unittest.TestCase):
             "Refetch the exact live head immediately before every write",
             "discard stale work",
             "Rerun only failed or cancelled jobs",
-            "Fork heads remain read-only",
+            "structurally unreachable for fork heads",
         )
         for phrase in required_phrases:
             self.assertIn(phrase, self.maintenance_flat)
 
     def test_pr_maintenance_is_work_conserving_across_the_open_queue(self) -> None:
-        """An externally blocked first PR cannot starve independently actionable PRs."""
+        """An external blocker cannot starve independently executable work."""
         required_phrases = (
             "An unchanged external blocker gets one deduplicated record, not repeated analysis",
             "Continue to the next PR or repository-owned task while meaningful capacity remains",
@@ -158,7 +189,7 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertIn(phrase, self.product_flat)
 
     def test_repository_code_runs_under_a_secret_stripped_unprivileged_identity(self) -> None:
-        """Tests and build tools cannot inherit model or GitHub credentials."""
+        """Repository code cannot inherit model or GitHub credentials."""
         required_workflow_fragments = (
             "Install secret-stripping execution wrapper",
             "useradd --system --create-home --shell /usr/sbin/nologin cwl-untrusted",
@@ -169,10 +200,13 @@ class WorkflowContractTests(unittest.TestCase):
             "unset GH_TOKEN GITHUB_TOKEN",
             "unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL",
             "exec sudo -u cwl-untrusted env -i",
-            "Run repository-controlled code, tests, package managers, builds, and scripts only through cwl-safe-exec",
         )
         for fragment in required_workflow_fragments:
             self.assertIn(fragment, self.hourly_flat)
+        self.assertIn(
+            "Run repository-controlled code, tests, package managers, builds, and scripts only through cwl-safe-exec",
+            self.maintenance_flat,
+        )
         self.assertIn(
             "Run all repository-controlled code and tools only through cwl-safe-exec",
             self.product_flat,
@@ -194,16 +228,20 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertNotIn(f'"{command}": "allow"', self.opencode_text)
 
     def test_hourly_loop_uses_durable_agent_task_only_for_product_mode(self) -> None:
-        """A durable product lease is created only when the PR queue is empty."""
-        self.assertIn("Ensure one durable agent task", self.hourly_text)
-        self.assertIn("agent-task", self.hourly_text)
-        self.assertIn("steps.ensure_task.outputs.task_number", self.hourly_text)
-        self.assertIn("id-token: write", self.hourly_text)
+        """A durable product lease is created only for the empty-queue product lane."""
+        self.assertIn("Ensure one durable agent task", self.write_job)
+        self.assertIn("agent-task", self.write_job)
+        self.assertIn("steps.ensure_task.outputs.task_number", self.product_step)
+        self.assertIn("id-token: write", self.write_job)
         section = _step_section(
-            self.hourly_text,
+            self.write_job,
             "Ensure one durable agent task",
         )
-        self.assertIn("steps.loop_gate.outputs.mode == 'develop_product_gap'", section)
+        self.assertIn(
+            "needs.select-loop.outputs.mode == 'develop_product_gap'",
+            section,
+        )
+        self.assertNotIn("Ensure one durable agent task", self.fork_job)
 
     def test_repository_does_not_duplicate_central_merge_scheduler(self) -> None:
         """Local automation repairs and verifies but never approves or merges."""
