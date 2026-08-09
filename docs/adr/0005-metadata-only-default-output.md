@@ -1,21 +1,35 @@
-# ADR 0005: Metadata-only default output
+# ADR 0005: Value-free public inspection output
 
-**Status:** Accepted
-**Date:** 2026-08-07
+**Status:** Accepted  
+**Date:** 2026-08-09
 
 ## Context
 
-Data rows, header labels, and Content-Location values can contain PII, customer identifiers, internal field names, usernames, drive letters, directories, and network topology. A structural inspection result is routinely copied into CI logs, issues, or support artifacts, where source-equivalent access controls may not exist.
+MHTML data rows, header labels, media metadata, and Content-Location values can contain PII, customer identifiers, internal field names, usernames, paths, network topology, and attacker-selected text. Structural inspection results are routinely copied into CI logs, issues, or support artifacts where source-equivalent access controls may not exist.
+
+A boolean command-line opt-in is not an authorization or source-custody mechanism. Exposing headers through stdout would make protected values easy to redirect into an unsafe artifact and would contradict the public inspection report's nonreflection boundary.
 
 ## Decision
 
-The default public report contains source hash/size, root media type, Content-Location scheme plus SHA-256, dimensions, header coordinate/source/count, and fixed diagnostics. It contains no data rows and no header values. Header text requires explicit `include_header_values=True` or CLI `--include-header-values` and inherits the source artifact's protection requirements.
+The public `InspectionReport` contains only:
 
-Public errors and diagnostics use fixed text and never reflect attacker-controlled paths, identifiers, encodings, media types, or values.
+- exact source SHA-256 and byte size;
+- SHA-256 of Content-Location when present, without raw value or scheme;
+- table count and array order;
+- table row, data-row, and column counts;
+- header row coordinate, semantic/positional classification, and header value count;
+- fixed nonreflecting diagnostics.
+
+It excludes data rows, header values, decoded HTML, raw Content-ID and Content-Location, Content-Location scheme, source-controlled media type, charset, transfer encoding, paths, and embedded payloads.
+
+The public Python API and CLI provide no header-value disclosure option. Header access required by future schema governance must use a separate authenticated source-custody workflow with explicit authorization, encrypted or protected output, retention policy, export controls, and immutable audit evidence.
+
+Public errors and diagnostics use approved fixed text and never reflect caller-provided or source-controlled detail.
 
 ## Consequences
 
-- Routine inspection evidence is useful without copying operational values.
-- Equality correlation remains possible through hashes, so hash access and retention are controlled.
-- Schema designers can still retrieve headers in a protected workflow.
-- Row transport and extraction require a separate governed artifact rather than expansion of this report.
+- Routine inspection evidence can be attached to operational records without copying customer values.
+- The source and location hashes still permit equality correlation, so access and retention controls apply to them.
+- Schema proposal development cannot rely on public stdout; it must implement the protected workflow first.
+- Row transport and schema evidence remain separate governed artifacts rather than expansions of the inspection report.
+- Removing source-controlled classifications reduces diagnostic detail but preserves the stronger public confidentiality boundary.
