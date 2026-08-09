@@ -91,7 +91,10 @@ def _raw_content_type_parameter_names(message: Message) -> list[str]:
     return names
 
 
-def _validate_mime_structure(message: Message) -> None:
+def _validate_mime_structure(
+    message: Message,
+    body_parts: list[Message],
+) -> None:
     """Reject parser defects and duplicate security-critical MIME metadata."""
     # Inspect raw parameters before the structured parser can collapse a
     # duplicate or malformed field into one selected value.
@@ -106,7 +109,7 @@ def _validate_mime_structure(message: Message) -> None:
                 "multipart/related contained a duplicate security-critical parameter",
             )
 
-    for part in message.walk():
+    for part in [message, *body_parts]:
         if part.defects:
             raise MhtmlGatewayError(
                 ErrorCode.INVALID_MIME,
@@ -131,24 +134,45 @@ def _validate_mime_structure(message: Message) -> None:
                 )
 
 
+def _bounded_body_parts(
+    message: Message,
+    limits: ParseLimits,
+) -> list[Message]:
+    """Return body entities in document order under count and depth budgets."""
+    payload = message.get_payload()
+    if not isinstance(payload, list):
+        return []
+
+    stack = [(part, 1) for part in reversed(payload)]
+    body_parts: list[Message] = []
+    while stack:
+        part, depth = stack.pop()
+        if depth > limits.max_mime_depth:
+            raise MhtmlGatewayError(
+                ErrorCode.MIME_NESTING_TOO_DEEP,
+                "MIME nesting exceeded the configured safety limit",
+            )
+        body_parts.append(part)
+        if len(body_parts) > limits.max_mime_parts:
+            raise MhtmlGatewayError(
+                ErrorCode.TOO_MANY_MIME_PARTS,
+                f"MIME message exceeds body-part limit {limits.max_mime_parts}",
+            )
+        child_payload = part.get_payload()
+        if isinstance(child_payload, list):
+            stack.extend(
+                (child, depth + 1)
+                for child in reversed(child_payload)
+            )
+    return body_parts
+
+
 def _normalize_content_id(value: str | None) -> str | None:
     """Normalize an optional Content-ID by removing surrounding brackets."""
     if value is None:
         return None
     normalized = value.strip().removeprefix("<").removesuffix(">").strip()
     return normalized or None
-
-
-def _leaf_parts(message: Message) -> list[Message]:
-    """Return every non-multipart MIME part in document order."""
-    return [part for part in message.walk() if not part.is_multipart()]
-
-
-def _body_parts(message: Message) -> list[Message]:
-    """Return every body part below the top-level entity in document order."""
-    if not message.is_multipart():
-        return [message]
-    return list(message.walk())[1:]
 
 
 def _select_html_root(message: Message, parts: list[Message]) -> Message:
@@ -294,17 +318,17 @@ def parse_mhtml_bytes(
             f"Source contains {len(source_bytes)} bytes; limit is {effective_limits.max_source_bytes}",
         )
 
-    message = BytesParser(policy=policy.default).parsebytes(source_bytes)
-    _validate_mime_structure(message)
-
-    leaf_parts = _leaf_parts(message)
-    if len(leaf_parts) > effective_limits.max_mime_parts:
+    try:
+        message = BytesParser(policy=policy.default).parsebytes(source_bytes)
+    except RecursionError as exc:
         raise MhtmlGatewayError(
-            ErrorCode.TOO_MANY_MIME_PARTS,
-            f"MIME message contains {len(leaf_parts)} leaf parts; limit is {effective_limits.max_mime_parts}",
-        )
+            ErrorCode.MIME_NESTING_TOO_DEEP,
+            "MIME nesting exceeded parser safety limits",
+        ) from exc
 
-    root = _select_html_root(message, _body_parts(message))
+    body_parts = _bounded_body_parts(message, effective_limits)
+    _validate_mime_structure(message, body_parts)
+    root = _select_html_root(message, body_parts)
     related_diagnostics = _related_type_diagnostics(message, root)
     html_text, decoding_diagnostics = _decode_html(root)
     return MhtmlDocument(
