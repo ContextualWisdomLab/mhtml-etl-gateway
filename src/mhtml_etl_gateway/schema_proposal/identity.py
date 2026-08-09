@@ -39,6 +39,28 @@ def bounded_header(header: str, policy: SchemaProposalPolicy) -> str:
     return header
 
 
+def decimal_fixed_character_count(value: Decimal) -> int:
+    """Return fixed-point output length without allocating exponent-sized text."""
+    if not value.is_finite():
+        raise SchemaProposalError(SchemaProposalErrorCode.UNSUPPORTED_VALUE)
+    sign, raw_digits, raw_exponent = value.as_tuple()
+    digits = list(raw_digits)
+    exponent = raw_exponent
+    if not any(digits):
+        return 1
+    while len(digits) > 1 and digits[-1] == 0:
+        digits.pop()
+        exponent += 1
+    digit_count = len(digits)
+    sign_count = 1 if sign else 0
+    if exponent >= 0:
+        return sign_count + digit_count + exponent
+    integer_digits = digit_count + exponent
+    if integer_digits > 0:
+        return sign_count + digit_count + 1
+    return sign_count + 2 + (-integer_digits) + digit_count
+
+
 def canonical_decimal(value: Decimal) -> str:
     """Return an exact finite decimal representation without exponent drift."""
     if not value.is_finite():
@@ -66,7 +88,7 @@ def canonical_value(
             raise SchemaProposalError(SchemaProposalErrorCode.VALUE_TOO_LARGE)
         return "integer", rendered
     if isinstance(value, Decimal):
-        if len(value.as_tuple().digits) > policy.max_value_characters:
+        if decimal_fixed_character_count(value) > policy.max_value_characters:
             raise SchemaProposalError(SchemaProposalErrorCode.VALUE_TOO_LARGE)
         rendered = canonical_decimal(value)
         if len(rendered) > policy.max_value_characters:
