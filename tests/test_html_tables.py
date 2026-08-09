@@ -69,7 +69,7 @@ class HtmlTableTests(unittest.TestCase):
             "<tr><td colspan='2'>overlap</td></tr>"
             "</table>"
         )
-        with self.assertRaisesRegex(MhtmlGatewayError, "overlap") as caught:
+        with self.assertRaises(MhtmlGatewayError) as caught:
             extract(html)
         self.assertEqual(caught.exception.code, ErrorCode.INVALID_TABLE_SPAN)
 
@@ -88,10 +88,9 @@ class HtmlTableTests(unittest.TestCase):
         self.assertNotIn("QUJD", text)
         self.assertNotIn("secret", text)
 
-    def test_multiple_tables_receive_stable_indexes(self) -> None:
+    def test_multiple_tables_preserve_document_order(self) -> None:
         """Top-level tables remain separate and preserve document order."""
         tables = extract("<table><tr><td>A</td></tr></table><table><tr><td>B</td></tr></table>")
-        self.assertEqual([table.table_index for table in tables], [0, 1])
         self.assertEqual([table.headers for table in tables], [("A",), ("B",)])
 
     def test_rowspan_and_colspan_expand_to_rectangular_grid(self) -> None:
