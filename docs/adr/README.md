@@ -18,6 +18,7 @@ The **status declared inside each ADR is authoritative**. This index deliberatel
 | [ADR-0008](0008-mime-ambiguity-and-enterprise-compatibility.md) | Fail closed on MIME ambiguity while isolating explicitly documented enterprise compatibility deviations. |
 | [ADR-0009](0009-nonreflecting-metadata-surfaces.md) | Prevent attacker-controlled MIME/table values from entering public metadata and error surfaces. |
 | [ADR-0010](0010-work-conserving-autonomous-execution.md) | Make autonomous execution work-conserving so one blocked lane cannot terminate safe repository-owned work. |
+| [ADR-0011](0011-verified-opencode-runner.md) | Verify the exact OpenCode release archive and CLI version before exposing model or repository credentials. |
 
 ## Status vocabulary
 
