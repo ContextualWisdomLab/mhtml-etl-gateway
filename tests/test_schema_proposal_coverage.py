@@ -27,9 +27,10 @@ class SchemaProposalCoverageTests(unittest.TestCase):
         self.assertEqual(_truncate_utf8("é", 1), "")
 
     def test_identifier_fitting_uses_source_fallback_for_empty_prefix(self) -> None:
-        """A long final token cannot leave the generated identifier prefix empty."""
-        fitted = _fit_identifier("_" + "x" * 100)
-        self.assertTrue(fitted.startswith("source_"))
+        """An incomplete Unicode prefix uses only the remaining byte budget."""
+        fitted = _fit_identifier("😀_" + "x" * 59)
+        self.assertTrue(fitted.startswith("sou_"))
+        self.assertLessEqual(len(fitted.encode("utf-8")), 63)
 
     def test_date_shaped_identifier_keeps_both_review_reasons(self) -> None:
         """Date evidence under identifier semantics remains text and fully explained."""

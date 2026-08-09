@@ -118,7 +118,11 @@ The initial engine proposes only `text`, `boolean`, `date`, `bigint`, and `numer
 
 ### Boolean
 
-Automatic boolean evidence is limited to case-insensitive `true` and `false`. Values such as `yes`, `no`, `Y`, `N`, `0`, and `1` remain text unless a future versioned policy explicitly governs them.
+Automatic boolean evidence is limited to case-insensitive `true` and `false`,
+and only when the protected header has no identifier semantics. Identifier
+columns remain `text` with `identifier_semantics` even when every observed value
+is boolean-shaped. Values such as `yes`, `no`, `Y`, `N`, `0`, and `1` remain
+text unless a future versioned policy explicitly governs them.
 
 ### Date
 

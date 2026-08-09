@@ -70,14 +70,17 @@ The module is imported explicitly and is not exposed through the package-root co
 
 1. Trim evidence; blanks become null evidence.
 2. Empty/all-null columns become nullable `text`.
-3. Exact case-insensitive `true`/`false` becomes `boolean`.
-4. Valid ISO or compact dates become `date` only with date semantics and no identifier conflict.
-5. Leading-zero or identifier-semantic numeric shapes remain `text`.
-6. Signed 64-bit integers become `bigint`.
-7. Larger integers become `numeric` with review evidence.
-8. Fixed-point decimal strings become `numeric` when no identifier conflict exists.
-9. Everything else remains `text` with an explicit reason.
-10. Sample-only evidence remains nullable regardless of observed null count.
+3. Identifier semantics override every value shape and remain `text` with an
+   explicit review reason.
+4. Exact case-insensitive `true`/`false` becomes `boolean` only without an
+   identifier conflict.
+5. Valid ISO or compact dates become `date` only with date semantics and no identifier conflict.
+6. Leading-zero numeric shapes remain `text`.
+7. Signed 64-bit integers become `bigint`.
+8. Larger integers become `numeric` with review evidence.
+9. Fixed-point decimal strings become `numeric` when no identifier conflict exists.
+10. Everything else remains `text` with an explicit reason.
+11. Sample-only evidence remains nullable regardless of observed null count.
 
 ## Identity
 
@@ -103,7 +106,7 @@ Tests cover:
 - Korean and compatibility Unicode labels;
 - acronym/camel naming;
 - reserved, digit-leading, empty, emoji, long UTF-8, and colliding labels;
-- exact booleans;
+- exact booleans and boolean-shaped identifier columns;
 - valid/invalid compact and ISO dates;
 - leading-zero IDs;
 - bigint boundary and overflow;

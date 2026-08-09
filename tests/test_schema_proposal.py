@@ -109,6 +109,13 @@ class SchemaProposalTests(unittest.TestCase):
         self.assertEqual(proposal.distinct_count, 0)
         self.assertIn("empty_column", proposal.review_reasons)
 
+        zero_row = propose_schema(
+            _SOURCE_HASH,
+            (ProtectedColumnInput("emptyValue", (), complete=True),),
+        ).columns[0]
+        self.assertTrue(zero_row.nullable)
+        self.assertEqual(zero_row.proposed_type, PostgresType.TEXT)
+
     def test_dates_require_both_valid_values_and_header_semantics(self) -> None:
         """Date-shaped identifiers remain text when the header supplies no date meaning."""
         date_column = propose_schema(
@@ -128,6 +135,15 @@ class SchemaProposalTests(unittest.TestCase):
         self.assertIn("date_semantics_missing", ambiguous.review_reasons)
         self.assertEqual(invalid.proposed_type, PostgresType.TEXT)
         self.assertIn("mixed_or_unrecognized_values", invalid.review_reasons)
+
+        invalid_without_date_semantics = propose_schema(
+            _SOURCE_HASH,
+            (ProtectedColumnInput("metricValue", ("2025-02-30",), complete=True),),
+        ).columns[0]
+        self.assertEqual(
+            invalid_without_date_semantics.review_reasons,
+            ("mixed_or_unrecognized_values",),
+        )
 
     def test_leading_zero_and_identifier_headers_override_numeric_shapes(self) -> None:
         """Lossless identifiers are never converted into numeric PostgreSQL values."""
@@ -173,6 +189,22 @@ class SchemaProposalTests(unittest.TestCase):
         self.assertEqual(boolean.proposed_type, PostgresType.BOOLEAN)
         self.assertEqual(not_boolean.proposed_type, PostgresType.TEXT)
         self.assertIn("mixed_or_unrecognized_values", not_boolean.review_reasons)
+
+    def test_identifier_header_overrides_boolean_shaped_values(self) -> None:
+        """Boolean-shaped identifiers remain text instead of losing identity semantics."""
+        column = propose_schema(
+            _SOURCE_HASH,
+            (
+                ProtectedColumnInput(
+                    "accountId",
+                    ("true", "false"),
+                    complete=True,
+                ),
+            ),
+        ).columns[0]
+
+        self.assertEqual(column.proposed_type, PostgresType.TEXT)
+        self.assertIn("identifier_semantics", column.review_reasons)
 
     def test_mixed_values_fall_back_to_text(self) -> None:
         """Mixed numeric and textual evidence is never partially coerced."""
@@ -235,6 +267,16 @@ class SchemaProposalTests(unittest.TestCase):
         encoded = column.target_column_name.encode("utf-8")
         self.assertLessEqual(len(encoded), 63)
         self.assertEqual(encoded.decode("utf-8"), column.target_column_name)
+        self.assertGreaterEqual(len(column.target_column_name.split("_")), 2)
+
+    def test_oversized_final_identifier_token_stays_within_postgres_limit(self) -> None:
+        """A final token cannot bypass PostgreSQL's 63-byte identifier limit."""
+        column = propose_schema(
+            _SOURCE_HASH,
+            (ProtectedColumnInput("a_" + "x" * 100, ("value",)),),
+        ).columns[0]
+
+        self.assertLessEqual(len(column.target_column_name.encode("utf-8")), 63)
         self.assertGreaterEqual(len(column.target_column_name.split("_")), 2)
 
     def test_collisions_receive_deterministic_opaque_suffixes(self) -> None:

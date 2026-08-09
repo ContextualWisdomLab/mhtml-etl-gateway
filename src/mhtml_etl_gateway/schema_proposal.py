@@ -321,12 +321,17 @@ def _fit_identifier(value: str) -> str:
         return value
     prefix, _, final_token = value.rpartition("_")
     suffix = f"_{final_token}"
+    if len(suffix.encode("utf-8")) >= _MAX_POSTGRES_IDENTIFIER_BYTES:
+        return _truncate_utf8(
+            f"source_{final_token}",
+            _MAX_POSTGRES_IDENTIFIER_BYTES,
+        ).rstrip("_")
     maximum_prefix = _MAX_POSTGRES_IDENTIFIER_BYTES - len(
         suffix.encode("utf-8")
     )
     fitted_prefix = _truncate_utf8(prefix, maximum_prefix).rstrip("_")
     if not fitted_prefix:
-        fitted_prefix = "source"
+        fitted_prefix = _truncate_utf8("source", maximum_prefix)
     return f"{fitted_prefix}{suffix}"
 
 
@@ -363,11 +368,6 @@ def _collision_name(base: str, header: str, position: int) -> str:
 def _tokens(name: str) -> set[str]:
     """Return normalized identifier tokens used only for conservative hints."""
     return set(name.split("_"))
-
-
-def _looks_like_date(value: str) -> bool:
-    """Return whether a value has one supported date shape."""
-    return bool(_ISO_DATE.fullmatch(value) or _COMPACT_DATE.fullmatch(value))
 
 
 def _is_valid_date(value: str) -> bool:
@@ -407,14 +407,15 @@ def _infer_type(
     if not values:
         return PostgresType.TEXT, ("empty_column",), None, None
 
-    lowered = {value.lower() for value in values}
-    if lowered <= _BOOLEAN_VALUES:
-        return PostgresType.BOOLEAN, (), None, None
-
     name_tokens = _tokens(target_name)
     identifier_semantics = bool(name_tokens & _IDENTIFIER_TOKENS)
     date_semantics = bool(name_tokens & _DATE_TOKENS)
-    all_date_shaped = all(_looks_like_date(value) for value in values)
+    lowered = {value.lower() for value in values}
+    if lowered <= _BOOLEAN_VALUES:
+        if identifier_semantics:
+            return PostgresType.TEXT, ("identifier_semantics",), None, None
+        return PostgresType.BOOLEAN, (), None, None
+
     all_valid_dates = all(_is_valid_date(value) for value in values)
     leading_zero = any(_has_leading_zero(value) for value in values)
 
@@ -465,12 +466,7 @@ def _infer_type(
             max(scale for _, scale in dimensions),
         )
 
-    reason = (
-        "date_semantics_missing"
-        if all_date_shaped and not date_semantics
-        else "mixed_or_unrecognized_values"
-    )
-    reasons = [reason]
+    reasons = ["mixed_or_unrecognized_values"]
     if identifier_semantics:
         reasons.insert(0, "identifier_semantics")
     return PostgresType.TEXT, tuple(reasons), None, None
@@ -516,7 +512,7 @@ def _column_proposal(
         source_header_hash_sha256=_sha256_text(column.header),
         target_column_name=target_name,
         proposed_type=proposed_type,
-        nullable=not column.complete or null_count > 0,
+        nullable=not column.complete or null_count > 0 or not stripped_values,
         non_null_count=len(stripped_values),
         distinct_count=len(set(stripped_values)),
         maximum_text_length=max(
