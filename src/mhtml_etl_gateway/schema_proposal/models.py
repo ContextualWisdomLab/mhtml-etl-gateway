@@ -25,7 +25,7 @@ class SchemaProposalPolicy:
     date_formats: tuple[str, ...] = ("%Y%m%d", "%Y-%m-%d", "%Y/%m/%d")
 
     def __post_init__(self) -> None:
-        """Reject invalid limits, vocabularies, and version identifiers."""
+        """Reject mutable collections, invalid limits, and unstable vocabularies."""
         if not isinstance(self.policy_version, str) or not self.policy_version.strip():
             raise SchemaProposalError(SchemaProposalErrorCode.INVALID_POLICY)
         integer_fields = (
@@ -40,6 +40,13 @@ class SchemaProposalPolicy:
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise SchemaProposalError(SchemaProposalErrorCode.INVALID_POLICY)
         if self.max_identifier_bytes < 16:
+            raise SchemaProposalError(SchemaProposalErrorCode.INVALID_POLICY)
+        immutable_collections = (
+            self.boolean_true_values,
+            self.boolean_false_values,
+            self.date_formats,
+        )
+        if any(not isinstance(value, tuple) for value in immutable_collections):
             raise SchemaProposalError(SchemaProposalErrorCode.INVALID_POLICY)
         true_values = normalized_vocabulary(self.boolean_true_values)
         false_values = normalized_vocabulary(self.boolean_false_values)
