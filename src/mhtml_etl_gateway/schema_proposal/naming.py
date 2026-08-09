@@ -61,26 +61,33 @@ _BOOLEAN_MARKERS = frozenset(
 )
 
 
-def semantic_tokens(header: str) -> frozenset[str]:
-    """Return normalized tokens used only for conservative semantic hints."""
+def ordered_semantic_tokens(header: str) -> tuple[str, ...]:
+    """Return normalized semantic tokens in deterministic source order."""
     value = unicodedata.normalize("NFKC", header)
     value = _ACRONYM_BOUNDARY.sub("_", value)
     value = _CAMEL_BOUNDARY.sub("_", value)
     value = _UNSAFE_NAME_CHARACTER.sub("_", value).casefold()
-    return frozenset(item for item in value.split("_") if item)
+    return tuple(item for item in value.split("_") if item)
+
+
+def semantic_tokens(header: str) -> frozenset[str]:
+    """Return set-like normalized tokens for conservative semantic membership tests."""
+    return frozenset(ordered_semantic_tokens(header))
 
 
 def has_identifier_semantics(header: str) -> bool:
     """Return whether a protected header strongly suggests identifier data."""
-    tokens = semantic_tokens(header)
-    compact = "".join(tokens)
+    ordered_tokens = ordered_semantic_tokens(header)
+    tokens = frozenset(ordered_tokens)
+    compact = "".join(ordered_tokens)
     return compact in _IDENTIFIER_ALIASES or bool(tokens & _IDENTIFIER_MARKERS)
 
 
 def has_date_semantics(header: str) -> bool:
     """Return whether a protected header supplies explicit date semantics."""
-    tokens = semantic_tokens(header)
-    return "".join(tokens) == "duedt" or bool(tokens & _DATE_MARKERS)
+    ordered_tokens = ordered_semantic_tokens(header)
+    tokens = frozenset(ordered_tokens)
+    return "".join(ordered_tokens) == "duedt" or bool(tokens & _DATE_MARKERS)
 
 
 def has_boolean_semantics(header: str) -> bool:
@@ -110,19 +117,18 @@ def normalized_identifier(
     fallback_suffix: str,
     max_identifier_bytes: int,
 ) -> str:
-    """Normalize a protected label into a multiword PostgreSQL identifier."""
-    compact_key = "".join(semantic_tokens(source_name))
+    """Normalize a protected label into a valid multiword PostgreSQL identifier."""
+    ordered_tokens = ordered_semantic_tokens(source_name)
+    compact_key = "".join(ordered_tokens)
     alias = _HEADER_ALIASES.get(compact_key)
     if alias is not None:
         candidate = alias
     else:
-        value = unicodedata.normalize("NFKC", source_name)
-        value = _ACRONYM_BOUNDARY.sub("_", value)
-        value = _CAMEL_BOUNDARY.sub("_", value)
-        value = _UNSAFE_NAME_CHARACTER.sub("_", value).casefold()
-        candidate = _MULTI_UNDERSCORE.sub("_", value).strip("_")
+        candidate = "_".join(ordered_tokens)
         if not candidate:
             candidate = f"source_{fallback_suffix}"
+    if not candidate[0].isalpha():
+        candidate = f"source_{candidate}"
     if candidate in _POSTGRESQL_RESERVED_NAMES:
         candidate = f"{candidate}_{fallback_suffix}"
     if "_" not in candidate:
