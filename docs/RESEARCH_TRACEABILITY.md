@@ -18,5 +18,7 @@
 | scheduled coding agent | OpenCode GitHub Action documentation | protected schedule, NVIDIA NIM authentication, private sessions, bounded repository write permissions |
 | granular coding-agent tool control | OpenCode permissions documentation | default-deny shell patterns, explicit bounded Git/GitHub operations, `.env` read denial, and repository-code execution only through the secret-stripped wrapper |
 | untrusted repository execution isolation | NIST SP 800-218 SSDF 1.1 and OpenCode permission controls | repository tests/builds run under a separate unprivileged identity with an empty environment rather than inheriting model, GitHub, OIDC, or provider credentials |
+| privileged OpenCode executable identity | OpenCode v1.18.15 publisher source and commit-addressed generated Homebrew formula | remove the mutable composite installer; pin the Linux x64 release URL, SHA-256, archive shape, and exact runtime version before credential exposure |
+| coding-agent release rollback | NIST SP 800-218 SSDF 1.1 and ADR-0011 | version/digest changes require reviewed evidence and fail closed; rollback restores the prior accepted pair rather than using `latest` or an unverified installer |
 
 The reference list in `docs/doctoring/REFERENCES.md` uses APA 7th style and records the stable source for each decision.
