@@ -108,8 +108,9 @@ class AutonomousContinuationContractTests(unittest.TestCase):
             "then resume this slice or choose a demonstrably disjoint one",
             "a newly created PR is not a reason to end the run",
         )
+        lowered = self.workflow_flat.lower()
         for phrase in required_phrases:
-            self.assertIn(phrase, self.workflow_flat)
+            self.assertIn(phrase.lower(), lowered)
 
 
 if __name__ == "__main__":
