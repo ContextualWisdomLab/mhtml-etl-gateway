@@ -2,16 +2,17 @@
 
 ## Current library operation
 
-The current slice is synchronous and local. It has no listening port, database credential, background thread, or network egress. Operators control resource budgets through `ParseLimits` and the CLI source-byte limit.
+The current slice is synchronous and local. It has no listening port, database credential, background thread, or network egress. Operators control resource budgets through `ParseLimits` and the CLI source-byte limit. Programmatic budgets include total source bytes, total descendant MIME entities, MIME nesting depth, decoded HTML, tables, rows, columns, normalized cells, and cell text.
 
 ## Logging
 
-Applications may log stable error/diagnostic codes, source hash, byte size, table dimensions, parser version, duration, and correlation ID. They must not log paths, Content-ID, raw Content-Location, header values, row values, decoded HTML, or exception chains containing source data.
+Applications may log stable error/diagnostic codes, source hash, byte size, table dimensions, parser version, duration, and correlation ID. They must not log paths, Content-ID, raw Content-Location, header values, row values, decoded HTML, MIME boundary values, or exception chains containing source data.
 
 ## Metrics for future service
 
 - intake count and bytes;
 - parse success/failure by stable code;
+- MIME entity count and nesting-depth rejection count;
 - document/table dimensions by bounded histogram;
 - compatibility diagnostic count;
 - duration and peak memory;
@@ -37,17 +38,21 @@ Raw source objects, approved schema artifacts, audit events, and PostgreSQL stat
 
 ## Incident response
 
-Incidents are classified by source leakage, tenant-boundary failure, data corruption, execution/fetch boundary violation, unavailable ingestion, credential exposure, or supply-chain compromise. Containment can disable uploads or loading while preserving read-only audit and source custody.
+Incidents are classified by source leakage, tenant-boundary failure, data corruption, execution/fetch boundary violation, unavailable ingestion, parser resource exhaustion, credential exposure, or supply-chain compromise. Containment can disable uploads or loading while preserving read-only audit and source custody.
 
 ## Capacity
 
-Resource limits are per document and independent of deployment capacity. A future worker pool adds queue quotas, tenant concurrency, backpressure, and hard memory limits. Large input does not justify disabling parser budgets.
+Resource limits are per document and independent of deployment capacity. A future worker pool adds queue quotas, tenant concurrency, backpressure, and hard memory limits. Large input does not justify disabling parser budgets. Operators may lower `max_mime_depth` and total MIME entity count for constrained deployments; every budget remains a positive value.
 
 ## Hourly autonomous-development operation
 
 The scheduled workflow is not runtime processing. It runs hourly from the protected default branch, uses private NVIDIA NIM sessions, and serializes runs with a repository-wide non-cancelling concurrency group.
 
-When pull requests are open, the deterministic gate validates the full queue, selects the lowest-numbered PR, and passes an exact head/base lease to PR-maintenance mode. The agent performs RCA, proves remediation feasibility, fixes repository-owned defects on the existing branch, and may rerun only exact-head failed or cancelled Actions jobs that are demonstrably transient. Fork heads are read-only. Queued, pending, skipped-required, absent, stale-head, and cancelled evidence is never treated as passing.
+When pull requests are open, the deterministic gate validates the full queue, selects the lowest-numbered PR as the initial cursor, and passes an exact head/base lease to PR-maintenance mode. The agent performs RCA, proves remediation feasibility, fixes repository-owned defects on the existing branch, and may rerun only exact-head failed or cancelled Actions jobs that are demonstrably transient. Fork heads are read-only. Queued, pending, skipped-required, absent, stale-head, and cancelled evidence is never treated as passing.
+
+If the initial PR has no executable repository-owned action, the agent records one deduplicated boundary and advances to the next open PR while meaningful execution capacity remains. It does not repeatedly re-prove an unchanged approval, policy, provider, or permission blocker. Branch writes remain serialized: at most one PR branch is actively mutated at a time, and every transition to another PR starts with a fresh exact-head/base lease.
+
+The job token includes read-only code-scanning access so the prompt's stated security-evidence inspection is operationally feasible. Pull-request source, comments, issues, reviews, logs, and artifacts remain untrusted data rather than instructions. The agent derives commands independently and may not print or transmit environment variables or secret values.
 
 When the PR queue is empty, the workflow resumes or creates one durable `agent-task` issue and develops one bounded buyer-visible gap. A newly appeared PR cancels product writes through live reconciliation. The workflow never approves, merges, enables auto-merge, tags, publishes, or releases; central organization workflows remain authoritative for those actions.
 
