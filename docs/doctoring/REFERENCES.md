@@ -4,7 +4,13 @@ American Institute of Certified Public Accountants. (2023). *2017 trust services
 
 Anomaly. (2026). *OpenCode GitHub Action*. https://opencode.ai/docs/github/
 
+Anomaly. (2026). *OpenCode GitHub composite action at revision 1ec6bdc8c666e315ba85ef5276fac9b0eb7ba109* [Source code]. GitHub. https://github.com/anomalyco/opencode/blob/1ec6bdc8c666e315ba85ef5276fac9b0eb7ba109/github/action.yml
+
 Anomaly. (2026). *OpenCode permissions*. https://opencode.ai/docs/permissions/
+
+Anomaly. (2026). *OpenCode release publisher for version 1.18.15* [Source code]. GitHub. https://github.com/anomalyco/opencode/blob/v1.18.15/packages/opencode/script/publish.ts
+
+Anomaly. (2026). *OpenCode Homebrew formula for version 1.18.15 at revision a72a2bfe3b4114ca10a9012c23f1b3f31924b22e* [Software distribution metadata]. GitHub. https://github.com/anomalyco/homebrew-tap/blob/a72a2bfe3b4114ca10a9012c23f1b3f31924b22e/opencode.rb
 
 Davis, K. R., Peabody, B., & Leach, P. J. (2024). *Universally unique identifiers (UUIDs)* (RFC 9562). Internet Engineering Task Force. https://doi.org/10.17487/RFC9562
 
