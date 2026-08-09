@@ -87,6 +87,27 @@ class SchemaProposalInferenceTests(unittest.TestCase):
         self.assertIn("identifier_semantics", proposal.columns[0].evidence_codes)
         self.assertIn("leading_zero_value", proposal.columns[1].evidence_codes)
 
+    def test_non_ascii_numeric_glyphs_remain_text(self) -> None:
+        """Unicode digits cannot silently become PostgreSQL numeric evidence."""
+        proposal = propose_postgresql_schema(
+            "Unicode Numeric Evidence",
+            (
+                ColumnEvidence("arabic_digits", ("١٢٣", "٤٥٦")),
+                ColumnEvidence("arabic_zero_code", ("٠١٢٣",)),
+                ColumnEvidence("fullwidth_digits", ("１２３",)),
+            ),
+        )
+        self.assertEqual(
+            [item.proposed_postgresql_type for item in proposal.columns],
+            ["text", "text", "text"],
+        )
+        self.assertTrue(
+            all(
+                item.evidence_codes == ("all_values_text",)
+                for item in proposal.columns
+            )
+        )
+
     def test_unmarked_boolean_words_remain_text(self) -> None:
         """Boolean vocabulary alone is insufficient without boolean semantics."""
         proposal = propose_postgresql_schema(
