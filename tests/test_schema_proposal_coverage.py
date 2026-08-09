@@ -49,6 +49,21 @@ class SchemaProposalCoverageTests(unittest.TestCase):
             ("identifier_semantics", "date_semantics_missing"),
         )
 
+    def test_date_shaped_value_without_semantics_has_one_review_reason(self) -> None:
+        """A date-shaped metric remains text without invented date or ID meaning."""
+        column = propose_schema(
+            _SOURCE_HASH,
+            (
+                ProtectedColumnInput(
+                    "metricValue",
+                    ("2025-01-31",),
+                    complete=True,
+                ),
+            ),
+        ).columns[0]
+        self.assertEqual(column.proposed_type, PostgresType.TEXT)
+        self.assertEqual(column.review_reasons, ("date_semantics_missing",))
+
     def test_decimal_identifier_and_leading_zero_reasons_are_independent(self) -> None:
         """Fixed-point values preserve identifier and textual-width evidence."""
         proposal = propose_schema(
