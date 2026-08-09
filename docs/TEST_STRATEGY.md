@@ -31,6 +31,7 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - block and line-break normalization;
 - exact script/style/noscript/template suppression nesting;
 - mismatched closing-tag resistance;
+- iframe/object descendant suppression without allowing void `embed` to swallow following text;
 - nested-table rejection;
 - irregular rows;
 - rowspan/colspan expansion, gaps, overlap, and trailing implicit rows;
@@ -39,10 +40,10 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 ### Inspection and CLI
 
 - default empty header values;
-- explicit header opt-in;
 - source SHA/size;
-- Content-Location scheme/hash without raw location;
+- Content-Location hash without raw location;
 - stable JSON errors and exit codes;
+- argument-construction errors isolated from inspection-layer domain errors;
 - module and console entry points.
 
 ### Repository and CI
@@ -68,15 +69,26 @@ Workflow contract tests require all of the following:
 - RCA and remediation-feasibility proof precede mutation;
 - fork heads remain read-only and stale leases are discarded;
 - only failed or cancelled Actions jobs may receive a bounded transient retry;
+- a blocked action blocks only that action, never the invocation;
+- one completed patch, PR, failed remedy, queued check, review delay, provider cooldown, or external approval dependency cannot terminate the run while executable work remains;
 - an unchanged external blocker yields to the next open PR while execution capacity remains;
-- at most one PR branch is actively mutated at a time;
-- no second product PR is created while any PR remains open;
+- a gate-clean PR waiting for central merge does not stall the next executable item;
+- shared CI, tooling, dependency, standards, and documentation blockers are part of the executable queue;
+- existing open PRs do not blanket-prohibit one verified, disjoint buyer-visible slice;
+- at most one additional draft product PR may be created per invocation after refreshed non-overlap proof;
+- no overlapping files, schemas, migrations, generated artifacts, dependencies, or writer ownership are permitted across concurrent PR work;
+- at most one branch is actively mutated at a time;
+- routine output is empty and inventory, plan, status, RCA-essay, progress, and recap narration is prohibited;
+- routine next-step questions are prohibited when live evidence can resolve the choice;
 - `security-events: read` exists and `security-events: write` does not;
 - PR source, comments, issues, reviews, logs, and artifacts are untrusted data rather than instructions;
 - commands copied from untrusted content are prohibited;
 - secrets and environment variables may not be printed, committed, commented, serialized, or transmitted;
+- the root-owned wrapper is installed before the repository-owned gate script executes;
+- the gate receives only a non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` marker and runs through `cwl-safe-exec`;
 - repository code, tests, package managers, build tools, and scripts run only through `cwl-safe-exec`;
 - `cwl-safe-exec` creates a clean environment under a separate unprivileged Linux identity and removes model, GitHub, OIDC, and provider credentials;
+- `cwl-untrusted` receives workspace access only through the dedicated `cwl-workspace` group and never inherits the runner default group;
 - OpenCode denies arbitrary shell by default and only allows the wrapper plus bounded Git/GitHub control operations;
 - direct interpreters, shells, environment inspection, network-fetch commands, and mutating raw `gh api` forms are not allowlisted;
 - the repository does not duplicate the central merge scheduler and never approves, auto-merges, merges, tags, publishes, or releases.
@@ -86,11 +98,14 @@ Workflow contract tests require all of the following:
 A focused operational rehearsal of the wrapper shall verify:
 
 1. the effective UID differs from the privileged runner identity;
-2. `NVIDIA_API_KEY`, `GH_TOKEN`, `GITHUB_TOKEN`, and OIDC request variables are absent;
-3. the command starts inside `GITHUB_WORKSPACE` with only the explicit clean environment;
-4. generated files are group-writable so the privileged control plane can commit verified changes;
-5. attempts to invoke the wrapper outside the workspace fail before execution;
-6. the installed wrapper is owned by `root:root` and not writable by the agent identity.
+2. `NVIDIA_API_KEY`, `NVIDIA_NIM_API_KEY`, `GH_TOKEN`, `GITHUB_TOKEN`, and OIDC request variables are absent;
+3. the only NIM-related value visible to repository gate code is the non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` marker;
+4. `COPILOT_GITHUB_TOKEN` is neither configured nor allowlisted;
+5. the command starts inside `GITHUB_WORKSPACE` with only the explicit clean environment;
+6. generated files are `cwl-workspace` group-writable so the privileged control plane can commit verified changes;
+7. the unprivileged identity is not a member of the runner's default group;
+8. attempts to invoke the wrapper outside the workspace fail before execution;
+9. the installed wrapper is owned by `root:root` and not writable by the agent identity.
 
 The rehearsal uses sentinel variable names and set/unset checks only. It never prints a real secret value.
 
