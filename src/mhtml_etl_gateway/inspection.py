@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from .errors import ErrorCode, MhtmlGatewayError
 from .html_tables import extract_tables
 from .mime_parser import parse_mhtml_bytes
 from .models import InspectionReport, ParseLimits, TableInspection
+from .source_reader import _read_bounded_source
 
 
 def _content_location_hash(location: str | None) -> str | None:
@@ -54,10 +54,7 @@ def inspect_mhtml_file(
     *,
     limits: ParseLimits | None = None,
 ) -> InspectionReport:
-    """Read a source file once and produce its value-free inspection report."""
-    path = Path(source_path)
-    try:
-        source_bytes = path.read_bytes()
-    except OSError as exc:
-        raise MhtmlGatewayError(ErrorCode.SOURCE_READ_FAILED) from exc
-    return inspect_mhtml_bytes(source_bytes, limits=limits)
+    """Read a bounded source and produce its value-free inspection report."""
+    effective_limits = limits or ParseLimits()
+    source_bytes = _read_bounded_source(source_path, limits=effective_limits)
+    return inspect_mhtml_bytes(source_bytes, limits=effective_limits)
