@@ -36,6 +36,7 @@ class CiDependencyIntegrityTests(unittest.TestCase):
         )
         lock = QUALITY_LOCK.read_text(encoding="utf-8")
         workflow = _workflow_source()
+        workflow_flat = " ".join(workflow.split())
 
         self.assertIn(f"coverage=={COVERAGE_VERSION}", lock)
         for digest in COVERAGE_HASHES:
@@ -45,11 +46,22 @@ class CiDependencyIntegrityTests(unittest.TestCase):
             "python -m pip install --disable-pip-version-check --no-cache-dir "
             "--only-binary=:all: --require-hashes -r requirements-quality.txt"
         )
-        self.assertIn(install_command, workflow)
+        self.assertIn(install_command, workflow_flat)
         self.assertNotIn(
             "pip install --disable-pip-version-check coverage==",
             workflow,
         )
+
+    def test_plain_run_scalars_do_not_contain_yaml_mapping_tokens(self) -> None:
+        """Commands containing colon-space syntax must use a YAML block scalar."""
+        for line_number, line in enumerate(_workflow_source().splitlines(), start=1):
+            match = re.match(r"^\s+run:\s+(.+)$", line)
+            if match is not None:
+                self.assertNotIn(
+                    ": ",
+                    match.group(1),
+                    f"line {line_number} must use a block scalar",
+                )
 
     def test_pull_request_quality_checks_bind_to_the_exact_source_head(self) -> None:
         """Reject GitHub's synthetic merge ref as repository test evidence."""
