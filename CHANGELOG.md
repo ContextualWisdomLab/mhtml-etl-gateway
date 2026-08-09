@@ -16,6 +16,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Repository PRD, TRD, architecture, data, API, security, threat, test, operating, compliance, roadmap, ADR, research-traceability, and APA 7th doctoring baselines.
 - Exact-head Python 3.11–3.14 quality workflow.
 - Default-branch-only hourly OpenCode autonomous loop using NVIDIA NIM, exact-head PR maintenance, and a durable single-flight `agent-task` lease for empty-queue product work.
+- Security regression tests for direct RFC 2387 root selection, cross-media `Content-ID` ambiguity, and inert HTML suppression boundaries.
 
 ### Changed
 
@@ -24,6 +25,8 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Unknown enterprise Content-Transfer-Encoding values remain an identity-decoding compatibility path with a generic diagnostic.
 - The hourly OpenCode workflow explicitly disables session sharing for the public repository.
 - An open PR now selects deterministic RCA-and-repair mode instead of disabling the hourly loop; product PR creation remains blocked until the PR queue is empty.
+- Repository quality CI now runs on `agent/**` pushes and uses the exact head SHA as its concurrency key, so branch writes materialize current-head evidence without duplicating same-SHA pull-request work.
+- CI supply-chain contract checks now use `unittest.TestCase`, ensuring the repository's actual discovery command executes them.
 
 ### Fixed
 
