@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .errors import ErrorCode, MhtmlGatewayError
 from .models import Diagnostic, MhtmlDocument, ParseLimits
+from .source_reader import _read_bounded_source
 
 _KNOWN_TRANSFER_ENCODINGS = {
     "7bit",
@@ -316,10 +317,7 @@ def parse_mhtml_file(
     *,
     limits: ParseLimits | None = None,
 ) -> MhtmlDocument:
-    """Read an MHTML file once and parse it with the byte-level contract."""
-    path = Path(source_path)
-    try:
-        source_bytes = path.read_bytes()
-    except OSError as exc:
-        raise MhtmlGatewayError(ErrorCode.SOURCE_READ_FAILED) from exc
-    return parse_mhtml_bytes(source_bytes, limits=limits)
+    """Read a bounded MHTML source and parse it with the byte-level contract."""
+    effective_limits = limits or ParseLimits()
+    source_bytes = _read_bounded_source(source_path, limits=effective_limits)
+    return parse_mhtml_bytes(source_bytes, limits=effective_limits)
