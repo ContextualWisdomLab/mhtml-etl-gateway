@@ -13,6 +13,7 @@ class ErrorCode(str, Enum):
     SOURCE_READ_FAILED = "source_read_failed"
     INVALID_MIME = "invalid_mime"
     TOO_MANY_MIME_PARTS = "too_many_mime_parts"
+    MIME_NESTING_TOO_DEEP = "mime_nesting_too_deep"
     MISSING_HTML_ROOT = "missing_html_root"
     AMBIGUOUS_HTML_ROOT = "ambiguous_html_root"
     UNKNOWN_CHARSET = "unknown_charset"
