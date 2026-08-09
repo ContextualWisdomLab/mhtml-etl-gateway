@@ -32,7 +32,7 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("\n  ", stdout.getvalue())
 
     def test_pretty_inspection_json(self) -> None:
-        """Pretty mode uses indented UTF-8 JSON."""
+        """Pretty mode uses indented UTF-8 JSON without source values."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "source.mhtml"
             path.write_bytes(make_mhtml("<table><tr><td>제목</td></tr></table>"))
@@ -43,24 +43,8 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("제목", stdout.getvalue())
         self.assertIn("\n  ", stdout.getvalue())
 
-    def test_header_values_require_explicit_cli_flag(self) -> None:
-        """The CLI keeps cell-derived names private unless the operator opts in."""
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "source.mhtml"
-            path.write_bytes(make_mhtml("<table><tr><td>MANDT</td></tr></table>"))
-            default_stdout = StringIO()
-            privileged_stdout = StringIO()
-            with redirect_stdout(default_stdout):
-                default_code = main(["inspect", str(path)])
-            with redirect_stdout(privileged_stdout):
-                privileged_code = main(["inspect", str(path), "--include-header-values"])
-        self.assertEqual(default_code, 0)
-        self.assertEqual(privileged_code, 0)
-        self.assertNotIn("MANDT", default_stdout.getvalue())
-        self.assertIn("MANDT", privileged_stdout.getvalue())
-
     def test_expected_failure_is_json_on_stderr(self) -> None:
-        """Missing files fail with a stable JSON error and status 2."""
+        """Missing files fail with a fixed JSON error and status 2."""
         stderr = StringIO()
         with redirect_stderr(stderr):
             return_code = main(["inspect", "/missing/source.mhtml"])
@@ -69,11 +53,39 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["error_code"], "source_read_failed")
         self.assertNotIn("/missing/source.mhtml", payload["message"])
 
-    def test_argument_parser_rejects_missing_command(self) -> None:
-        """Argparse retains its conventional status 2 for malformed invocation."""
-        with self.assertRaises(SystemExit) as caught:
-            main([])
-        self.assertEqual(caught.exception.code, 2)
+    def test_argument_parser_failure_is_json(self) -> None:
+        """A missing command is returned through the public JSON contract."""
+        stderr = StringIO()
+        with redirect_stderr(stderr):
+            return_code = main([])
+        self.assertEqual(return_code, 2)
+        self.assertEqual(json.loads(stderr.getvalue())["error_code"], "invalid_argument")
+
+    def test_invalid_positive_limit_is_json(self) -> None:
+        """A non-positive resource budget uses the same fixed argument error."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "source.mhtml"
+            path.write_bytes(make_mhtml("<table></table>"))
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                return_code = main(
+                    ["inspect", str(path), "--max-source-bytes", "0"]
+                )
+        self.assertEqual(return_code, 2)
+        self.assertEqual(json.loads(stderr.getvalue())["error_code"], "invalid_argument")
+
+    def test_removed_header_disclosure_flag_is_json_error(self) -> None:
+        """The former header-value option is rejected without usage reflection."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "source.mhtml"
+            path.write_bytes(make_mhtml("<table><tr><th>A</th></tr></table>"))
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                return_code = main(
+                    ["inspect", str(path), "--include-header-values"]
+                )
+        self.assertEqual(return_code, 2)
+        self.assertEqual(json.loads(stderr.getvalue())["error_code"], "invalid_argument")
 
     def test_module_entrypoint_returns_cli_status(self) -> None:
         """The package module delegates to the same CLI implementation."""
