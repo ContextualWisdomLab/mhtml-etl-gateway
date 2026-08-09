@@ -11,7 +11,14 @@ from pathlib import Path
 from .errors import ErrorCode, MhtmlGatewayError
 from .models import Diagnostic, MhtmlDocument, ParseLimits
 
-_KNOWN_TRANSFER_ENCODINGS = {"7bit", "8bit", "binary", "base64", "quoted-printable", ""}
+_KNOWN_TRANSFER_ENCODINGS = {
+    "7bit",
+    "8bit",
+    "binary",
+    "base64",
+    "quoted-printable",
+    "",
+}
 _BOM_ENCODINGS = (
     (codecs.BOM_UTF32_BE, "utf-32"),
     (codecs.BOM_UTF32_LE, "utf-32"),
@@ -30,9 +37,13 @@ _CRITICAL_RELATED_PARAMETERS = {"boundary", "start", "type"}
 
 
 def _raw_content_type_parameter_names(message: Message) -> list[str]:
-    """Return parameter names from the raw Content-Type without splitting quoted text."""
+    """Return raw Content-Type parameter names without splitting quoted text."""
     raw_value = next(
-        (value for name, value in message.raw_items() if name.lower() == "content-type"),
+        (
+            value
+            for name, value in message.raw_items()
+            if name.lower() == "content-type"
+        ),
         "",
     )
     segments: list[str] = []
@@ -70,6 +81,7 @@ def _raw_content_type_parameter_names(message: Message) -> list[str]:
         else:
             current.append(character)
     segments.append("".join(current))
+
     names: list[str] = []
     for segment in segments[1:]:
         name, separator, _ = segment.partition("=")
@@ -80,8 +92,8 @@ def _raw_content_type_parameter_names(message: Message) -> list[str]:
 
 def _validate_mime_structure(message: Message) -> None:
     """Reject parser defects and duplicate security-critical MIME metadata."""
-    # Inspect raw parameters before the structured header parser can collapse a
-    # duplicate or malformed field into a single selected value.
+    # Inspect raw parameters before the structured parser can collapse a
+    # duplicate or malformed field into one selected value.
     if message.get_content_type().lower() == "multipart/related":
         parameter_names = _raw_content_type_parameter_names(message)
         if any(
@@ -107,9 +119,8 @@ def _validate_mime_structure(message: Message) -> None:
                     "MIME structure contained a duplicate security-critical header",
                 )
             # Unknown transfer encodings are an intentional enterprise
-            # compatibility lane: their payload is treated as identity bytes and
-            # a diagnostic is emitted later. Structured root-selection metadata,
-            # however, must be syntactically unambiguous.
+            # compatibility lane. Root-selection metadata still has to be
+            # syntactically unambiguous.
             if header_name != "Content-Transfer-Encoding" and any(
                 getattr(value, "defects", ()) for value in header_values
             ):
@@ -118,8 +129,9 @@ def _validate_mime_structure(message: Message) -> None:
                     "MIME structure contained a defective security-critical header",
                 )
 
+
 def _normalize_content_id(value: str | None) -> str | None:
-    """Normalize optional Content-ID values by removing surrounding brackets."""
+    """Normalize an optional Content-ID by removing surrounding brackets."""
     if value is None:
         return None
     normalized = value.strip().removeprefix("<").removesuffix(">").strip()
@@ -131,9 +143,19 @@ def _leaf_parts(message: Message) -> list[Message]:
     return [part for part in message.walk() if not part.is_multipart()]
 
 
+def _body_parts(message: Message) -> list[Message]:
+    """Return every body part below the top-level entity in document order."""
+    if not message.is_multipart():
+        return [message]
+    return list(message.walk())[1:]
+
+
 def _select_html_root(message: Message, parts: list[Message]) -> Message:
-    """Select the authoritative HTML root using RFC 2387 start semantics."""
-    if message.get_content_type().lower() == "text/html" and not message.is_multipart():
+    """Select the authoritative HTML root using RFC 2387 semantics."""
+    if (
+        message.get_content_type().lower() == "text/html"
+        and not message.is_multipart()
+    ):
         return message
     if message.get_content_type().lower() != "multipart/related":
         raise MhtmlGatewayError(
@@ -148,7 +170,7 @@ def _select_html_root(message: Message, parts: list[Message]) -> Message:
             for part in parts
             if _normalize_content_id(part.get("Content-ID")) == start
         ]
-        if not matches or matches[0].get_content_type().lower() != "text/html":
+        if not matches:
             raise MhtmlGatewayError(
                 ErrorCode.MISSING_HTML_ROOT,
                 "Explicit multipart/related start identifier did not resolve to text/html",
@@ -158,18 +180,34 @@ def _select_html_root(message: Message, parts: list[Message]) -> Message:
                 ErrorCode.AMBIGUOUS_HTML_ROOT,
                 "Explicit multipart/related start identifier matched multiple body parts",
             )
-        return matches[0]
+        root = matches[0]
+        if root.is_multipart() or root.get_content_type().lower() != "text/html":
+            raise MhtmlGatewayError(
+                ErrorCode.MISSING_HTML_ROOT,
+                "Explicit multipart/related start identifier did not resolve to text/html",
+            )
+        return root
 
-    if not parts or parts[0].get_content_type().lower() != "text/html":
+    direct_payload = message.get_payload()
+    if not isinstance(direct_payload, list) or not direct_payload:
         raise MhtmlGatewayError(
             ErrorCode.MISSING_HTML_ROOT,
             "The default multipart/related root was not text/html",
         )
-    return parts[0]
+    root = direct_payload[0]
+    if root.is_multipart() or root.get_content_type().lower() != "text/html":
+        raise MhtmlGatewayError(
+            ErrorCode.MISSING_HTML_ROOT,
+            "The default multipart/related root was not text/html",
+        )
+    return root
 
 
-def _related_type_diagnostics(message: Message, root: Message) -> tuple[Diagnostic, ...]:
-    """Validate the compound-object type while diagnosing a known exporter omission."""
+def _related_type_diagnostics(
+    message: Message,
+    root: Message,
+) -> tuple[Diagnostic, ...]:
+    """Validate compound-object type and diagnose a known exporter omission."""
     if message.get_content_type().lower() != "multipart/related":
         return ()
     declared_type = message.get_param("type")
@@ -189,7 +227,7 @@ def _related_type_diagnostics(message: Message, root: Message) -> tuple[Diagnost
 
 
 def _raw_payload_bytes(part: Message) -> bytes:
-    """Return decoded MIME payload bytes, preserving unknown identity encodings."""
+    """Return decoded payload bytes, preserving unknown identity encodings."""
     payload = part.get_payload(decode=True)
     if isinstance(payload, bytes):
         return payload
@@ -200,7 +238,7 @@ def _raw_payload_bytes(part: Message) -> bytes:
 
 
 def _select_charset(part: Message, payload: bytes) -> str:
-    """Resolve the declared charset or a deterministic BOM/UTF-8 fallback."""
+    """Resolve a declared charset or deterministic BOM/UTF-8 fallback."""
     declared = part.get_content_charset()
     if declared:
         try:
@@ -218,7 +256,7 @@ def _select_charset(part: Message, payload: bytes) -> str:
 
 
 def _decode_html(part: Message) -> tuple[str, tuple[Diagnostic, ...]]:
-    """Decode the selected HTML part strictly and record compatibility warnings."""
+    """Decode selected HTML strictly and record compatibility warnings."""
     payload = _raw_payload_bytes(part)
     charset = _select_charset(part, payload)
     try:
@@ -229,7 +267,9 @@ def _decode_html(part: Message) -> tuple[str, tuple[Diagnostic, ...]]:
             "HTML payload did not match the declared or detected charset",
         ) from exc
 
-    transfer_encoding = (part.get("Content-Transfer-Encoding") or "").strip().lower()
+    transfer_encoding = (
+        part.get("Content-Transfer-Encoding") or ""
+    ).strip().lower()
     diagnostics: tuple[Diagnostic, ...] = ()
     if transfer_encoding not in _KNOWN_TRANSFER_ENCODINGS:
         diagnostics = (
@@ -246,7 +286,7 @@ def parse_mhtml_bytes(
     *,
     limits: ParseLimits | None = None,
 ) -> MhtmlDocument:
-    """Parse untrusted MHTML bytes and return only the selected decoded HTML root."""
+    """Parse untrusted bytes and return only the selected decoded HTML root."""
     effective_limits = limits or ParseLimits()
     if not isinstance(source_bytes, bytes):
         raise MhtmlGatewayError(ErrorCode.INVALID_MIME, "Source must be bytes")
@@ -255,25 +295,26 @@ def parse_mhtml_bytes(
             ErrorCode.SOURCE_TOO_LARGE,
             f"Source contains {len(source_bytes)} bytes; limit is {effective_limits.max_source_bytes}",
         )
+
     message = BytesParser(policy=policy.default).parsebytes(source_bytes)
     _validate_mime_structure(message)
 
-    parts = _leaf_parts(message)
-    if len(parts) > effective_limits.max_mime_parts:
+    leaf_parts = _leaf_parts(message)
+    if len(leaf_parts) > effective_limits.max_mime_parts:
         raise MhtmlGatewayError(
             ErrorCode.TOO_MANY_MIME_PARTS,
-            f"MIME message contains {len(parts)} leaf parts; limit is {effective_limits.max_mime_parts}",
+            f"MIME message contains {len(leaf_parts)} leaf parts; limit is {effective_limits.max_mime_parts}",
         )
-    root = _select_html_root(message, parts)
+
+    root = _select_html_root(message, _body_parts(message))
     related_diagnostics = _related_type_diagnostics(message, root)
     html_text, decoding_diagnostics = _decode_html(root)
-    diagnostics = related_diagnostics + decoding_diagnostics
     return MhtmlDocument(
         html_text=html_text,
         root_content_type=root.get_content_type().lower(),
         root_content_location=root.get("Content-Location"),
         root_content_id=_normalize_content_id(root.get("Content-ID")),
-        diagnostics=diagnostics,
+        diagnostics=related_diagnostics + decoding_diagnostics,
     )
 
 
