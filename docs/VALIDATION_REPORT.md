@@ -9,13 +9,13 @@
 A fresh reconstruction of the current production, test, script, dependency-lock, and workflow files produced:
 
 ```text
-130 tests passed
-728 production statements: 100%
-272 production branches: 100%
+132 tests passed
+742 production statements: 100%
+278 production branches: 100%
 Missing public production docstrings: 0
 ```
 
-Coverage includes the shipped package and production workflow helper scripts. Tests cover MIME root/cardinality/defect handling, strict decoding, direct RFC 2387 default-root selection, cross-media `Content-ID` ambiguity, inert HTML suppression boundaries, table normalization, privacy nonreflection, CLI behavior, realistic SAP-shaped input, repository governance, exact-head CI, and hourly autonomous-loop contracts.
+Coverage includes the shipped package and production workflow helper scripts. Tests cover MIME root/cardinality/defect handling, strict decoding, direct RFC 2387 default-root selection, cross-media `Content-ID` ambiguity, configured MIME depth, parser recursion exhaustion, inert HTML suppression boundaries, table normalization, privacy nonreflection, CLI behavior, realistic SAP-shaped input, repository governance, exact-head CI, and hourly autonomous-loop contracts.
 
 The CI dependency-integrity checks are implemented as `unittest.TestCase` methods so the repository's actual `python -m unittest discover` command executes them. They verify the hash-locked coverage dependency, binary-only pip mode, contributor-head checkout, and exact-head assertion.
 
@@ -35,18 +35,22 @@ The CI dependency-integrity checks are implemented as `unittest.TestCase` method
 
 ## Parser security regression evidence
 
-The current source includes focused regressions proving that:
+The current source includes regression-first evidence proving that:
 
 - a nested HTML leaf cannot replace a non-HTML first direct `multipart/related` body part;
 - duplicate explicit `start` identifiers remain ambiguous regardless of MIME part ordering or media type;
 - a mismatched closing suppressed tag cannot expose text still enclosed by an outer `script`, `style`, `noscript`, or `template` element;
-- ordinary non-table elements do not create table structure.
+- ordinary non-table elements do not create table structure;
+- four nested multipart entities fail when `max_mime_depth=2`;
+- 2,000 nested multipart entities produce `MhtmlGatewayError(mime_nesting_too_deep)` rather than an unstructured `RecursionError`.
 
-Focused verification also independently produced:
+Fresh focused verification produced:
 
 ```text
-MIME parser: 38 tests; 161 statements; 80 branches; 100%
-HTML table parser: 36 tests; 202 statements; 94 branches; 100%
+MIME/parser/model security suite: 46 tests passed
+Full repository suite: 132 tests passed
+MIME parser: 173 statements; 86 branches; 100%
+HTML table parser: 202 statements; 94 branches; 100%
 Hourly scheduler: 107 statements; 40 branches; 100%
 CI dependency integrity: 2 tests passed
 ```
