@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+from collections.abc import Iterable, Sequence
 import json
 from pathlib import Path
 import re
-from collections.abc import Iterable, Sequence
 
 REQUIRED_DOCUMENTS = (
     Path("README.md"),
@@ -31,6 +31,8 @@ REQUIRED_DOCUMENTS = (
     Path("docs/doctoring/REFERENCES.md"),
 )
 
+_WORKFLOW_ROOT = Path(".github/workflows")
+_HOURLY_WORKFLOW = _WORKFLOW_ROOT / "hourly-product-gap.yml"
 _ACTION_REFERENCE = re.compile(r"^\s*uses:\s*([^\s#]+)", re.MULTILINE)
 _IMMUTABLE_ACTION_REFERENCE = re.compile(r"^[^@]+@[0-9a-f]{40}$")
 _PLACEHOLDER = re.compile(r"\b(?:TODO|TBD|PLACEHOLDER|FIXME)\b", re.IGNORECASE)
@@ -39,11 +41,17 @@ _PLACEHOLDER = re.compile(r"\b(?:TODO|TBD|PLACEHOLDER|FIXME)\b", re.IGNORECASE)
 def _public_nodes(tree: ast.AST) -> Iterable[tuple[str, ast.AST]]:
     """Yield public top-level symbols and public members from a Python syntax tree."""
     for node in getattr(tree, "body", []):
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
+        if isinstance(
+            node,
+            (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
+        ) and not node.name.startswith("_"):
             yield node.name, node
         if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
             for member in node.body:
-                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and not member.name.startswith("_"):
+                if isinstance(
+                    member,
+                    (ast.FunctionDef, ast.AsyncFunctionDef),
+                ) and not member.name.startswith("_"):
                     yield f"{node.name}.{member.name}", member
 
 
@@ -52,7 +60,10 @@ def missing_public_docstrings(roots: tuple[Path, ...]) -> list[str]:
     missing: list[str] = []
     for root in roots:
         for path in sorted(root.rglob("*.py")):
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            tree = ast.parse(
+                path.read_text(encoding="utf-8"),
+                filename=str(path),
+            )
             if ast.get_docstring(tree) is None:
                 missing.append(str(path))
             for qualified_name, node in _public_nodes(tree):
@@ -61,7 +72,9 @@ def missing_public_docstrings(roots: tuple[Path, ...]) -> list[str]:
     return missing
 
 
-def find_mutable_action_references(workflow_paths: tuple[Path, ...]) -> list[tuple[Path, str]]:
+def find_mutable_action_references(
+    workflow_paths: tuple[Path, ...],
+) -> list[tuple[Path, str]]:
     """Return GitHub Action references that are not pinned to full commit SHAs."""
     mutable: list[tuple[Path, str]] = []
     for path in workflow_paths:
@@ -70,6 +83,17 @@ def find_mutable_action_references(workflow_paths: tuple[Path, ...]) -> list[tup
             if not _IMMUTABLE_ACTION_REFERENCE.fullmatch(reference):
                 mutable.append((path, reference))
     return mutable
+
+
+def _workflow_paths() -> tuple[Path, ...]:
+    """Return every nested YAML workflow under the repository workflow root."""
+    paths = {
+        path
+        for pattern in ("*.yml", "*.yaml")
+        for path in _WORKFLOW_ROOT.rglob(pattern)
+        if path.is_file()
+    }
+    return tuple(sorted(paths))
 
 
 def _validation_errors() -> list[str]:
@@ -82,28 +106,43 @@ def _validation_errors() -> list[str]:
         f"missing public docstring: {item}"
         for item in missing_public_docstrings((Path("src"), Path("scripts")))
     )
-    workflow_paths = tuple(sorted(Path(".github/workflows").glob("*.yml")))
+
+    workflow_paths = _workflow_paths()
     errors.extend(
         f"mutable action reference in {path}: {reference}"
         for path, reference in find_mutable_action_references(workflow_paths)
     )
-    workflow_text = "\n".join(path.read_text(encoding="utf-8") for path in workflow_paths)
+    workflow_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in workflow_paths
+    )
     if "COPILOT_GITHUB_TOKEN" in workflow_text:
         errors.append("prohibited scheduler credential appears in a workflow")
-    hourly_workflow_text = Path(".github/workflows/hourly-product-gap.yml").read_text(encoding="utf-8")
-    if "NVIDIA_NIM_API_KEY" not in hourly_workflow_text:
-        errors.append("hourly product workflow does not bind NVIDIA_NIM_API_KEY")
-    if "share: false" not in hourly_workflow_text:
-        errors.append("hourly product workflow does not disable OpenCode session sharing")
+
+    if not _HOURLY_WORKFLOW.is_file():
+        errors.append(f"missing required workflow: {_HOURLY_WORKFLOW}")
+    else:
+        hourly_workflow_text = _HOURLY_WORKFLOW.read_text(encoding="utf-8")
+        if "secrets.NVIDIA_NIM_API_KEY" not in hourly_workflow_text:
+            errors.append("hourly product workflow does not bind NVIDIA_NIM_API_KEY")
+        if "share: false" not in hourly_workflow_text:
+            errors.append(
+                "hourly product workflow does not disable OpenCode session sharing"
+            )
+
     source_artifacts = sorted(
         path
         for pattern in ("*.mhtml", "*.mht")
         for path in Path(".").rglob(pattern)
         if ".git" not in path.parts
     )
-    errors.extend(f"customer-like MHTML artifact must not be committed: {path}" for path in source_artifacts)
+    errors.extend(
+        f"customer-like MHTML artifact must not be committed: {path}"
+        for path in source_artifacts
+    )
     for path in REQUIRED_DOCUMENTS:
-        if path.is_file() and _PLACEHOLDER.search(path.read_text(encoding="utf-8")):
+        if path.is_file() and _PLACEHOLDER.search(
+            path.read_text(encoding="utf-8")
+        ):
             errors.append(f"unresolved placeholder token in {path}")
     return errors
 
