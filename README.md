@@ -75,7 +75,11 @@ PYTHONPATH=src python scripts/validate_repository.py
 python -m pip wheel . --no-deps --no-build-isolation --wheel-dir dist
 ```
 
-Start with the [PRD](docs/PRD.md), [TRD](docs/TRD.md), [architecture](docs/ARCHITECTURE.md), [API contract](docs/API_CONTRACT.md), and [security contract](docs/SECURITY.md).
+## Documentation map
+
+Start with the [PRD](docs/PRD.md) and [TRD](docs/TRD.md), then use the canonical [architecture](docs/ARCHITECTURE.md), [UML/runtime views](docs/UML.md), [data model](docs/DATA_MODEL.md), and [conceptual ERD](docs/ERD.md). Material decisions are indexed in the [ADR register](docs/adr/README.md). Interface and assurance contracts are maintained in the [API contract](docs/API_CONTRACT.md), [security design](docs/SECURITY.md), [threat model](docs/THREAT_MODEL.md), [test strategy](docs/TEST_STRATEGY.md), [operability guide](docs/OPERABILITY.md), [compliance control map](docs/COMPLIANCE_CONTROL_MAP.md), [research traceability](docs/RESEARCH_TRACEABILITY.md), [validation report](docs/VALIDATION_REPORT.md), and [APA 7 references](docs/doctoring/REFERENCES.md).
+
+The diagram and ERD documents explicitly distinguish current as-built inspection behavior from future conceptual PostgreSQL/service boundaries. An accepted design decision or diagram must never be read as evidence that the corresponding migration, service, security control, or release artifact is already implemented.
 
 ## Product path
 
