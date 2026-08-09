@@ -10,6 +10,14 @@ _ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "hourly-product-gap.yml"
 
 
+def _step_section(workflow_text: str, step_name: str) -> str:
+    """Return one named workflow step without relying on a leading split token."""
+    marker = f"      - name: {step_name}"
+    start = workflow_text.index(marker)
+    next_step = workflow_text.find("\n      - name: ", start + len(marker))
+    return workflow_text[start:] if next_step < 0 else workflow_text[start:next_step]
+
+
 class AutonomousContinuationContractTests(unittest.TestCase):
     """Prevent the scheduler from stopping after one blocker or completed action."""
 
@@ -28,7 +36,10 @@ class AutonomousContinuationContractTests(unittest.TestCase):
             "- name: Select exact-head loop mode"
         )
         self.assertLess(wrapper_position, gate_position)
-        gate_section = self.workflow_text[gate_position:].split("- name:", 1)[0]
+        gate_section = _step_section(
+            self.workflow_text,
+            "Select exact-head loop mode",
+        )
         self.assertIn("NVIDIA_NIM_API_KEY_CONFIGURED", gate_section)
         self.assertNotIn("NVIDIA_NIM_API_KEY: ${{", gate_section)
         self.assertIn("cwl-safe-exec python scripts/hourly_product_gap.py", gate_section)
@@ -42,10 +53,10 @@ class AutonomousContinuationContractTests(unittest.TestCase):
 
     def test_gate_output_is_group_writable_before_unprivileged_execution(self) -> None:
         """The isolated gate can append outputs without inheriting runner ownership."""
-        gate_section = self.workflow_text.split(
-            "- name: Select exact-head loop mode",
-            1,
-        )[1].split("- name:", 1)[0]
+        gate_section = _step_section(
+            self.workflow_text,
+            "Select exact-head loop mode",
+        )
         self.assertIn('install -m 0660 /dev/null "$gate_output"', gate_section)
         self.assertNotIn(': > "$gate_output"', gate_section)
         self.assertLess(
@@ -78,14 +89,16 @@ class AutonomousContinuationContractTests(unittest.TestCase):
     def test_blocked_pr_yields_to_other_prs_and_disjoint_product_work(self) -> None:
         """An external approval dependency cannot starve unrelated executable work."""
         required_phrases = (
-            "continue to the next PR or repository-owned task",
+            "Continue to the next PR or repository-owned task",
+            "An unchanged external blocker gets one deduplicated record, not repeated analysis",
             "Open PRs are not a blanket prohibition on disjoint product work",
             "create at most one extra draft PR per invocation",
             "no overlap in files, schemas, migrations, generated artifacts",
             "keep the open PR count minimal",
         )
+        lowered = self.workflow_flat.lower()
         for phrase in required_phrases:
-            self.assertIn(phrase, self.workflow_flat.lower() if phrase.startswith("keep") else self.workflow_flat)
+            self.assertIn(phrase.lower(), lowered)
 
     def test_product_mode_switches_to_maintenance_instead_of_stopping(self) -> None:
         """A newly appeared PR suspends only conflicting work and preserves progress."""
