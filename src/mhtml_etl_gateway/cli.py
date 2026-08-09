@@ -58,12 +58,16 @@ def main(arguments: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     try:
         namespace = parser.parse_args(arguments)
-        limits = ParseLimits(max_source_bytes=namespace.max_source_bytes)
-        report = inspect_mhtml_file(namespace.source_path, limits=limits)
     except _ArgumentParserError:
         return _write_error(MhtmlGatewayError(ErrorCode.INVALID_ARGUMENT))
+
+    try:
+        limits = ParseLimits(max_source_bytes=namespace.max_source_bytes)
     except ValueError:
         return _write_error(MhtmlGatewayError(ErrorCode.INVALID_ARGUMENT))
+
+    try:
+        report = inspect_mhtml_file(namespace.source_path, limits=limits)
     except MhtmlGatewayError as error:
         return _write_error(error)
 
