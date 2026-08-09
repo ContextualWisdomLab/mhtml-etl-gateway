@@ -36,7 +36,7 @@ _SAFE_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.TOO_MANY_MIME_PARTS: "MHTML input exceeds the configured entity limit",
     ErrorCode.MIME_NESTING_TOO_DEEP: "MHTML input exceeds the configured nesting limit",
     ErrorCode.MISSING_HTML_ROOT: "MHTML input has no valid HTML root",
-    ErrorCode.AMBIGUOUS_HTML_ROOT: "MHTML input has an ambiguous HTML root",
+    ErrorCode.AMBIGUOUS_HTML_ROOT: "MHTML input is ambiguous",
     ErrorCode.UNKNOWN_CHARSET: "MHTML input declares an unsupported character set",
     ErrorCode.HTML_DECODE_FAILED: "MHTML HTML content could not be decoded",
     ErrorCode.HTML_TOO_LARGE: "Decoded HTML exceeds the configured size limit",
