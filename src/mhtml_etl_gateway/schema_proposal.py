@@ -335,8 +335,8 @@ def _fit_identifier(value: str) -> str:
     return f"{fitted_prefix}{suffix}"
 
 
-def _canonical_name(header: str) -> str:
-    """Derive a multiword snake_case name without altering source evidence."""
+def _normalized_header_name(header: str) -> str:
+    """Normalize protected header semantics before display-name fitting."""
     compatibility = unicodedata.normalize("NFKC", header).strip()
     alias = _HEADER_ALIASES.get(compatibility.upper())
     if alias is not None:
@@ -345,7 +345,12 @@ def _canonical_name(header: str) -> str:
     separated = _CAMEL_ACRONYM.sub(r"\1_\2", compatibility)
     separated = _CAMEL_BOUNDARY.sub(r"\1_\2", separated)
     normalized = _NON_WORD.sub("_", separated).lower()
-    normalized = _UNDERSCORE_RUN.sub("_", normalized).strip("_")
+    return _UNDERSCORE_RUN.sub("_", normalized).strip("_")
+
+
+def _canonical_name(header: str) -> str:
+    """Derive a multiword snake_case name without altering source evidence."""
+    normalized = _normalized_header_name(header)
 
     if not normalized or not any(character.isalnum() for character in normalized):
         return f"source_field_{_sha256_text(header)[:8]}"
@@ -509,7 +514,7 @@ def _column_proposal(
     )
     null_count = len(column.values) - len(stripped_values)
     proposed_type, type_reasons, precision, scale = _infer_type(
-        target_name,
+        _normalized_header_name(column.header),
         stripped_values,
     )
     reasons = list(type_reasons)

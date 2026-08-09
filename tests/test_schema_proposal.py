@@ -224,6 +224,20 @@ class SchemaProposalTests(unittest.TestCase):
         self.assertEqual(column.proposed_type, PostgresType.TEXT)
         self.assertIn("identifier_semantics", column.review_reasons)
 
+        truncated_name = propose_schema(
+            _SOURCE_HASH,
+            (
+                ProtectedColumnInput(
+                    "account_" + "x" * 100,
+                    ("true", "false"),
+                    complete=True,
+                ),
+            ),
+        ).columns[0]
+        self.assertTrue(truncated_name.target_column_name.startswith("source_"))
+        self.assertEqual(truncated_name.proposed_type, PostgresType.TEXT)
+        self.assertIn("identifier_semantics", truncated_name.review_reasons)
+
     def test_mixed_values_fall_back_to_text(self) -> None:
         """Mixed numeric and textual evidence is never partially coerced."""
         column = propose_schema(

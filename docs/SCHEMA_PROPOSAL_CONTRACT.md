@@ -124,6 +124,10 @@ columns remain `text` with `identifier_semantics` even when every observed value
 is boolean-shaped. Values such as `yes`, `no`, `Y`, `N`, `0`, and `1` remain
 text unless a future versioned policy explicitly governs them.
 
+Type semantics use the normalized but unfitted protected header name. Display
+name truncation, collision suffixes, and PostgreSQL's byte limit cannot erase an
+identifier or date signal before inference.
+
 ### Date
 
 A date is proposed only when:
