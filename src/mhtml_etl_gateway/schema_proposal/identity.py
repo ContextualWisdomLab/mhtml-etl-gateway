@@ -62,13 +62,27 @@ def decimal_fixed_character_count(value: Decimal) -> int:
 
 
 def canonical_decimal(value: Decimal) -> str:
-    """Return an exact finite decimal representation without exponent drift."""
+    """Return an exact finite fixed-point decimal without context rounding."""
     if not value.is_finite():
         raise SchemaProposalError(SchemaProposalErrorCode.UNSUPPORTED_VALUE)
-    rendered = format(value.normalize(), "f")
-    if "." in rendered:
-        rendered = rendered.rstrip("0").rstrip(".")
-    return "0" if rendered in {"-0", ""} else rendered
+    sign, raw_digits, raw_exponent = value.as_tuple()
+    digits = list(raw_digits)
+    exponent = raw_exponent
+    if not any(digits):
+        return "0"
+    while len(digits) > 1 and digits[-1] == 0:
+        digits.pop()
+        exponent += 1
+    digit_text = "".join(str(digit) for digit in digits)
+    if exponent >= 0:
+        rendered = digit_text + ("0" * exponent)
+    else:
+        decimal_point = len(digit_text) + exponent
+        if decimal_point > 0:
+            rendered = f"{digit_text[:decimal_point]}.{digit_text[decimal_point:]}"
+        else:
+            rendered = f"0.{('0' * (-decimal_point))}{digit_text}"
+    return f"-{rendered}" if sign else rendered
 
 
 def canonical_value(
