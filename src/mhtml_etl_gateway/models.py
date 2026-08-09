@@ -63,7 +63,6 @@ class TableCell:
 class ExtractedTable:
     """Rectangular normalized table extracted without rendering HTML."""
 
-    table_index: int
     rows: tuple[tuple[TableCell, ...], ...]
     header_row_index: int | None
     diagnostics: tuple[Diagnostic, ...]
@@ -112,43 +111,35 @@ class ExtractedTable:
 
 @dataclass(frozen=True, slots=True)
 class TableInspection:
-    """Metadata-only summary of one extracted table."""
+    """Value-free structural summary of one extracted table."""
 
-    table_index: int
     row_count: int
     data_row_count: int
     column_count: int
     header_row_index: int | None
     header_source: str
     header_value_count: int
-    header_values_included: bool
-    headers: tuple[str, ...]
     diagnostics: tuple[Diagnostic, ...]
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-ready structure that intentionally excludes row values."""
+        """Return a JSON-ready structure that excludes identifiers and values."""
         return {
-            "table_index": self.table_index,
             "row_count": self.row_count,
             "data_row_count": self.data_row_count,
             "column_count": self.column_count,
             "header_row_index": self.header_row_index,
             "header_source": self.header_source,
             "header_value_count": self.header_value_count,
-            "header_values_included": self.header_values_included,
-            "headers": list(self.headers),
             "diagnostics": [item.to_dict() for item in self.diagnostics],
         }
 
 
 @dataclass(frozen=True, slots=True)
 class InspectionReport:
-    """Metadata-only lineage report for one immutable MHTML source."""
+    """Privacy-preserving lineage report for one immutable MHTML source."""
 
     source_hash_sha256: str
     source_size_bytes: int
-    root_content_type: str
-    root_content_location_scheme: str | None
     root_content_location_hash_sha256: str | None
     diagnostics: tuple[Diagnostic, ...]
     tables: tuple[TableInspection, ...]
@@ -158,8 +149,6 @@ class InspectionReport:
         return {
             "source_hash_sha256": self.source_hash_sha256,
             "source_size_bytes": self.source_size_bytes,
-            "root_content_type": self.root_content_type,
-            "root_content_location_scheme": self.root_content_location_scheme,
             "root_content_location_hash_sha256": self.root_content_location_hash_sha256,
             "table_count": len(self.tables),
             "diagnostics": [item.to_dict() for item in self.diagnostics],
