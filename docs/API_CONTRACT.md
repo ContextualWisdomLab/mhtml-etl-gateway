@@ -19,6 +19,26 @@ inspect_mhtml_bytes(
 
 The function is deterministic for identical bytes, limits, package version, and Python-compatible parser behavior. It performs no network or database operation.
 
+### `ParseLimits`
+
+The immutable limits contract includes:
+
+```python
+ParseLimits(
+    max_source_bytes=250 * 1024 * 1024,
+    max_mime_parts=256,
+    max_mime_depth=64,
+    max_html_chars=50_000_000,
+    max_tables=128,
+    max_rows_per_table=1_000_000,
+    max_columns_per_table=4096,
+    max_total_cells=10_000_000,
+    max_cell_text_chars=1_000_000,
+)
+```
+
+`max_mime_parts` counts every descendant MIME body entity, including multipart containers. `max_mime_depth` counts direct body parts at depth 1. Every value must be a positive non-boolean integer.
+
 ### `inspect_mhtml_file`
 
 Reads one local path once and delegates to the byte API. Source-read failures produce `source_read_failed` without echoing the path.
@@ -82,7 +102,17 @@ Current table diagnostics include:
 
 - `positional_header`.
 
-Diagnostics are nonfatal and have fixed messages. Fatal failures use `MhtmlGatewayError` and stable `ErrorCode` values.
+Diagnostics are nonfatal and have fixed messages.
+
+## Fatal error contract
+
+Fatal failures use `MhtmlGatewayError` and stable `ErrorCode` values. The current MIME resource errors include:
+
+- `source_too_large`;
+- `too_many_mime_parts`;
+- `mime_nesting_too_deep`.
+
+`mime_nesting_too_deep` covers both an explicit `max_mime_depth` violation after parsing and standard-library recursion exhaustion during MIME parsing. It never exposes a raw `RecursionError` through the public parser contract.
 
 ## Compatibility policy
 
