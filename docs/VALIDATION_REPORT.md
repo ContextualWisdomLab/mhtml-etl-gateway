@@ -2,7 +2,7 @@
 
 **Validated:** 2026-08-09  
 **Product version:** 0.1.0  
-**Scope:** deterministic value-free MHTML inspection and work-conserving autonomous-maintenance contracts
+**Scope:** deterministic value-free MHTML inspection, work-conserving autonomous maintenance, and verified OpenCode runner delivery
 
 ## Evidence semantics
 
@@ -12,16 +12,16 @@ Queued, pending, skipped-required, neutral-required, cancelled, absent, predeces
 
 ## Test and coverage evidence
 
-GitHub Repository Quality run `31309025537` executed the contributor head directly on Python 3.11, 3.12, 3.13, and 3.14. The Python 3.14 lane recorded:
+GitHub Repository Quality run `31313275676` executed contributor head `91174648e0c0324979767c0a9c918cff15962261` directly on Python 3.11, 3.12, 3.13, and 3.14 and completed successfully. The Python 3.11 lane recorded:
 
 ```text
-168 tests passed
-825 production statements: 100%
-320 production branches: 100%
+182 tests passed
+842 production statements: 100%
+326 production branches: 100%
 Missing public production docstrings: 0
 ```
 
-The same run completed:
+The same exact-head matrix completed:
 
 ```text
 compileall: passed
@@ -32,12 +32,14 @@ wheel build: passed
 Coverage includes the shipped package and production workflow helpers:
 
 ```text
-scripts/hourly_product_gap.py:       112 statements, 42 branches, 100%
-scripts/validate_repository.py:       75 statements, 42 branches, 100%
+scripts/hourly_product_gap.py:        112 statements,  42 branches, 100%
+scripts/validate_repository.py:       75 statements,  42 branches, 100%
 src/mhtml_etl_gateway/html_tables.py: 255 statements, 120 branches, 100%
-src/mhtml_etl_gateway/mime_parser.py: 191 statements, 100 branches, 100%
-total production:                    825 statements, 320 branches, 100%
+src/mhtml_etl_gateway/mime_parser.py: 189 statements, 100 branches, 100%
+total production:                     842 statements, 326 branches, 100%
 ```
+
+The documentation commit containing this report does not convert predecessor-head evidence into current-head evidence. Its own GitHub checks remain independently required.
 
 ## Parser security evidence
 
@@ -80,10 +82,15 @@ The default report intentionally contains `source_hash_sha256`. This public vali
 
 Workflow and configuration tests prove that:
 
-- the hourly loop is execution-first and zero-narration;
+- success is defined as material repository progress rather than inventory or narration;
+- the hourly recurrence is continuation rather than intentional deferral;
+- scheduler or prompt edits, issue updates, commits, PR publication, and central merge handoff are intermediate events rather than stop conditions;
 - one completed patch, PR, failed remedy, queued check, review delay, rate limit, provider cooldown, or external approval dependency cannot terminate an invocation while safe repository-owned work remains;
+- a blocked action blocks only that action, not the invocation;
 - an unchanged external blocker receives one deduplicated record and yields to another PR, shared blocker, or proven-disjoint product slice;
 - a gate-clean PR waiting for central merge does not idle the repository loop;
+- after PR work is exhausted, the same invocation continues through issues, document/ADR completeness, release readiness, buyer-visible gaps, and ecosystem integration;
+- the only normal stop conditions are genuine finite execution-budget exhaustion or a fresh full-queue proof that every remaining item is non-actionable under current authority;
 - only one branch is actively mutated at a time;
 - at most one additional draft product PR may be created per invocation after refreshed non-overlap proof;
 - fork heads remain read-only and exact-head leases are revalidated immediately before writes;
@@ -103,6 +110,32 @@ Security tests additionally prove that:
 - public OpenCode sharing is disabled in both workflow entry points and repository configuration;
 - `COPILOT_GITHUB_TOKEN` is absent.
 
+## Verified OpenCode runner evidence
+
+The exact-head test suite also proves that the privileged scheduler no longer uses the upstream composite installer path. The workflow contract requires:
+
+```text
+OpenCode version: 1.18.15
+asset: opencode-linux-x64.tar.gz
+SHA-256: d842e0e8c622c672a481b7dc6f0329009b64db96b2ba6041e56f4f93f0293b1c
+archive entries: exactly one (`opencode`)
+runtime version: exactly 1.18.15
+```
+
+The following are prohibited and regression-tested:
+
+- `anomalyco/opencode/github@...` composite execution;
+- mutable nested `actions/cache@...` use;
+- latest-release lookup;
+- `curl | bash` or any remote installer script;
+- digest-free fallback;
+- trusted cross-run executable cache;
+- model, GitHub, or OIDC credential binding during installation.
+
+The install step verifies platform, immutable URL, digest, archive shape, extraction ownership/permission policy, and exact runtime version before the directory enters `GITHUB_PATH`. Only later selected agent-mode steps receive `NVIDIA_API_KEY`, the fixed NVIDIA NIM model, `SHARE="false"`, and `USE_GITHUB_TOKEN="false"`.
+
+The digest is recorded by the upstream generated Homebrew formula at commit `a72a2bfe3b4114ca10a9012c23f1b3f31924b22e`. This is release-distribution evidence, not a claim of an independent cryptographic builder attestation. The residual boundary is documented in ADR-0011, the threat model, and the upgrade/rollback runbook.
+
 ## Static and repository evidence
 
 The deterministic repository validator confirms:
@@ -115,7 +148,7 @@ The deterministic repository validator confirms:
 - prohibited Copilot credential references: 0;
 - committed `.mhtml` or `.mht` artifacts: 0;
 - NVIDIA NIM secret binding: present;
-- OpenCode session sharing disabled;
+- OpenCode session sharing disabled in both direct modes;
 - exact-head agent-branch quality execution enabled;
 - push and pull-request quality concurrency keyed by exact head SHA.
 
@@ -128,6 +161,8 @@ The quality matrix builds:
 ```text
 mhtml_etl_gateway-0.1.0-py3-none-any.whl
 ```
+
+The Python 3.11 lane produced a wheel of 22,055 bytes with build-instance SHA-256 `c8a4a8f84786ae9cf72e1c68e8562b052cdc8eb3d1f650855659ad3c140cade1`. This build-instance digest is evidence for that run, not yet a reproducible-release claim.
 
 The package has no runtime dependency and includes:
 
