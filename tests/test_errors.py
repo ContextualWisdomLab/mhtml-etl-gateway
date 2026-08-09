@@ -13,15 +13,23 @@ class ErrorContractTests(unittest.TestCase):
 
     def test_error_codes_are_stable_strings(self) -> None:
         """Error values remain machine-readable lowercase identifiers."""
+        self.assertEqual(ErrorCode.INVALID_ARGUMENT.value, "invalid_argument")
         self.assertEqual(ErrorCode.SOURCE_TOO_LARGE.value, "source_too_large")
         self.assertEqual(ErrorCode.NESTED_TABLE.value, "nested_table")
 
-    def test_exception_exposes_code_and_message(self) -> None:
-        """The exception retains a stable code and human-readable message."""
-        error = MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT, "HTML root missing")
+    def test_exception_exposes_only_fixed_code_message_pair(self) -> None:
+        """The exception discards caller detail and exposes approved-safe text."""
+        error = MhtmlGatewayError(
+            ErrorCode.MISSING_HTML_ROOT,
+            "attacker-selected identifier",
+        )
         self.assertEqual(error.code, ErrorCode.MISSING_HTML_ROOT)
-        self.assertEqual(error.message, "HTML root missing")
-        self.assertEqual(str(error), "missing_html_root: HTML root missing")
+        self.assertEqual(error.message, "MHTML input has no valid HTML root")
+        self.assertEqual(
+            str(error),
+            "missing_html_root: MHTML input has no valid HTML root",
+        )
+        self.assertNotIn("attacker", str(error))
 
     def test_package_version_is_semantic(self) -> None:
         """The package exports its initial semantic version."""
