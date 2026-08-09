@@ -7,6 +7,7 @@ from email import policy
 from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
+from typing import cast
 
 from .errors import ErrorCode, MhtmlGatewayError
 from .models import Diagnostic, MhtmlDocument, ParseLimits
@@ -188,12 +189,9 @@ def _select_html_root(message: Message, parts: list[Message]) -> Message:
             )
         return root
 
-    direct_payload = message.get_payload()
-    if not isinstance(direct_payload, list) or not direct_payload:
-        raise MhtmlGatewayError(
-            ErrorCode.MISSING_HTML_ROOT,
-            "The default multipart/related root was not text/html",
-        )
+    # Defect-free multipart messages have a non-empty list payload. The MIME
+    # validation boundary above rejects malformed or empty multipart entities.
+    direct_payload = cast(list[Message], message.get_payload())
     root = direct_payload[0]
     if root.is_multipart() or root.get_content_type().lower() != "text/html":
         raise MhtmlGatewayError(
