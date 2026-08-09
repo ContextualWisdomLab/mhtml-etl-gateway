@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 _HEAD_SHA = re.compile(r"^[0-9a-f]{40}$")
+_GIT_REF = re.compile(r"^[A-Za-z0-9._/-]{1,255}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,8 +114,10 @@ def _pull_request_decision(
             or head_sha is None
             or _HEAD_SHA.fullmatch(head_sha) is None
             or head_ref is None
+            or _GIT_REF.fullmatch(head_ref) is None
             or head_repository is None
             or base_ref is None
+            or _GIT_REF.fullmatch(base_ref) is None
             or base_repository != repository_full_name
         ):
             return GateDecision(
@@ -186,21 +189,27 @@ def _argument_parser() -> argparse.ArgumentParser:
 
 
 def _output_value(value: object | None) -> str:
-    """Render a GitHub output scalar without inventing sentinel values."""
+    """Render one newline-safe GitHub output scalar."""
     if value is None:
         return ""
     if isinstance(value, bool):
-        return str(value).lower()
-    return str(value)
+        rendered = str(value).lower()
+    else:
+        rendered = str(value)
+    if "\n" in rendered or "\r" in rendered:
+        raise ValueError("GitHub output values must be single-line scalars")
+    return rendered
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    """Evaluate live evidence and emit validated GitHub step outputs."""
+    """Evaluate live evidence and append validated GitHub step outputs."""
     namespace = _argument_parser().parse_args(arguments)
     decision = evaluate_gate(
         load_records(namespace.pull_requests_json),
         load_records(namespace.issues_json),
-        nvidia_key_configured=bool(os.environ.get("NVIDIA_NIM_API_KEY", "")),
+        nvidia_key_configured=(
+            os.environ.get("NVIDIA_NIM_API_KEY_CONFIGURED", "") == "true"
+        ),
         repository_full_name=os.environ.get("GITHUB_REPOSITORY", ""),
     )
     fields = (
@@ -216,10 +225,13 @@ def main(arguments: Sequence[str] | None = None) -> int:
         "open_pull_request_count",
     )
     output_path = Path(namespace.github_output)
-    output_path.write_text(
-        "".join(f"{field}={_output_value(getattr(decision, field))}\n" for field in fields),
-        encoding="utf-8",
-    )
+    with output_path.open("a", encoding="utf-8") as output_file:
+        output_file.write(
+            "".join(
+                f"{field}={_output_value(getattr(decision, field))}\n"
+                for field in fields
+            )
+        )
     print(json.dumps(decision.to_dict(), sort_keys=True))
     return 0
 
