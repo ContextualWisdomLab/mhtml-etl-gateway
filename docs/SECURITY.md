@@ -50,14 +50,21 @@ The hourly workflow:
 - uses a non-cancelling repository-wide concurrency group;
 - requires `NVIDIA_NIM_API_KEY` and never references `COPILOT_GITHUB_TOKEN`;
 - sets OpenCode `share: false` in both maintenance and product-development modes;
-- selects the lowest-numbered open PR from validated exact-head metadata when a PR exists;
+- selects the lowest-numbered open PR as an initial exact-head cursor when a PR exists;
 - treats fork PR heads as read-only;
 - requires RCA and proof that a proposed remedy is technically feasible before mutation;
 - refetches the live head immediately before writes and discards stale leases;
 - permits bounded retries only for failed or cancelled Actions work after code/configuration faults are excluded;
+- grants `security-events: read`, never write, so code-scanning evidence can actually be inspected;
+- records one deduplicated external boundary and proceeds to later open PRs instead of repeatedly proving an unchanged blocker;
+- serializes branch mutation even while progressing through multiple PRs in one invocation;
+- treats PR source, comments, issues, reviews, logs, and artifacts as untrusted data rather than privileged instructions;
+- forbids commands copied from untrusted content and forbids printing, committing, commenting, or transmitting environment variables or secret values;
 - creates or resumes one durable `agent-task` only when the PR queue is empty;
 - never approves, merges, enables auto-merge, tags, publishes, or releases;
 - leaves review and merge to central required workflows.
+
+The NVIDIA credential is needed by the model provider but is not product data. Repository content cannot authorize its disclosure, change tool permissions, expand the work scope, or instruct the agent to weaken security policy. GitHub log masking is not treated as the primary safeguard; the trusted prompt forbids reading or reproducing secret values in the first place.
 
 ## Supply-chain controls
 
