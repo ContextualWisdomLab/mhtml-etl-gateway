@@ -12,7 +12,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Immutable SHA-256 source lineage and metadata-only inspection CLI.
 - Content-Location SHA-256 identity without raw location disclosure.
 - Synthetic SAP-style, hostile-input, CLI, workflow, privacy, MIME-cardinality, and documentation tests.
-- Repository PRD, TRD, architecture, data, API, security, threat, test, operating, compliance, roadmap, ADR, research-traceability, and APA 7th doctoring baselines.
+- Repository PRD, TRD, architecture, UML/runtime, data-model, conceptual ERD, API, security, threat, test, operating, compliance, roadmap, indexed ADR, research-traceability, and APA 7th doctoring baselines.
 - Exact-head Python 3.11–3.14 quality workflow.
 - Default-branch-only hourly OpenCode autonomous loop using NVIDIA NIM, exact-head PR maintenance, and a durable `agent-task` lease for empty-queue product work.
 - Security regression tests for direct RFC 2387 root selection, cross-media `Content-ID` ambiguity, inert HTML suppression boundaries, configured MIME depth, parser recursion exhaustion, and pre-allocation span budgets.
