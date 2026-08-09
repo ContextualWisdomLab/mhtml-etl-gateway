@@ -7,6 +7,7 @@
 - source hashes, protected schema evidence, approvals, and lineage;
 - future PostgreSQL credentials and tenant keys;
 - scheduled-agent model credentials and repository write authority;
+- verified OpenCode executable identity and digest evidence;
 - current-head review, check, code-scanning, and branch-policy evidence;
 - release artifacts, SBOM, and provenance.
 
@@ -18,10 +19,11 @@
 4. inspection evidence to future protected schema governance;
 5. approved schema to future loader;
 6. future loader to PostgreSQL;
-7. GitHub schedule and model credential to OpenCode control plane;
-8. untrusted repository/review/log/artifact material to privileged agent reasoning;
-9. privileged agent process to secret-stripped repository-code execution;
-10. product repository to central organization governance.
+7. GitHub schedule to versioned OpenCode archive download and digest verification;
+8. verified OpenCode executable and model credential to privileged agent control plane;
+9. untrusted repository/review/log/artifact material to privileged agent reasoning;
+10. privileged agent process to secret-stripped repository-code execution;
+11. product repository to central organization governance.
 
 ## Principal threats and mitigations
 
@@ -51,7 +53,14 @@
 | duplicate import | duplicate business records | future source hash plus tenant-scoped idempotency |
 | partial PostgreSQL load | inconsistent target | future transaction, staging, reconciliation, and rollback |
 | cross-tenant access | confidentiality breach | future tenant keys, RLS, scoped service identity, and audit |
-| public OpenCode session | source leakage | workflow `share: false` plus repository `share: disabled` tests |
+| public OpenCode session | source leakage | direct `SHARE: "false"` plus repository `share: disabled` tests |
+| mutable nested OpenCode action | privileged code changes without repository review | upstream composite removed; direct verified binary execution |
+| latest-release lookup | unreviewed version enters privileged boundary | exact `1.18.15` release URL only |
+| remote installer script compromise | arbitrary code before agent startup | no installer script; direct archive download only |
+| release archive substitution | credential theft or repository takeover | reviewed SHA-256 checked strictly before extraction |
+| archive path or metadata abuse | overwrite or privilege confusion | exact single-entry archive shape and no preserved ownership/permissions |
+| wrong platform or binary version | incompatible or unexpected executable | Linux x64 assertions and exact `opencode --version` gate |
+| credentials exposed during installation | compromised download path gains secrets | install step binds no model, GitHub, or OIDC secret |
 | PR/comment/log prompt injection | secret disclosure, scope expansion, unsafe command | untrusted-data classification, trusted prompt precedence, copied-command prohibition |
 | repository code inherits model/GitHub/OIDC credentials | credential theft or unauthorized API use | root-owned clean-environment wrapper under separate UID/group |
 | wrapper output owned only by privileged runner | gate failure and false autonomy | precreate evidence/output files group-writable for `cwl-workspace` |
@@ -66,13 +75,14 @@
 | claimed code-scanning RCA without token scope | incomplete or fabricated conclusion | `security-events: read` workflow contract |
 | malformed or hidden `.yaml` workflow evades policy scanner | mutable action or credential drift | recursive `.yml` and `.yaml` validation |
 | false remediation activity | no blocker change despite cost | mandatory permission/API/effect feasibility proof |
-| compromised dependency/action | supply-chain compromise | dependency minimization, hash lock, full-SHA pins, future SBOM/provenance |
+| compromised dependency/action | supply-chain compromise | dependency minimization, hash locks, full-SHA pins, verified agent binary, future SBOM/provenance |
 
 ## Residual risks
 
 - The Python standard-library email parser remains a complex upstream dependency. Source, count, and depth controls reduce impact, but parsing can consume CPU and memory before upstream recursion exhaustion is raised. Supported Python patch versions require continued fuzzing and regression tracking.
 - Default resource limits require deployment-specific capacity evidence. Operators may lower them but must not disable positive bounds.
-- The privileged OpenCode process still needs model access and repository control capabilities. The wrapper isolates repository-controlled code, but a compromised action implementation remains a supply-chain risk addressed through full-SHA pinning, private sessions, runner hardening, minimal permissions, and future independent action attestation.
+- The privileged OpenCode process still needs model access and repository control capabilities. The exact archive digest and version are now verified before credentials are bound, but the upstream project does not currently provide an offline-verifiable release attestation contract for this asset. The reviewed upstream generated formula and repository-pinned digest are therefore the current provenance evidence, not a claim of cryptographic builder identity.
+- The GitHub-hosted runner image, operating system tools, network path, and GitHub OIDC exchange remain external trust dependencies. Runner hardening, strict archive digest verification, minimal permissions, and central governance reduce but do not eliminate those dependencies.
 - `security-events: read` does not grant every Dependabot or organization-governance API. Unavailable evidence remains an explicit boundary and cannot be inferred as passing.
 - Current OpenCode command patterns depend on the permission engine's documented last-match semantics. Configuration changes require contract tests and upstream-version review.
 - A metadata hash permits equality correlation; access and retention controls apply to hashes.
