@@ -23,11 +23,14 @@
 
 | Threat | Impact | Mitigation |
 |---|---|---|
-| deceptive `start` or duplicate Content-ID | wrong source selected | exact cross-media uniqueness and HTML check |
-| later HTML substituted for non-HTML default root | semantic substitution | RFC first-body rule |
+| deceptive `start` or duplicate Content-ID | wrong source selected | exact cross-media uniqueness before media-type validation |
+| later or nested HTML substituted for non-HTML direct root | semantic substitution | RFC first-direct-body rule |
 | duplicate critical header/parameter | parser differential | raw cardinality validation before selection |
 | malformed structured Content-Type | undefined root semantics | header defect rejection |
 | missing RFC type in enterprise export | availability loss or silent divergence | diagnosed compatibility lane plus direct root validation |
+| extreme multipart nesting | recursion exhaustion or denial of service | stable recursion conversion, `max_mime_depth`, iterative traversal |
+| many multipart containers with few leaves | leaf-count budget bypass | `max_mime_parts` counts all descendant body entities |
+| mismatched suppressed closing tag | hidden active/template text enters extracted values | exact suppression stack; unmatched close cannot pop outer boundary |
 | script/template/resource payload | code execution or data exfiltration | non-rendering parser, suppression, no egress |
 | file URI in Content-Location | internal path disclosure | scheme plus SHA-256 only |
 | payload value reflected in errors/logs | PII/confidentiality breach | fixed messages and metadata-only default |
@@ -39,12 +42,15 @@
 | partial PostgreSQL load | inconsistent target | transaction, staging, reconciliation, rollback |
 | cross-tenant access | confidentiality breach | tenant keys, RLS, scoped service identity, audit |
 | public OpenCode session | source leakage | `share: false` contract test |
-| scheduled-agent overlap | conflicting PRs | durable issue lease, open-PR gate, concurrency |
-| compromised dependency/action | supply-chain compromise | dependency minimization, full-SHA pins, SBOM/provenance |
+| stale or fork PR mutation | lost work or unauthorized branch write | exact-head lease, live refetch, same-repository write check |
+| scheduled-agent overlap | conflicting PRs | SHA/PR queue selection, concurrency, durable issue lease |
+| false remediation activity | blocker remains while cost and noise increase | mandatory RCA plus permission/API/effect feasibility proof |
+| compromised dependency/action | supply-chain compromise | dependency minimization, hash lock, full-SHA pins, SBOM/provenance |
 
 ## Residual risks
 
-- The Python standard-library email parser remains a complex upstream dependency and must be tracked across supported Python patch versions.
+- The Python standard-library email parser remains a complex upstream dependency. Extreme input is converted to a stable error, but parsing may consume bounded CPU and memory before upstream recursion exhaustion is raised; supported Python patch versions must remain tracked and fuzzed.
+- Source-byte, entity-count, and depth defaults require deployment-specific capacity validation; operators may lower them but must not disable positive bounds.
 - A metadata hash may still support equality correlation; access and retention controls apply to hashes.
 - Header-value opt-in can expose protected values if an operator redirects output to an unsafe location.
 - Deterministic structural inspection does not prove business-semantic correctness; reviewed mappings and reconciliation remain required.
