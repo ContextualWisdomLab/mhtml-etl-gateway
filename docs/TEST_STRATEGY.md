@@ -10,21 +10,27 @@ Every behavior change follows RED-GREEN-REFACTOR. Tests assert externally meanin
 
 - standalone and multipart roots;
 - explicit start, missing start target, non-HTML target, and cross-media duplicate IDs;
-- first-body default-root enforcement;
+- ambiguity classification independent of MIME part ordering;
+- first-direct-body default-root enforcement and nested-root rejection;
 - missing, matching, and contradictory related type;
 - parser defects, duplicate singleton headers, duplicate critical parameters;
 - quoted semicolons, escaped quotes, nested comments, and malformed parameter fields;
 - strict charset/BOM/UTF-8 paths;
 - nonstandard transfer-encoding diagnostic;
-- source and MIME-part limits;
+- source, total MIME entity, and MIME depth limits;
+- extreme nested multipart input that would otherwise raise `RecursionError`;
+- stable `mime_nesting_too_deep` conversion;
 - generic nonreflecting error text.
+
+The extreme nesting regression uses 2,000 nested multipart entities with one HTML leaf. It must produce `MhtmlGatewayError` with `mime_nesting_too_deep`, never an unstructured Python recursion exception. A separate low-depth fixture verifies the configurable `max_mime_depth` boundary.
 
 ### HTML tables
 
 - semantic and positional headers;
 - Korean and rich text;
 - block and line-break normalization;
-- script/style/template suppression;
+- exact script/style/noscript/template suppression nesting;
+- mismatched closing-tag resistance;
 - nested-table rejection;
 - irregular rows;
 - rowspan/colspan expansion, gaps, overlap, and trailing implicit rows;
@@ -48,6 +54,12 @@ Every behavior change follows RED-GREEN-REFACTOR. Tests assert externally meanin
 - no prohibited Copilot token;
 - NIM secret binding;
 - OpenCode `share: false`;
+- exact-head agent-branch quality execution;
+- SHA-keyed push/PR concurrency;
+- hash-locked binary-only quality dependency installation;
+- dependency-integrity tests executed by `unittest discover`;
+- PR-maintenance RCA and feasibility contract;
+- fork read-only and stale-head lease rules;
 - single-flight issue lease and no local merge-scheduler duplication.
 
 ## Realistic test policy
@@ -72,4 +84,4 @@ A PostgreSQL test container shall verify:
 
 ## Release verification
 
-Fresh evidence must include full tests, coverage, compileall, repository validation, wheel build, wheel-content inspection, clean-environment installation, CLI smoke on synthetic input, protected smoke on the real source, and GitHub current-head checks.
+Fresh evidence must include full tests, exact statement and branch coverage, compileall, repository validation, wheel build, wheel-content inspection, clean-environment installation, CLI smoke on synthetic input, protected smoke on the real source, and GitHub current-head checks. No predecessor-head, queued, pending, skipped-required, cancelled, absent, or synthetic-merge-only evidence can satisfy the release gate.
