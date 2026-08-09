@@ -1,14 +1,14 @@
-"""Stable error contracts for untrusted MHTML input failures."""
+"""Stable, nonreflecting error contracts for untrusted MHTML failures."""
 
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
 
 
 class ErrorCode(str, Enum):
     """Machine-readable failure codes exposed by the parser and CLI."""
 
+    INVALID_ARGUMENT = "invalid_argument"
     SOURCE_TOO_LARGE = "source_too_large"
     SOURCE_READ_FAILED = "source_read_failed"
     INVALID_MIME = "invalid_mime"
@@ -28,15 +28,38 @@ class ErrorCode(str, Enum):
     INVALID_TABLE_SPAN = "invalid_table_span"
 
 
+_SAFE_MESSAGES: dict[ErrorCode, str] = {
+    ErrorCode.INVALID_ARGUMENT: "Argument is invalid",
+    ErrorCode.SOURCE_TOO_LARGE: "MHTML source exceeds the configured size limit",
+    ErrorCode.SOURCE_READ_FAILED: "MHTML source could not be read",
+    ErrorCode.INVALID_MIME: "MHTML input is invalid",
+    ErrorCode.TOO_MANY_MIME_PARTS: "MHTML input exceeds the configured entity limit",
+    ErrorCode.MIME_NESTING_TOO_DEEP: "MHTML input exceeds the configured nesting limit",
+    ErrorCode.MISSING_HTML_ROOT: "MHTML input has no valid HTML root",
+    ErrorCode.AMBIGUOUS_HTML_ROOT: "MHTML input has an ambiguous HTML root",
+    ErrorCode.UNKNOWN_CHARSET: "MHTML input declares an unsupported character set",
+    ErrorCode.HTML_DECODE_FAILED: "MHTML HTML content could not be decoded",
+    ErrorCode.HTML_TOO_LARGE: "Decoded HTML exceeds the configured size limit",
+    ErrorCode.TOO_MANY_TABLES: "HTML contains too many tables",
+    ErrorCode.TOO_MANY_ROWS: "HTML table exceeds the configured row limit",
+    ErrorCode.TOO_MANY_COLUMNS: "HTML table exceeds the configured column limit",
+    ErrorCode.TOO_MANY_CELLS: "HTML tables exceed the configured cell limit",
+    ErrorCode.CELL_TEXT_TOO_LARGE: "HTML table cell exceeds the configured text limit",
+    ErrorCode.NESTED_TABLE: "Nested HTML tables are not supported",
+    ErrorCode.INVALID_TABLE_SPAN: "HTML table span is invalid",
+}
+
+
 class MhtmlGatewayError(Exception):
-    """Expected fail-closed error raised for unsafe or malformed source input."""
+    """Expected fail-closed error with a fixed, approved-safe public message."""
 
-    def __init__(self, code: ErrorCode, message: str) -> None:
-        """Initialize an error with a stable code and explanatory message."""
+    def __init__(self, code: ErrorCode, detail: str | None = None) -> None:
+        """Initialize an error while deliberately discarding untrusted detail."""
+        del detail
         self.code = code
-        self.message = message
-        super().__init__(f"{code.value}: {message}")
+        self.message = _SAFE_MESSAGES[code]
+        super().__init__(f"{code.value}: {self.message}")
 
-    def to_dict(self) -> dict[str, Any]:
-        """Return the JSON-ready representation used by the CLI."""
+    def to_dict(self) -> dict[str, str]:
+        """Return the fixed JSON representation used by public interfaces."""
         return {"error_code": self.code.value, "message": self.message}
