@@ -260,10 +260,6 @@ def _project_table_shape(
     trailing_rows = max(pending.values(), default=0)
     final_rows = processed_rows + trailing_rows
     final_width = max(max_width, max(pending, default=-1) + 1)
-    if final_rows > limits.max_rows_per_table:
-        raise MhtmlGatewayError(ErrorCode.TOO_MANY_ROWS)
-    if total_cells_so_far + final_rows * final_width > limits.max_total_cells:
-        raise MhtmlGatewayError(ErrorCode.TOO_MANY_CELLS)
     return final_rows, final_width
 
 
