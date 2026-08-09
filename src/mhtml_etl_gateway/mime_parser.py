@@ -7,7 +7,6 @@ from email import policy
 from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
-from typing import cast
 
 from .errors import ErrorCode, MhtmlGatewayError
 from .models import Diagnostic, MhtmlDocument, ParseLimits
@@ -91,47 +90,47 @@ def _raw_content_type_parameter_names(message: Message) -> list[str]:
     return names
 
 
+def _normalize_content_id(value: str | None) -> str | None:
+    """Normalize an optional Content-ID by removing surrounding brackets."""
+    if value is None:
+        return None
+    normalized = value.strip().removeprefix("<").removesuffix(">").strip()
+    return normalized or None
+
+
 def _validate_mime_structure(
     message: Message,
     body_parts: list[Message],
 ) -> None:
-    """Reject parser defects and duplicate security-critical MIME metadata."""
-    # Inspect raw parameters before the structured parser can collapse a
-    # duplicate or malformed field into one selected value.
+    """Reject parser defects and ambiguous security-critical MIME metadata."""
     if message.get_content_type().lower() == "multipart/related":
         parameter_names = _raw_content_type_parameter_names(message)
         if any(
             parameter_names.count(name) > 1
             for name in _CRITICAL_RELATED_PARAMETERS
         ):
-            raise MhtmlGatewayError(
-                ErrorCode.INVALID_MIME,
-                "multipart/related contained a duplicate security-critical parameter",
-            )
+            raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
 
     for part in [message, *body_parts]:
         if part.defects:
-            raise MhtmlGatewayError(
-                ErrorCode.INVALID_MIME,
-                "MIME structure contained a parser defect",
-            )
+            raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
         for header_name in _CRITICAL_SINGLETON_HEADERS:
             header_values = part.get_all(header_name, [])
             if len(header_values) > 1:
-                raise MhtmlGatewayError(
-                    ErrorCode.INVALID_MIME,
-                    "MIME structure contained a duplicate security-critical header",
-                )
-            # Unknown transfer encodings are an intentional enterprise
-            # compatibility lane. Root-selection metadata still has to be
-            # syntactically unambiguous.
+                raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
             if header_name != "Content-Transfer-Encoding" and any(
                 getattr(value, "defects", ()) for value in header_values
             ):
-                raise MhtmlGatewayError(
-                    ErrorCode.INVALID_MIME,
-                    "MIME structure contained a defective security-critical header",
-                )
+                raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
+
+    seen_content_ids: set[str] = set()
+    for part in body_parts:
+        content_id = _normalize_content_id(part.get("Content-ID"))
+        if content_id is None:
+            continue
+        if content_id in seen_content_ids:
+            raise MhtmlGatewayError(ErrorCode.AMBIGUOUS_HTML_ROOT)
+        seen_content_ids.add(content_id)
 
 
 def _bounded_body_parts(
@@ -148,16 +147,10 @@ def _bounded_body_parts(
     while stack:
         part, depth = stack.pop()
         if depth > limits.max_mime_depth:
-            raise MhtmlGatewayError(
-                ErrorCode.MIME_NESTING_TOO_DEEP,
-                "MIME nesting exceeded the configured safety limit",
-            )
+            raise MhtmlGatewayError(ErrorCode.MIME_NESTING_TOO_DEEP)
         body_parts.append(part)
         if len(body_parts) > limits.max_mime_parts:
-            raise MhtmlGatewayError(
-                ErrorCode.TOO_MANY_MIME_PARTS,
-                f"MIME message exceeds body-part limit {limits.max_mime_parts}",
-            )
+            raise MhtmlGatewayError(ErrorCode.TOO_MANY_MIME_PARTS)
         child_payload = part.get_payload()
         if isinstance(child_payload, list):
             stack.extend(
@@ -167,12 +160,14 @@ def _bounded_body_parts(
     return body_parts
 
 
-def _normalize_content_id(value: str | None) -> str | None:
-    """Normalize an optional Content-ID by removing surrounding brackets."""
-    if value is None:
-        return None
-    normalized = value.strip().removeprefix("<").removesuffix(">").strip()
-    return normalized or None
+def _is_empty_related_container(message: Message) -> bool:
+    """Return whether a related container has no direct root body entity."""
+    if message.get_content_type().lower() != "multipart/related":
+        return False
+    payload = message.get_payload()
+    if isinstance(payload, list):
+        return not payload
+    return isinstance(payload, str) and not payload.strip()
 
 
 def _select_html_root(message: Message, parts: list[Message]) -> Message:
@@ -183,10 +178,7 @@ def _select_html_root(message: Message, parts: list[Message]) -> Message:
     ):
         return message
     if message.get_content_type().lower() != "multipart/related":
-        raise MhtmlGatewayError(
-            ErrorCode.INVALID_MIME,
-            "Top-level MIME type must be multipart/related or text/html",
-        )
+        raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
 
     start = _normalize_content_id(message.get_param("start"))
     if start is not None:
@@ -196,32 +188,24 @@ def _select_html_root(message: Message, parts: list[Message]) -> Message:
             if _normalize_content_id(part.get("Content-ID")) == start
         ]
         if not matches:
-            raise MhtmlGatewayError(
-                ErrorCode.MISSING_HTML_ROOT,
-                "Explicit multipart/related start identifier did not resolve to text/html",
-            )
+            raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
         if len(matches) > 1:
-            raise MhtmlGatewayError(
-                ErrorCode.AMBIGUOUS_HTML_ROOT,
-                "Explicit multipart/related start identifier matched multiple body parts",
-            )
+            raise MhtmlGatewayError(ErrorCode.AMBIGUOUS_HTML_ROOT)
         root = matches[0]
         if root.is_multipart() or root.get_content_type().lower() != "text/html":
-            raise MhtmlGatewayError(
-                ErrorCode.MISSING_HTML_ROOT,
-                "Explicit multipart/related start identifier did not resolve to text/html",
-            )
+            raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
         return root
 
-    # Defect-free multipart messages have a non-empty list payload. The MIME
-    # validation boundary above rejects malformed or empty multipart entities.
-    direct_payload = cast(list[Message], message.get_payload())
+    direct_payload = message.get_payload()
+    if (
+        not isinstance(direct_payload, list)
+        or not direct_payload
+        or not isinstance(direct_payload[0], Message)
+    ):
+        raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
     root = direct_payload[0]
     if root.is_multipart() or root.get_content_type().lower() != "text/html":
-        raise MhtmlGatewayError(
-            ErrorCode.MISSING_HTML_ROOT,
-            "The default multipart/related root was not text/html",
-        )
+        raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
     return root
 
 
@@ -241,10 +225,7 @@ def _related_type_diagnostics(
             ),
         )
     if str(declared_type).strip().lower() != root.get_content_type().lower():
-        raise MhtmlGatewayError(
-            ErrorCode.INVALID_MIME,
-            "multipart/related type parameter did not match the selected root content type",
-        )
+        raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
     return ()
 
 
@@ -253,10 +234,7 @@ def _raw_payload_bytes(part: Message) -> bytes:
     payload = part.get_payload(decode=True)
     if isinstance(payload, bytes):
         return payload
-    raise MhtmlGatewayError(
-        ErrorCode.HTML_DECODE_FAILED,
-        "The selected HTML part did not contain a byte payload",
-    )
+    raise MhtmlGatewayError(ErrorCode.HTML_DECODE_FAILED)
 
 
 def _select_charset(part: Message, payload: bytes) -> str:
@@ -266,10 +244,7 @@ def _select_charset(part: Message, payload: bytes) -> str:
         try:
             codecs.lookup(declared)
         except LookupError as exc:
-            raise MhtmlGatewayError(
-                ErrorCode.UNKNOWN_CHARSET,
-                "Declared HTML charset is unknown",
-            ) from exc
+            raise MhtmlGatewayError(ErrorCode.UNKNOWN_CHARSET) from exc
         return declared
     for prefix, encoding in _BOM_ENCODINGS:
         if payload.startswith(prefix):
@@ -277,17 +252,19 @@ def _select_charset(part: Message, payload: bytes) -> str:
     return "utf-8"
 
 
-def _decode_html(part: Message) -> tuple[str, tuple[Diagnostic, ...]]:
-    """Decode selected HTML strictly and record compatibility warnings."""
+def _decode_html(
+    part: Message,
+    limits: ParseLimits,
+) -> tuple[str, tuple[Diagnostic, ...]]:
+    """Decode selected HTML strictly and enforce its post-decode budget."""
     payload = _raw_payload_bytes(part)
     charset = _select_charset(part, payload)
     try:
         text = payload.decode(charset, errors="strict")
     except UnicodeDecodeError as exc:
-        raise MhtmlGatewayError(
-            ErrorCode.HTML_DECODE_FAILED,
-            "HTML payload did not match the declared or detected charset",
-        ) from exc
+        raise MhtmlGatewayError(ErrorCode.HTML_DECODE_FAILED) from exc
+    if len(text) > limits.max_html_chars:
+        raise MhtmlGatewayError(ErrorCode.HTML_TOO_LARGE)
 
     transfer_encoding = (
         part.get("Content-Transfer-Encoding") or ""
@@ -311,26 +288,22 @@ def parse_mhtml_bytes(
     """Parse untrusted bytes and return only the selected decoded HTML root."""
     effective_limits = limits or ParseLimits()
     if not isinstance(source_bytes, bytes):
-        raise MhtmlGatewayError(ErrorCode.INVALID_MIME, "Source must be bytes")
+        raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
     if len(source_bytes) > effective_limits.max_source_bytes:
-        raise MhtmlGatewayError(
-            ErrorCode.SOURCE_TOO_LARGE,
-            f"Source contains {len(source_bytes)} bytes; limit is {effective_limits.max_source_bytes}",
-        )
+        raise MhtmlGatewayError(ErrorCode.SOURCE_TOO_LARGE)
 
     try:
         message = BytesParser(policy=policy.default).parsebytes(source_bytes)
     except RecursionError as exc:
-        raise MhtmlGatewayError(
-            ErrorCode.MIME_NESTING_TOO_DEEP,
-            "MIME nesting exceeded parser safety limits",
-        ) from exc
+        raise MhtmlGatewayError(ErrorCode.MIME_NESTING_TOO_DEEP) from exc
 
+    if _is_empty_related_container(message):
+        raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
     body_parts = _bounded_body_parts(message, effective_limits)
     _validate_mime_structure(message, body_parts)
     root = _select_html_root(message, body_parts)
     related_diagnostics = _related_type_diagnostics(message, root)
-    html_text, decoding_diagnostics = _decode_html(root)
+    html_text, decoding_diagnostics = _decode_html(root, effective_limits)
     return MhtmlDocument(
         html_text=html_text,
         root_content_type=root.get_content_type().lower(),
@@ -350,8 +323,5 @@ def parse_mhtml_file(
     try:
         source_bytes = path.read_bytes()
     except OSError as exc:
-        raise MhtmlGatewayError(
-            ErrorCode.SOURCE_READ_FAILED,
-            "Could not read MHTML source",
-        ) from exc
+        raise MhtmlGatewayError(ErrorCode.SOURCE_READ_FAILED) from exc
     return parse_mhtml_bytes(source_bytes, limits=limits)
