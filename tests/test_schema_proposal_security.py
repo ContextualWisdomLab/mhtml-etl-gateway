@@ -81,6 +81,7 @@ class SchemaProposalSecurityTests(unittest.TestCase):
             10_000,
             Decimal("1" * 100),
             Decimal("1E+100"),
+            Decimal("1E+1000000000"),
         ):
             with self.subTest(kind=type(oversized).__name__), self.assertRaises(SchemaProposalError) as caught:
                 propose_postgresql_schema(
@@ -101,27 +102,51 @@ class SchemaProposalSecurityTests(unittest.TestCase):
     def test_invalid_sequence_headers_and_labels_fail_closed(self) -> None:
         """Mutable lists, foreign objects, blank headers, and long labels are rejected."""
         cases = (
-            lambda: propose_postgresql_schema("table", "not-columns"),  # type: ignore[arg-type]
-            lambda: propose_postgresql_schema(
-                "table",
-                [ColumnEvidence("x", (1,))],
-            ),  # type: ignore[arg-type]
-            lambda: propose_postgresql_schema("table", (object(),)),  # type: ignore[arg-type]
-            lambda: propose_postgresql_schema("table", (ColumnEvidence(" ", (1,)),)),
-            lambda: propose_postgresql_schema(
-                "x" * 5,
-                (ColumnEvidence("a", (1,)),),
-                policy=SchemaProposalPolicy(max_header_characters=4),
+            (
+                SchemaProposalErrorCode.INVALID_COLUMN,
+                lambda: propose_postgresql_schema("table", "not-columns"),  # type: ignore[arg-type]
             ),
-            lambda: propose_postgresql_schema(
-                "t",
-                (ColumnEvidence("x" * 5, (1,)),),
-                policy=SchemaProposalPolicy(max_header_characters=4),
+            (
+                SchemaProposalErrorCode.INVALID_COLUMN,
+                lambda: propose_postgresql_schema(
+                    "table",
+                    [ColumnEvidence("x", (1,))],  # type: ignore[arg-type]
+                ),
+            ),
+            (
+                SchemaProposalErrorCode.INVALID_COLUMN,
+                lambda: propose_postgresql_schema("table", (object(),)),  # type: ignore[arg-type]
+            ),
+            (
+                SchemaProposalErrorCode.INVALID_COLUMN,
+                lambda: propose_postgresql_schema(
+                    "table",
+                    (ColumnEvidence(" ", (1,)),),
+                ),
+            ),
+            (
+                SchemaProposalErrorCode.VALUE_TOO_LARGE,
+                lambda: propose_postgresql_schema(
+                    "x" * 5,
+                    (ColumnEvidence("a", (1,)),),
+                    policy=SchemaProposalPolicy(max_header_characters=4),
+                ),
+            ),
+            (
+                SchemaProposalErrorCode.VALUE_TOO_LARGE,
+                lambda: propose_postgresql_schema(
+                    "t",
+                    (ColumnEvidence("x" * 5, (1,)),),
+                    policy=SchemaProposalPolicy(max_header_characters=4),
+                ),
             ),
         )
-        for call in cases:
-            with self.subTest(call=call), self.assertRaises(SchemaProposalError):
+        for expected_code, call in cases:
+            with self.subTest(code=expected_code), self.assertRaises(
+                SchemaProposalError
+            ) as caught:
                 call()
+            self.assertEqual(caught.exception.code, expected_code)
 
 
 if __name__ == "__main__":
