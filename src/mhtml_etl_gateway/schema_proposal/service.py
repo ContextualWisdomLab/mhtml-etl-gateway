@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from .errors import SchemaProposalError, SchemaProposalErrorCode
 from .identity import bounded_header, canonical_value, is_blank, sha256_text, stable_digest
 from .inference import infer_type
@@ -87,7 +85,7 @@ def _column_proposal(
 
 def propose_postgresql_schema(
     table_label: str,
-    columns: Sequence[ColumnEvidence],
+    columns: tuple[ColumnEvidence, ...],
     *,
     policy: SchemaProposalPolicy | None = None,
 ) -> SchemaProposal:
