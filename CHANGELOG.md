@@ -27,11 +27,12 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ### Fixed
 
-- Default-root selection no longer skips a non-HTML first body part to choose a later HTML part.
-- Explicit `start` ambiguity is detected across every leaf media type rather than only HTML parts.
+- Default-root selection validates the first direct `multipart/related` body part and never substitutes a nested HTML leaf.
+- Explicit `start` duplicates are classified as ambiguous before media-type validation, independent of MIME part order.
 - Duplicate critical headers and duplicate `boundary`, `start`, or `type` parameters fail closed before structured parsing can collapse them.
 - Defective structured MIME headers that affect root selection fail closed.
-- Nested suppressed elements, span overlap, trailing rowspans, and later-column rowspan gaps are normalized deterministically.
+- Mismatched closing tags cannot escape an outer inert `script`, `style`, `noscript`, or `template` boundary.
+- Span overlap, trailing rowspans, and later-column rowspan gaps are normalized deterministically.
 - Public errors no longer echo source paths, Content-ID values, charsets, transfer encodings, or declared media types.
 - The autonomous scheduler no longer treats review or check latency as a blanket no-op when repository-owned fixes or bounded job reruns are feasible.
 
