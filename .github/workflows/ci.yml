@@ -42,7 +42,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install hash-locked quality dependency
-        run: python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: --require-hashes -r requirements-quality.txt
+        run: >-
+          python -m pip install --disable-pip-version-check --no-cache-dir
+          --only-binary=:all: --require-hashes -r requirements-quality.txt
       - name: Compile source and tests
         run: python -m compileall -q src tests scripts
       - name: Run exact line and branch coverage
