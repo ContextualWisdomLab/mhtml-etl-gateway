@@ -112,6 +112,16 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("coverage report --show-missing --fail-under=100", self.ci_text)
         self.assertIn('python-version: ["3.11", "3.12", "3.13", "3.14"]', self.ci_text)
 
+    def test_agent_branches_run_exact_head_ci_without_duplicate_work(self) -> None:
+        """Agent pushes materialize CI and share one SHA concurrency key with PR runs."""
+        self.assertIn("branches: [main, 'agent/**']", self.ci_text)
+        workflow_header = self.ci_text.split("permissions:", 1)[0]
+        self.assertIn(
+            "github.event.pull_request.head.sha || github.sha",
+            workflow_header,
+        )
+        self.assertNotIn("github.event.pull_request.number || github.ref", workflow_header)
+
 
 if __name__ == "__main__":
     unittest.main()
