@@ -76,6 +76,23 @@ class ParserSecurityRegressionTests(unittest.TestCase):
         self.assertEqual(table.headers, ("visibleafter",))
         self.assertNotIn("secret", table.headers[0])
 
+    def test_unrelated_elements_outside_tables_are_ignored(self) -> None:
+        """Ordinary document elements outside tables do not create structure."""
+        document = MhtmlDocument(
+            html_text=(
+                "<div>outside</div>"
+                "<table><tr><td>A</td></tr></table>"
+            ),
+            root_content_type="text/html",
+            root_content_location=None,
+            root_content_id=None,
+            diagnostics=(),
+        )
+
+        table = extract_tables(document)[0]
+
+        self.assertEqual(table.headers, ("A",))
+
 
 if __name__ == "__main__":
     unittest.main()
