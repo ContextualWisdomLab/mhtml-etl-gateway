@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, fields
 from datetime import date
 from enum import Enum
 import hashlib
 import json
 import re
-from collections.abc import Sequence
 from typing import Any
 import unicodedata
 
@@ -16,8 +16,8 @@ import unicodedata
 _MAX_POSTGRES_IDENTIFIER_BYTES = 63
 _SCHEMA_PROPOSAL_PREFIX = "schema_proposal_"
 _SOURCE_HASH = re.compile(r"^[0-9a-fA-F]{64}$")
-_INTEGER_VALUE = re.compile(r"^[+-]?(?:0|[1-9][0-9]*)$")
-_DECIMAL_VALUE = re.compile(r"^[+-]?(?:0|[1-9][0-9]*)\.[0-9]+$")
+_INTEGER_VALUE = re.compile(r"^[+-]?[0-9]+$")
+_DECIMAL_VALUE = re.compile(r"^[+-]?[0-9]+\.[0-9]+$")
 _ISO_DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _COMPACT_DATE = re.compile(r"^[0-9]{8}$")
 _CAMEL_ACRONYM = re.compile(r"([A-Z]+)([A-Z][a-z])")
@@ -164,12 +164,22 @@ class SchemaProposalErrorCode(str, Enum):
 
 
 _ERROR_MESSAGES = {
-    SchemaProposalErrorCode.INVALID_SOURCE_HASH: "Source hash must be a SHA-256 value",
+    SchemaProposalErrorCode.INVALID_SOURCE_HASH: (
+        "Source hash must be a SHA-256 value"
+    ),
     SchemaProposalErrorCode.INVALID_INPUT: "Schema proposal input is invalid",
-    SchemaProposalErrorCode.TOO_MANY_COLUMNS: "Schema proposal exceeds the column limit",
-    SchemaProposalErrorCode.HEADER_TOO_LARGE: "A protected header exceeds the configured limit",
-    SchemaProposalErrorCode.TOO_MANY_SAMPLES: "A protected column exceeds the sample limit",
-    SchemaProposalErrorCode.SAMPLE_VALUE_TOO_LARGE: "A protected sample value exceeds the configured limit",
+    SchemaProposalErrorCode.TOO_MANY_COLUMNS: (
+        "Schema proposal exceeds the column limit"
+    ),
+    SchemaProposalErrorCode.HEADER_TOO_LARGE: (
+        "A protected header exceeds the configured limit"
+    ),
+    SchemaProposalErrorCode.TOO_MANY_SAMPLES: (
+        "A protected column exceeds the sample limit"
+    ),
+    SchemaProposalErrorCode.SAMPLE_VALUE_TOO_LARGE: (
+        "A protected sample value exceeds the configured limit"
+    ),
 }
 
 
@@ -417,8 +427,7 @@ def _infer_type(
         reasons.append("date_semantics_missing")
         return PostgresType.TEXT, tuple(reasons), None, None
 
-    if all(value_match := _INTEGER_VALUE.fullmatch(value) for value in values):
-        del value_match
+    if all(_INTEGER_VALUE.fullmatch(value) for value in values):
         if leading_zero or identifier_semantics:
             reasons = []
             if identifier_semantics:
