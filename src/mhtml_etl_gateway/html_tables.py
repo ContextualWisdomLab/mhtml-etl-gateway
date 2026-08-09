@@ -9,15 +9,15 @@ import re
 from .errors import ErrorCode, MhtmlGatewayError
 from .models import Diagnostic, ExtractedTable, MhtmlDocument, ParseLimits, TableCell
 
-_SUPPRESSED_TAGS = {
+_SUPPRESSED_CONTAINER_TAGS = {
     "script",
     "style",
     "noscript",
     "template",
     "iframe",
     "object",
-    "embed",
 }
+_IGNORED_VOID_RESOURCE_TAGS = {"embed"}
 _BLOCK_BREAK_TAGS = {"div", "p", "li"}
 _WHITESPACE_RUN = re.compile(r"[\t\f\v ]+")
 _NEWLINE_PADDING = re.compile(r" *\n *")
@@ -84,11 +84,13 @@ class _TableParser(HTMLParser):
         """Update structural state for one opening HTML tag."""
         normalized = tag.lower()
         if self._suppression_stack:
-            if normalized in _SUPPRESSED_TAGS:
+            if normalized in _SUPPRESSED_CONTAINER_TAGS:
                 self._suppression_stack.append(normalized)
             return
-        if normalized in _SUPPRESSED_TAGS:
+        if normalized in _SUPPRESSED_CONTAINER_TAGS:
             self._suppression_stack.append(normalized)
+            return
+        if normalized in _IGNORED_VOID_RESOURCE_TAGS:
             return
         if normalized == "table":
             self._table_depth += 1
