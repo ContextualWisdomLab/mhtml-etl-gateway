@@ -18,7 +18,9 @@ REQUIRED_DOCUMENTS = (
     Path("docs/PRD.md"),
     Path("docs/TRD.md"),
     Path("docs/ARCHITECTURE.md"),
+    Path("docs/UML.md"),
     Path("docs/DATA_MODEL.md"),
+    Path("docs/ERD.md"),
     Path("docs/API_CONTRACT.md"),
     Path("docs/SECURITY.md"),
     Path("docs/THREAT_MODEL.md"),
@@ -28,6 +30,7 @@ REQUIRED_DOCUMENTS = (
     Path("docs/COMPLIANCE_CONTROL_MAP.md"),
     Path("docs/RESEARCH_TRACEABILITY.md"),
     Path("docs/VALIDATION_REPORT.md"),
+    Path("docs/adr/README.md"),
     Path("docs/doctoring/REFERENCES.md"),
 )
 
