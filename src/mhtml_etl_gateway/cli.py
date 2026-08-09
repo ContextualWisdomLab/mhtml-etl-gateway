@@ -6,15 +6,29 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from typing import NoReturn
 
-from .errors import MhtmlGatewayError
+from .errors import ErrorCode, MhtmlGatewayError
 from .inspection import inspect_mhtml_file
 from .models import ParseLimits
 
 
+class _ArgumentParserError(Exception):
+    """Internal signal used to route argparse failures through JSON output."""
+
+
+class _JsonArgumentParser(argparse.ArgumentParser):
+    """Argument parser that never writes source-derived usage failures itself."""
+
+    def error(self, message: str) -> NoReturn:
+        """Raise an internal signal instead of printing conventional usage text."""
+        del message
+        raise _ArgumentParserError
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """Create the public command-line argument parser."""
-    parser = argparse.ArgumentParser(prog="mhtml-etl-gateway")
+    parser = _JsonArgumentParser(prog="mhtml-etl-gateway")
     subparsers = parser.add_subparsers(dest="command", required=True)
     inspect_parser = subparsers.add_parser(
         "inspect",
@@ -23,11 +37,6 @@ def _build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument("source_path")
     inspect_parser.add_argument("--pretty", action="store_true")
     inspect_parser.add_argument(
-        "--include-header-values",
-        action="store_true",
-        help="include cell-derived header values in the local output",
-    )
-    inspect_parser.add_argument(
         "--max-source-bytes",
         type=int,
         default=ParseLimits().max_source_bytes,
@@ -35,25 +44,28 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _write_error(error: MhtmlGatewayError) -> int:
+    """Write one fixed JSON error object and return the conventional status."""
+    print(
+        json.dumps(error.to_dict(), ensure_ascii=False, sort_keys=True),
+        file=sys.stderr,
+    )
+    return 2
+
+
 def main(arguments: Sequence[str] | None = None) -> int:
     """Run the CLI and return a conventional process status code."""
     parser = _build_parser()
-    namespace = parser.parse_args(arguments)
     try:
+        namespace = parser.parse_args(arguments)
         limits = ParseLimits(max_source_bytes=namespace.max_source_bytes)
-        report = inspect_mhtml_file(
-            namespace.source_path,
-            limits=limits,
-            include_header_values=namespace.include_header_values,
-        )
-    except (MhtmlGatewayError, ValueError) as error:
-        payload = (
-            error.to_dict()
-            if isinstance(error, MhtmlGatewayError)
-            else {"error_code": "invalid_argument", "message": str(error)}
-        )
-        print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=sys.stderr)
-        return 2
+        report = inspect_mhtml_file(namespace.source_path, limits=limits)
+    except _ArgumentParserError:
+        return _write_error(MhtmlGatewayError(ErrorCode.INVALID_ARGUMENT))
+    except ValueError:
+        return _write_error(MhtmlGatewayError(ErrorCode.INVALID_ARGUMENT))
+    except MhtmlGatewayError as error:
+        return _write_error(error)
 
     indent = 2 if namespace.pretty else None
     print(
