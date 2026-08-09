@@ -23,6 +23,8 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Work-conserving scheduler contracts that continue from blocked PR actions to other PRs, shared blockers, and one proven-disjoint buyer-visible slice.
 - Zero-narration execution contracts that reject status-only termination after one patch, PR, failed remedy, queued check, review delay, or external approval dependency.
 - Scheduler continuation regression tests that require material progress, prohibit prompt-only completion, and enforce narrow full-queue stop conditions in both PR-maintenance and product-development modes.
+- Verified OpenCode runner contract tests covering immutable release selection, SHA-256 verification, archive shape, exact CLI version, credential-free installation, and direct execution in both agent modes.
+- ADR-0011 and update/rollback runbook evidence for the privileged OpenCode executable.
 
 ### Changed
 
@@ -46,6 +48,8 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - The CLI isolates argument-limit `ValueError` handling from inspection-layer domain failures.
 - Container-style embedded resources and the void `embed` element now use separate parser policies.
 - File-based parser and inspection entry points now share one chunked bounded reader and reuse the exact same `ParseLimits` instance for read and parse phases.
+- The scheduler installs OpenCode `1.18.15` from its immutable Linux x64 release URL, verifies the reviewed SHA-256 and exact version, and invokes `opencode github run` directly instead of using the upstream composite action.
+- OpenCode session privacy is expressed as `SHARE="false"` in both direct run steps and `share="disabled"` in repository configuration.
 
 ### Fixed
 
@@ -64,6 +68,8 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - A low-numbered PR with only an unchanged external approval or policy dependency can no longer starve later executable work for the entire invocation.
 - The repository-owned gate script no longer runs before secret isolation is installed.
 - The unprivileged agent identity no longer inherits the runner's default group.
+- The privileged agent runner no longer performs a latest-release lookup, uses mutable `actions/cache@v4`, or pipes a remote installer script into a shell before execution.
+- Continuation wording checks are whitespace- and capitalization-insensitive, preventing formatting-only prompt changes from failing exact-head CI.
 
 ### Security
 
@@ -79,3 +85,5 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Repository-controlled tests, builds, package managers, scripts, and gate code cannot inherit the NVIDIA model key, GitHub token, OIDC request token, or other provider credentials from the privileged OpenCode process.
 - `cwl-untrusted` receives group access only to `GITHUB_WORKSPACE` through `cwl-workspace`, not through the runner's default group.
 - Direct environment inspection, arbitrary shell, direct interpreter/package-manager execution, network-fetch commands, and mutating raw GitHub API calls are denied by the OpenCode permission policy.
+- The OpenCode archive is pinned to SHA-256 `d842e0e8c622c672a481b7dc6f0329009b64db96b2ba6041e56f4f93f0293b1c`, must contain exactly one binary, and must report version `1.18.15` before credentials are bound.
+- The verified OpenCode installation step receives no model, GitHub, or OIDC credentials and has no digest-free fallback or trusted cross-run cache.
