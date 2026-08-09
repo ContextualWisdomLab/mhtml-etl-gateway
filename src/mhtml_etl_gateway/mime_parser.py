@@ -189,8 +189,6 @@ def _select_html_root(message: Message, parts: list[Message]) -> Message:
         ]
         if not matches:
             raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
-        if len(matches) > 1:
-            raise MhtmlGatewayError(ErrorCode.AMBIGUOUS_HTML_ROOT)
         root = matches[0]
         if root.is_multipart() or root.get_content_type().lower() != "text/html":
             raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
