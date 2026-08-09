@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,49 +25,64 @@ def _workflow_source() -> str:
     return CI_WORKFLOW.read_text(encoding="utf-8")
 
 
-def test_quality_dependency_is_hash_locked_and_installed_fail_closed() -> None:
-    """Require the CI-only coverage tool to use an exact hash-checked lock."""
-    assert QUALITY_LOCK.is_file(), "requirements-quality.txt must be committed"
-    lock = QUALITY_LOCK.read_text(encoding="utf-8")
-    workflow = _workflow_source()
+class CiDependencyIntegrityTests(unittest.TestCase):
+    """Verify hash locking and exact-head execution in the active test runner."""
 
-    assert f"coverage=={COVERAGE_VERSION}" in lock
-    for digest in COVERAGE_HASHES:
-        assert f"--hash=sha256:{digest}" in lock
+    def test_quality_dependency_is_hash_locked_and_installed_fail_closed(self) -> None:
+        """Require the CI-only coverage tool to use an exact hash-checked lock."""
+        self.assertTrue(
+            QUALITY_LOCK.is_file(),
+            "requirements-quality.txt must be committed",
+        )
+        lock = QUALITY_LOCK.read_text(encoding="utf-8")
+        workflow = _workflow_source()
 
-    install_command = (
-        "python -m pip install --disable-pip-version-check --no-cache-dir "
-        "--only-binary=:all: --require-hashes -r requirements-quality.txt"
-    )
-    assert install_command in workflow
-    assert "pip install --disable-pip-version-check coverage==" not in workflow
+        self.assertIn(f"coverage=={COVERAGE_VERSION}", lock)
+        for digest in COVERAGE_HASHES:
+            self.assertIn(f"--hash=sha256:{digest}", lock)
+
+        install_command = (
+            "python -m pip install --disable-pip-version-check --no-cache-dir "
+            "--only-binary=:all: --require-hashes -r requirements-quality.txt"
+        )
+        self.assertIn(install_command, workflow)
+        self.assertNotIn(
+            "pip install --disable-pip-version-check coverage==",
+            workflow,
+        )
+
+    def test_pull_request_quality_checks_bind_to_the_exact_source_head(self) -> None:
+        """Reject GitHub's synthetic merge ref as repository test evidence."""
+        workflow = _workflow_source()
+        checkout = re.search(
+            r"(?ms)^      - name: Checkout\n"
+            r"        uses: actions/checkout@[0-9a-f]{40}.*?\n"
+            r"        with:\n"
+            r"(?P<inputs>(?:          .+\n)+?)"
+            r"      - name: ",
+            workflow,
+        )
+        self.assertIsNotNone(
+            checkout,
+            "the named Checkout step must remain structurally bounded",
+        )
+        checkout_inputs = checkout.group("inputs")  # type: ignore[union-attr]
+        self.assertIn("persist-credentials: false", checkout_inputs)
+        self.assertIn(
+            "ref: ${{ github.event_name == 'pull_request' && "
+            "github.event.pull_request.head.sha || github.sha }}",
+            checkout_inputs,
+        )
+
+        verification = (
+            "- name: Verify exact pull-request head\n"
+            "        if: github.event_name == 'pull_request'\n"
+            "        env:\n"
+            "          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n"
+            "        run: test \"$(git rev-parse HEAD)\" = \"$EXPECTED_HEAD_SHA\""
+        )
+        self.assertIn(verification, workflow)
 
 
-def test_pull_request_quality_checks_bind_to_the_exact_source_head() -> None:
-    """Reject GitHub's synthetic merge ref as repository test evidence."""
-    workflow = _workflow_source()
-    checkout = re.search(
-        r"(?ms)^      - name: Checkout\n"
-        r"        uses: actions/checkout@[0-9a-f]{40}.*?\n"
-        r"        with:\n"
-        r"(?P<inputs>(?:          .+\n)+?)"
-        r"      - name: ",
-        workflow,
-    )
-    assert checkout is not None, "the named Checkout step must remain structurally bounded"
-    checkout_inputs = checkout.group("inputs")
-    assert "persist-credentials: false" in checkout_inputs
-    assert (
-        "ref: ${{ github.event_name == 'pull_request' && "
-        "github.event.pull_request.head.sha || github.sha }}"
-        in checkout_inputs
-    )
-
-    verification = (
-        "- name: Verify exact pull-request head\n"
-        "        if: github.event_name == 'pull_request'\n"
-        "        env:\n"
-        "          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n"
-        "        run: test \"$(git rev-parse HEAD)\" = \"$EXPECTED_HEAD_SHA\""
-    )
-    assert verification in workflow
+if __name__ == "__main__":
+    unittest.main()
