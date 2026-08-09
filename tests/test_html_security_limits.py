@@ -40,10 +40,10 @@ class HtmlSecurityLimitTests(unittest.TestCase):
                 _extract(html_text, limits)
         self.assertEqual(caught.exception.code, ErrorCode.TOO_MANY_CELLS)
 
-    def test_embedded_resource_descendants_are_suppressed(self) -> None:
-        """Iframe, object, and embed descendants never enter extracted text."""
+    def test_embedded_resource_container_descendants_are_suppressed(self) -> None:
+        """Iframe and object descendants never enter extracted cell text."""
         limits = ParseLimits()
-        for tag_name in ("iframe", "object", "embed"):
+        for tag_name in ("iframe", "object"):
             with self.subTest(tag_name=tag_name):
                 opening = "<" + tag_name + ">"
                 closing = "</" + tag_name + ">"
@@ -56,6 +56,18 @@ class HtmlSecurityLimitTests(unittest.TestCase):
                 )
                 table = _extract(html_text, limits)[0]
                 self.assertEqual(table.headers, ("visibleafter",))
+
+    def test_void_embed_is_ignored_without_hiding_following_text(self) -> None:
+        """HTML's void embed element has no descendants and cannot hold text."""
+        limits = ParseLimits()
+        html_text = (
+            "<table><tr><td>visible"
+            "<embed src='data:application/octet-stream;base64,c2VjcmV0'>"
+            "after</td></tr></table>"
+        )
+        table = _extract(html_text, limits)[0]
+        self.assertEqual(table.headers, ("visibleafter",))
+        self.assertNotIn("c2VjcmV0", table.headers[0])
 
 
 if __name__ == "__main__":
