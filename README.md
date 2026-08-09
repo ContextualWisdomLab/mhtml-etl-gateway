@@ -5,14 +5,15 @@ MHTML ETL Gateway converts untrusted enterprise MHTML exports into governed Post
 ## Current capabilities
 
 - bounded `multipart/related` and standalone `text/html` parsing;
-- RFC 2387 `start` root selection, first-body default-root behavior, and root-type validation;
+- RFC 2387 `start` root selection, first-direct-body default-root behavior, and root-type validation;
 - fail-closed handling of MIME parser defects, duplicate critical headers, duplicate root-selection parameters, ambiguous `Content-ID` values, and malformed spans;
+- total MIME entity and MIME nesting-depth budgets, including stable conversion of standard-library recursion exhaustion to `mime_nesting_too_deep`;
 - an explicit `missing_related_type` compatibility diagnostic for enterprise exporters that omit the otherwise required RFC 2387 `type` parameter;
 - strict charset decoding with BOM support;
 - explicit diagnostics for nonstandard enterprise transfer encodings treated as identity bytes;
 - top-level HTML table extraction without a browser, JavaScript engine, CSS renderer, network client, XML parser, or office runtime;
 - deterministic `rowspan` and `colspan` expansion with document-wide resource budgets;
-- suppression of script, style, noscript, template, and embedded-resource payloads;
+- exact nested suppression of script, style, noscript, template, and embedded-resource payloads;
 - immutable SHA-256 source identity;
 - nonreflecting Content-Location metadata: only URI scheme and SHA-256 are exposed;
 - metadata-only JSON that excludes every cell-derived value by default, including header text;
@@ -39,9 +40,11 @@ python -m mhtml_etl_gateway inspect export.mhtml \
 
 Header values can contain customer names, internal field labels, or other sensitive business metadata. Opt-in output must therefore remain inside the same protected processing boundary as the source file.
 
+Programmatic callers can lower all parser budgets through `ParseLimits`, including `max_source_bytes`, `max_mime_parts`, `max_mime_depth`, table dimensions, total normalized cells, and cell text. Every budget must be a positive non-boolean integer. `max_mime_parts` counts all descendant body entities, including multipart containers, while direct children begin at MIME depth 1.
+
 ## Safety boundary
 
-MHTML is untrusted input. This project never follows `Content-Location`, `cid:`, image, stylesheet, form, iframe, or script references. Errors use stable codes and generic messages rather than echoing source paths, identifiers, charsets, transfer encodings, media types, or row values.
+MHTML is untrusted input. This project never follows `Content-Location`, `cid:`, image, stylesheet, form, iframe, or script references. Errors use stable codes and generic messages rather than echoing source paths, identifiers, charsets, transfer encodings, media types, boundary values, or row values.
 
 Customer MHTML files must never be committed. Tests use synthetic fixtures; protected real-file verification records only cryptographic identity and aggregate dimensions.
 
