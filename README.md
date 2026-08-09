@@ -20,7 +20,8 @@ MHTML ETL Gateway converts untrusted enterprise MHTML exports into governed Post
 - explicit local `--include-header-values` opt-in for protected schema-design workflows;
 - Python 3.11–3.14 support;
 - 100% production statement, branch, and public-docstring gates;
-- a private hourly OpenCode loop that first maintains one exact-head PR through RCA and feasible repository-owned repair, then develops one bounded product gap only when the PR queue is empty;
+- a private hourly OpenCode loop that performs exact-head RCA and feasible repository-owned repair across the open PR queue, without letting an unchanged external blocker starve later actionable PRs;
+- repository-controlled tests and build tools executed as an unprivileged Linux identity through a clean secret-stripped environment, while GitHub review and merge operations remain in the bounded control plane;
 - inherited organization-wide review, security, and merge governance from `ContextualWisdomLab/.github`.
 
 ## Install and inspect
@@ -47,6 +48,8 @@ Programmatic callers can lower all parser budgets through `ParseLimits`, includi
 MHTML is untrusted input. This project never follows `Content-Location`, `cid:`, image, stylesheet, form, iframe, or script references. Errors use stable codes and generic messages rather than echoing source paths, identifiers, charsets, transfer encodings, media types, boundary values, or row values.
 
 Customer MHTML files must never be committed. Tests use synthetic fixtures; protected real-file verification records only cryptographic identity and aggregate dimensions.
+
+The scheduled coding agent treats repository source, comments, issues, reviews, logs, and artifacts as untrusted data. Arbitrary shell execution is denied. Repository-controlled code must run through `cwl-safe-exec`, which removes model, GitHub, OIDC, and provider credentials and changes to an unprivileged user before executing tests, package managers, build tools, or repository scripts.
 
 ## Development verification
 
