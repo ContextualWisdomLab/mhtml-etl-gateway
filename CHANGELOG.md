@@ -22,6 +22,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Granular OpenCode command permissions that deny arbitrary shell execution and permit repository code execution only through `cwl-safe-exec`.
 - Work-conserving scheduler contracts that continue from blocked PR actions to other PRs, shared blockers, and one proven-disjoint buyer-visible slice.
 - Zero-narration execution contracts that reject status-only termination after one patch, PR, failed remedy, queued check, review delay, or external approval dependency.
+- Scheduler continuation regression tests that require material progress, prohibit prompt-only completion, and enforce narrow full-queue stop conditions in both PR-maintenance and product-development modes.
 
 ### Changed
 
@@ -35,6 +36,9 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - PR maintenance is work-conserving across the complete open queue: an externally blocked initial PR records one deduplicated boundary and yields to the next independently actionable item while branch mutation remains serialized.
 - Existing open PRs no longer form a blanket prohibition on one additional draft product PR when fresh evidence proves complete non-overlap and full verification.
 - A gate-clean PR waiting for central merge no longer idles the local loop.
+- The hourly recurrence is explicitly continuation rather than deferral; prompt edits, issue updates, commits, PR publication, and central merge handoff are intermediate events rather than stop conditions.
+- After the PR queue reaches zero or only external blockers remain, the same invocation continues through issues, documentation completeness, release readiness, buyer-visible gaps, and CWL ecosystem integration.
+- The autonomous loop may stop only after exhausting its finite execution budget or after a fresh full-queue scan proves every remaining item non-actionable under current authority.
 - The autonomous job has read-only code-scanning access so the security-evidence inspection required by its prompt is technically possible.
 - Pull-request source, comments, issue bodies, reviews, logs, and artifacts are explicitly treated as untrusted data rather than privileged instructions.
 - Repository quality CI runs on `agent/**` pushes and uses the exact head SHA as its concurrency key, so branch writes materialize current-head evidence without duplicating same-SHA pull-request work.
