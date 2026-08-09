@@ -11,7 +11,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Non-rendering top-level table extraction with deterministic span normalization.
 - Immutable SHA-256 source lineage and metadata-only inspection CLI.
 - Content-Location SHA-256 identity without raw location disclosure.
-- Synthetic SAP-style, hostile-input, CLI, workflow, privacy, MIME-cardinality, and documentation tests.
+- Synthetic SAP-style, hostile-input, CLI, workflow, privacy, MIME-cardinality, bounded-source-read, and documentation tests.
 - Repository PRD, TRD, architecture, UML/runtime, data-model, conceptual ERD, API, security, threat, test, operating, compliance, roadmap, indexed ADR, research-traceability, and APA 7th doctoring baselines.
 - Exact-head Python 3.11–3.14 quality workflow.
 - Default-branch-only hourly OpenCode autonomous loop using NVIDIA NIM, exact-head PR maintenance, and a durable `agent-task` lease for empty-queue product work.
@@ -41,6 +41,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - CI supply-chain contract checks use `unittest.TestCase`, ensuring the repository's actual discovery command executes them.
 - The CLI isolates argument-limit `ValueError` handling from inspection-layer domain failures.
 - Container-style embedded resources and the void `embed` element now use separate parser policies.
+- File-based parser and inspection entry points now share one chunked bounded reader and reuse the exact same `ParseLimits` instance for read and parse phases.
 
 ### Fixed
 
@@ -54,6 +55,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - A valid void `<embed>` no longer suppresses all following cell text while its payload and attributes remain ignored.
 - Span overlap, trailing rowspans, later-column rowspan gaps, and projected cell allocation are validated deterministically.
 - Public errors no longer echo source paths, Content-ID values, charsets, transfer encodings, or declared media types.
+- Oversized local files no longer need to be loaded completely before `max_source_bytes` can reject them; reads stop after at most one byte beyond the configured budget.
 - The autonomous scheduler no longer treats review or check latency as a blanket no-op when repository-owned fixes, bounded job reruns, or disjoint product work are feasible.
 - A low-numbered PR with only an unchanged external approval or policy dependency can no longer starve later executable work for the entire invocation.
 - The repository-owned gate script no longer runs before secret isolation is installed.
@@ -62,7 +64,8 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 ### Security
 
 - Active content, browser rendering, XML entity resolution, office execution, and external resource retrieval are structurally excluded.
-- Source bytes, MIME entity count, MIME nesting depth, HTML, table, row, column, cell, cell-text, and normalized-cell budgets fail closed.
+- Source bytes, MIME entity count, MIME nesting depth, HTML, table, row, column, raw-cell, cell-text, and normalized-cell budgets fail closed.
+- Local file reads are chunked and capped at `max_source_bytes + 1` before MIME parsing or source hashing.
 - Default reports and logs exclude data rows, header values, raw Content-Location, and embedded resource payloads.
 - Customer MHTML artifacts are prohibited from the public repository.
 - PII protection uses access, encryption, tenant, lifecycle, export, and audit controls instead of destructive default masking.
