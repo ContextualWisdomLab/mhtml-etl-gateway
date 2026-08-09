@@ -95,7 +95,10 @@ class ForkReadOnlySchedulerContractTests(unittest.TestCase):
         """GitHub access occurs before the model step and is confined to evidence files."""
         collection = _step_section(self.fork_job, "Collect read-only fork evidence")
         self.assertIn("GH_TOKEN: ${{ github.token }}", collection)
-        self.assertIn("gh pr view", collection)
+        self.assertIn(
+            'gh api "repos/${GITHUB_REPOSITORY}/pulls/${TARGET_PR_NUMBER}"',
+            collection,
+        )
         self.assertIn("gh pr diff", collection)
         self.assertIn(".agent/fork-evidence", collection)
         self.assertLess(
