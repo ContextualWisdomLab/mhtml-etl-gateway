@@ -110,7 +110,7 @@ jobs:
         run: |
           set -euo pipefail
           gate_output="$GITHUB_WORKSPACE/.agent/evidence/loop-output.txt"
-          : > "$gate_output"
+          install -m 0660 /dev/null "$gate_output"
           cwl-safe-exec python scripts/hourly_product_gap.py \
             --pull-requests-json "$GITHUB_WORKSPACE/.agent/evidence/open-pulls.json" \
             --issues-json "$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json" \
