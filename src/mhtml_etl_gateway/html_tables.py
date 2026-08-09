@@ -55,6 +55,7 @@ class _TableParser(HTMLParser):
         self._current_cell: _RawCell | None = None
         self._table_depth = 0
         self._suppression_stack: list[str] = []
+        self._raw_cell_count = 0
 
     @staticmethod
     def _span_value(
@@ -62,10 +63,12 @@ class _TableParser(HTMLParser):
         name: str,
     ) -> int:
         """Parse a positive rowspan or colspan attribute."""
-        raw = next(
-            (value for key, value in attributes if key.lower() == name),
-            None,
-        )
+        values = [
+            value for key, value in attributes if key.lower() == name
+        ]
+        if len(values) > 1:
+            raise MhtmlGatewayError(ErrorCode.INVALID_TABLE_SPAN)
+        raw = values[0] if values else None
         if raw is None:
             return 1
         try:
@@ -115,6 +118,9 @@ class _TableParser(HTMLParser):
             )
             return
         if normalized in {"td", "th"} and self._current_row is not None:
+            if self._raw_cell_count >= self.limits.max_total_cells:
+                raise MhtmlGatewayError(ErrorCode.TOO_MANY_CELLS)
+            self._raw_cell_count += 1
             self._current_cell = _RawCell(
                 is_header=normalized == "th",
                 rowspan=self._span_value(attrs, "rowspan"),
