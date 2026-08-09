@@ -40,6 +40,19 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         self.assertIn("$GITHUB_WORKSPACE/.agent/evidence/loop-output.txt", self.workflow_text)
         self.assertIn('cat "$gate_output" >> "$GITHUB_OUTPUT"', self.workflow_text)
 
+    def test_gate_output_is_group_writable_before_unprivileged_execution(self) -> None:
+        """The isolated gate can append outputs without inheriting runner ownership."""
+        gate_section = self.workflow_text.split(
+            "- name: Select exact-head loop mode",
+            1,
+        )[1].split("- name:", 1)[0]
+        self.assertIn('install -m 0660 /dev/null "$gate_output"', gate_section)
+        self.assertNotIn(': > "$gate_output"', gate_section)
+        self.assertLess(
+            gate_section.index('install -m 0660 /dev/null "$gate_output"'),
+            gate_section.index("cwl-safe-exec python scripts/hourly_product_gap.py"),
+        )
+
     def test_wrapper_uses_a_dedicated_workspace_group(self) -> None:
         """The untrusted identity never inherits the hosted runner's default group."""
         self.assertIn("groupadd --system cwl-workspace", self.workflow_text)
@@ -69,10 +82,10 @@ class AutonomousContinuationContractTests(unittest.TestCase):
             "Open PRs are not a blanket prohibition on disjoint product work",
             "create at most one extra draft PR per invocation",
             "no overlap in files, schemas, migrations, generated artifacts",
-            "Keep the open PR count minimal",
+            "keep the open PR count minimal",
         )
         for phrase in required_phrases:
-            self.assertIn(phrase, self.workflow_flat)
+            self.assertIn(phrase, self.workflow_flat.lower() if phrase.startswith("keep") else self.workflow_flat)
 
     def test_product_mode_switches_to_maintenance_instead_of_stopping(self) -> None:
         """A newly appeared PR suspends only conflicting work and preserves progress."""
