@@ -171,10 +171,28 @@ class SchemaProposalTests(unittest.TestCase):
             _SOURCE_HASH,
             (ProtectedColumnInput("itemCount", (str(2**63),), complete=True),),
         ).columns[0]
+        negative_within = propose_schema(
+            _SOURCE_HASH,
+            (ProtectedColumnInput("itemCount", (str(-(2**63)),), complete=True),),
+        ).columns[0]
+        negative_overflow = propose_schema(
+            _SOURCE_HASH,
+            (ProtectedColumnInput("itemCount", (str(-(2**63) - 1),), complete=True),),
+        ).columns[0]
         self.assertEqual(within.proposed_type, PostgresType.BIGINT)
         self.assertEqual(overflow.proposed_type, PostgresType.NUMERIC)
+        self.assertEqual(negative_within.proposed_type, PostgresType.BIGINT)
+        self.assertEqual(negative_overflow.proposed_type, PostgresType.NUMERIC)
         self.assertIn("bigint_range_exceeded", overflow.review_reasons)
         self.assertEqual(overflow.maximum_numeric_scale, 0)
+
+        very_large = propose_schema(
+            _SOURCE_HASH,
+            (ProtectedColumnInput("itemCount", ("9" * 5_000,), complete=True),),
+        ).columns[0]
+        self.assertEqual(very_large.proposed_type, PostgresType.NUMERIC)
+        self.assertIn("bigint_range_exceeded", very_large.review_reasons)
+        self.assertEqual(very_large.maximum_numeric_precision, 5_000)
 
     def test_boolean_vocabulary_is_exact_and_conservative(self) -> None:
         """Only true and false are automatic boolean evidence."""

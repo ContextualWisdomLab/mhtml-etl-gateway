@@ -138,8 +138,8 @@ _DATE_TOKENS = {
     "updated",
 }
 _BOOLEAN_VALUES = {"true", "false"}
-_SIGNED_BIGINT_MIN = -(2**63)
-_SIGNED_BIGINT_MAX = 2**63 - 1
+_SIGNED_BIGINT_MAX_TEXT = str(2**63 - 1)
+_SIGNED_BIGINT_MIN_ABS_TEXT = str(2**63)
 
 
 class PostgresType(str, Enum):
@@ -399,6 +399,17 @@ def _numeric_dimensions(value: str) -> tuple[int, int]:
     return len(integer_portion) + scale, scale
 
 
+def _fits_signed_bigint(value: str) -> bool:
+    """Check the signed 64-bit range without converting protected digits."""
+    unsigned = value.removeprefix("+").removeprefix("-")
+    limit = (
+        _SIGNED_BIGINT_MIN_ABS_TEXT
+        if value.startswith("-")
+        else _SIGNED_BIGINT_MAX_TEXT
+    )
+    return (len(unsigned), unsigned) <= (len(limit), limit)
+
+
 def _infer_type(
     target_name: str,
     values: tuple[str, ...],
@@ -436,12 +447,8 @@ def _infer_type(
             if leading_zero:
                 reasons.append("leading_zero_identifier")
             return PostgresType.TEXT, tuple(reasons), None, None
-        integers = tuple(int(value) for value in values)
         precision = max(_numeric_dimensions(value)[0] for value in values)
-        if all(
-            _SIGNED_BIGINT_MIN <= value <= _SIGNED_BIGINT_MAX
-            for value in integers
-        ):
+        if all(_fits_signed_bigint(value) for value in values):
             return PostgresType.BIGINT, (), precision, 0
         return (
             PostgresType.NUMERIC,

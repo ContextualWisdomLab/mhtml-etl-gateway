@@ -138,7 +138,9 @@ Date-shaped values without date semantics remain text with `date_semantics_missi
 
 - Any signed integral portion with meaningful leading zeroes remains text with `leading_zero_identifier`.
 - Headers with identifier semantics such as account, client, code, customer, document, GUID, ID, identifier, number, or subnumber remain text.
-- Lossless integers within signed 64-bit range may become `bigint`.
+- Lossless integers within signed 64-bit range may become `bigint`; range
+  checks compare protected digit strings without converting arbitrarily large
+  values into Python integers.
 - Larger integral values may become `numeric` with `bigint_range_exceeded`.
 - Exact fixed-point decimal strings without identifier evidence may become `numeric`.
 - Exponential notation, locale-formatted numbers, mixed values, and unsupported representations remain text.

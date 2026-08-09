@@ -76,7 +76,8 @@ The module is imported explicitly and is not exposed through the package-root co
    identifier conflict.
 5. Valid ISO or compact dates become `date` only with date semantics and no identifier conflict.
 6. Leading-zero numeric shapes remain `text`.
-7. Signed 64-bit integers become `bigint`.
+7. Signed 64-bit integers become `bigint` after bounded textual range
+   comparison; inference never parses an arbitrarily large protected integer.
 8. Larger integers become `numeric` with review evidence.
 9. Fixed-point decimal strings become `numeric` when no identifier conflict exists.
 10. Everything else remains `text` with an explicit reason.
