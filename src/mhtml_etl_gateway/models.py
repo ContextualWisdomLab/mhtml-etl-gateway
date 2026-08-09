@@ -12,6 +12,7 @@ class ParseLimits:
 
     max_source_bytes: int = 250 * 1024 * 1024
     max_mime_parts: int = 256
+    max_mime_depth: int = 64
     max_html_chars: int = 50_000_000
     max_tables: int = 128
     max_rows_per_table: int = 1_000_000
