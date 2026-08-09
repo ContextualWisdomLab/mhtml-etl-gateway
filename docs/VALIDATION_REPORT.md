@@ -108,7 +108,7 @@ Security tests additionally prove that:
 The deterministic repository validator confirms:
 
 - required document inventory: complete;
-- unresolved placeholder tokens: 0;
+- unresolved template-marker tokens: 0;
 - mutable GitHub Action references: 0;
 - both nested `.yml` and `.yaml` workflows are scanned;
 - a missing hourly scheduler returns a machine-readable validation failure rather than a stack trace;
