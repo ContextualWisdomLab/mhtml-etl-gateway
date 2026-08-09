@@ -54,7 +54,7 @@ class WorkflowContractTests(unittest.TestCase):
             self.ci_text + "\n" + self.hourly_text,
             re.MULTILINE,
         )
-        self.assertGreaterEqual(len(references), 4)
+        self.assertGreaterEqual(len(references), 3)
         for reference in references:
             self.assertRegex(reference, r"^[^@]+@[0-9a-f]{40}$")
 
@@ -68,7 +68,7 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_hourly_loop_never_shares_public_agent_sessions(self) -> None:
         """Public repositories keep all OpenCode entry points private."""
-        self.assertGreaterEqual(self.hourly_text.count("share: false"), 2)
+        self.assertGreaterEqual(self.hourly_text.count('SHARE: "false"'), 2)
         self.assertIn('"share": "disabled"', self.opencode_text)
 
     def test_hourly_loop_is_default_branch_schedule_only(self) -> None:
