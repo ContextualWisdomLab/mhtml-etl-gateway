@@ -46,12 +46,18 @@ class _TableParser(HTMLParser):
         self._current_row: list[_RawCell] | None = None
         self._current_cell: _RawCell | None = None
         self._table_depth = 0
-        self._suppression_depth = 0
+        self._suppression_stack: list[str] = []
 
     @staticmethod
-    def _span_value(attributes: list[tuple[str, str | None]], name: str) -> int:
+    def _span_value(
+        attributes: list[tuple[str, str | None]],
+        name: str,
+    ) -> int:
         """Parse a positive rowspan or colspan attribute."""
-        raw = next((value for key, value in attributes if key.lower() == name), None)
+        raw = next(
+            (value for key, value in attributes if key.lower() == name),
+            None,
+        )
         if raw is None:
             return 1
         try:
@@ -68,15 +74,19 @@ class _TableParser(HTMLParser):
             )
         return value
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
         """Update structural state for one opening HTML tag."""
         normalized = tag.lower()
-        if self._suppression_depth:
+        if self._suppression_stack:
             if normalized in _SUPPRESSED_TAGS:
-                self._suppression_depth += 1
+                self._suppression_stack.append(normalized)
             return
         if normalized in _SUPPRESSED_TAGS:
-            self._suppression_depth = 1
+            self._suppression_stack.append(normalized)
             return
         if normalized == "table":
             self._table_depth += 1
@@ -93,16 +103,21 @@ class _TableParser(HTMLParser):
             self._current_table = _RawTable()
             self.tables.append(self._current_table)
             return
-        if self._table_depth != 1 or self._suppression_depth:
+        if self._table_depth != 1 or self._suppression_stack:
             return
         if normalized == "tr":
-            if len(self._current_table.rows) >= self.limits.max_rows_per_table:  # type: ignore[union-attr]
+            if (
+                len(self._current_table.rows)
+                >= self.limits.max_rows_per_table
+            ):  # type: ignore[union-attr]
                 raise MhtmlGatewayError(
                     ErrorCode.TOO_MANY_ROWS,
                     f"Table exceeds row limit {self.limits.max_rows_per_table}",
                 )
             self._current_row = []
-            self._current_table.rows.append(self._current_row)  # type: ignore[union-attr]
+            self._current_table.rows.append(  # type: ignore[union-attr]
+                self._current_row
+            )
             return
         if normalized in {"td", "th"} and self._current_row is not None:
             self._current_cell = _RawCell(
@@ -118,18 +133,27 @@ class _TableParser(HTMLParser):
             elif normalized in _BLOCK_BREAK_TAGS:
                 self._append_fragment(" ")
 
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+    def handle_startendtag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
         """Process self-closing tags without reading resource attributes."""
+        del attrs
         normalized = tag.lower()
-        if normalized == "br" and self._current_cell is not None and not self._suppression_depth:
+        if (
+            normalized == "br"
+            and self._current_cell is not None
+            and not self._suppression_stack
+        ):
             self._append_fragment("\n")
 
     def handle_endtag(self, tag: str) -> None:
         """Update structural state for one closing HTML tag."""
         normalized = tag.lower()
-        if self._suppression_depth:
-            if normalized in _SUPPRESSED_TAGS:
-                self._suppression_depth = max(0, self._suppression_depth - 1)
+        if self._suppression_stack:
+            if normalized == self._suppression_stack[-1]:
+                self._suppression_stack.pop()
             return
         if normalized == "table":
             self._table_depth = 0
@@ -137,25 +161,31 @@ class _TableParser(HTMLParser):
             self._current_row = None
             self._current_cell = None
             return
-        if self._table_depth != 1 or self._suppression_depth:
+        if self._table_depth != 1 or self._suppression_stack:
             return
         if normalized in {"td", "th"}:
             self._current_cell = None
         elif normalized == "tr":
             self._current_row = None
-        elif normalized in _BLOCK_BREAK_TAGS and self._current_cell is not None:
+        elif (
+            normalized in _BLOCK_BREAK_TAGS
+            and self._current_cell is not None
+        ):
             self._append_fragment(" ")
 
     def handle_data(self, data: str) -> None:
         """Collect visible character data only while inside a table cell."""
-        if self._current_cell is not None and not self._suppression_depth:
+        if self._current_cell is not None and not self._suppression_stack:
             self._append_fragment(data)
 
     def _append_fragment(self, fragment: str) -> None:
         """Append bounded text to the active source cell."""
         current_cell = self._current_cell
         current_cell.character_count += len(fragment)  # type: ignore[union-attr]
-        if current_cell.character_count > self.limits.max_cell_text_chars:  # type: ignore[union-attr]
+        if (
+            current_cell.character_count  # type: ignore[union-attr]
+            > self.limits.max_cell_text_chars
+        ):
             raise MhtmlGatewayError(
                 ErrorCode.CELL_TEXT_TOO_LARGE,
                 f"Cell text exceeds limit {self.limits.max_cell_text_chars}",
@@ -182,7 +212,7 @@ def _expand_table(
     limits: ParseLimits,
     total_cells_so_far: int,
 ) -> tuple[ExtractedTable, int]:
-    """Expand spans, pad rows, infer headers, and return new total cell usage."""
+    """Expand spans, pad rows, infer headers, and return total cell usage."""
     normalized_rows: list[list[TableCell]] = []
     pending: dict[int, tuple[int, TableCell]] = {}
     max_width = 0
@@ -205,8 +235,14 @@ def _expand_table(
         fill_pending_until_free()
         for raw_cell in source_row:
             fill_pending_until_free()
-            cell = TableCell(_normalize_text(raw_cell.fragments), raw_cell.is_header)
-            if len(normalized_rows) + raw_cell.rowspan > limits.max_rows_per_table:
+            cell = TableCell(
+                _normalize_text(raw_cell.fragments),
+                raw_cell.is_header,
+            )
+            if (
+                len(normalized_rows) + raw_cell.rowspan
+                > limits.max_rows_per_table
+            ):
                 raise MhtmlGatewayError(
                     ErrorCode.TOO_MANY_ROWS,
                     f"Rowspan expansion exceeds row limit {limits.max_rows_per_table}",
@@ -259,7 +295,9 @@ def _expand_table(
         normalized_rows.append(row)
 
     for row in normalized_rows:
-        row.extend(TableCell("", False) for _ in range(max_width - len(row)))
+        row.extend(
+            TableCell("", False) for _ in range(max_width - len(row))
+        )
 
     normalized_cell_count = len(normalized_rows) * max_width
     new_total = total_cells_so_far + normalized_cell_count
@@ -302,7 +340,7 @@ def extract_tables(
     *,
     limits: ParseLimits | None = None,
 ) -> tuple[ExtractedTable, ...]:
-    """Extract bounded top-level tables from decoded HTML without rendering it."""
+    """Extract bounded top-level tables from decoded HTML without rendering."""
     effective_limits = limits or ParseLimits()
     if len(document.html_text) > effective_limits.max_html_chars:
         raise MhtmlGatewayError(
