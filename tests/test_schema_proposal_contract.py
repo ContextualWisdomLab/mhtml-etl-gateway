@@ -68,7 +68,7 @@ class SchemaProposalContractTests(unittest.TestCase):
         """Names remain deterministic under aliases, collisions, Unicode, and limits."""
         policy = SchemaProposalPolicy(max_identifier_bytes=24)
         proposal = propose_postgresql_schema(
-            "Table",
+            "2024 Report",
             (
                 ColumnEvidence("metricValue", ("1",)),
                 ColumnEvidence("metric value", ("2",)),
@@ -76,21 +76,34 @@ class SchemaProposalContractTests(unittest.TestCase):
                 ColumnEvidence("제목", ("y",)),
                 ColumnEvidence("A" * 100, ("z",)),
                 ColumnEvidence("!!!", ("fallback",)),
+                ColumnEvidence("1st field", ("numeric-leading",)),
             ),
             policy=policy,
         )
         names = [item.target_column_name for item in proposal.columns]
-        self.assertEqual(proposal.target_table_name, "table_record")
+        self.assertEqual(proposal.target_table_name, "source_2024_report")
         self.assertEqual(len(names), len(set(names)))
         self.assertEqual(names[0], "metric_value")
         self.assertRegex(names[1], r"^metric_value_[0-9a-f]{10}$")
         self.assertEqual(names[2], "select_column")
         self.assertEqual(names[3], "제목_column")
         self.assertEqual(names[5], "source_column")
+        self.assertEqual(names[6], "source_1st_field")
         for name in names:
             self.assertIn("_", name)
             self.assertLessEqual(len(name.encode("utf-8")), 24)
-            self.assertRegex(name, r"^\w+(?:_\w+)+$")
+            self.assertRegex(name, r"^[^\W\d]\w*(?:_\w+)+$", re.UNICODE)
+
+    def test_semantic_token_order_is_explicit_and_membership_remains_set_based(self) -> None:
+        """Multi-token aliases remain stable across Python hash randomization."""
+        self.assertEqual(
+            naming.ordered_semantic_tokens("ClientHTTPCode"),
+            ("client", "http", "code"),
+        )
+        self.assertEqual(
+            naming.semantic_tokens("ClientHTTPCode"),
+            frozenset({"client", "http", "code"}),
+        )
 
     def test_duplicate_identical_headers_receive_stable_nonordinal_names(self) -> None:
         """Repeated identical headers resolve through content-derived suffixes."""
@@ -188,10 +201,11 @@ class SchemaProposalContractTests(unittest.TestCase):
     def test_module_performs_no_ddl_network_database_or_file_io(self) -> None:
         """Production source contains no persistence or transport capability."""
         package_root = Path(module.__file__).resolve().parent
-        text = "\n".join(
+        production = "\n".join(
             path.read_text(encoding="utf-8")
             for path in sorted(package_root.glob("*.py"))
         )
+        self.assertIn("def propose_postgresql_schema", production)
         prohibited = (
             "CREATE TABLE",
             "ALTER TABLE",
@@ -204,7 +218,6 @@ class SchemaProposalContractTests(unittest.TestCase):
             "open(",
             "Path(",
         )
-        production = text.split("__all__", 1)[0]
         for fragment in prohibited:
             self.assertNotIn(fragment, production)
 
