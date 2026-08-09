@@ -28,6 +28,7 @@ class OpenCodeRunnerSupplyChainTests(unittest.TestCase):
         """Load the hourly workflow once for structural assertions."""
         cls.workflow = _WORKFLOW.read_text(encoding="utf-8")
         cls.install_step = _step_section(cls.workflow, "Install verified OpenCode CLI")
+        cls.install_flat = " ".join(cls.install_step.split())
         cls.maintenance_step = _step_section(cls.workflow, "Run OpenCode PR maintenance")
         cls.product_step = _step_section(cls.workflow, "Run OpenCode product development")
 
@@ -52,11 +53,11 @@ class OpenCodeRunnerSupplyChainTests(unittest.TestCase):
             "v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz",
             self.install_step,
         )
-        self.assertIn("sha256sum --check --strict", self.install_step)
-        self.assertIn("tar --extract --gzip", self.install_step)
-        self.assertIn("--no-same-owner", self.install_step)
-        self.assertIn("--no-same-permissions", self.install_step)
-        self.assertIn('test "$actual_version" = "$OPENCODE_VERSION"', self.install_step)
+        self.assertIn("sha256sum --check --strict", self.install_flat)
+        self.assertIn("tar --extract --gzip", self.install_flat)
+        self.assertIn("--no-same-owner", self.install_flat)
+        self.assertIn("--no-same-permissions", self.install_flat)
+        self.assertIn('test "$actual_version" = "$OPENCODE_VERSION"', self.install_flat)
         self.assertLess(
             self.workflow.index("- name: Install verified OpenCode CLI"),
             self.workflow.index("- name: Run OpenCode PR maintenance"),
