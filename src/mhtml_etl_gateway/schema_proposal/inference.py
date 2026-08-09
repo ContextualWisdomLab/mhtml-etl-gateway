@@ -14,14 +14,15 @@ from .naming import (
     has_identifier_semantics,
 )
 
-_INTEGER_PATTERN = re.compile(r"^[+-]?\d+$")
+_INTEGER_PATTERN = re.compile(r"^[+-]?[0-9]+$")
 _NUMERIC_PATTERN = re.compile(
-    r"^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$"
+    r"^[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?$"
 )
+_LEADING_ZERO_PATTERN = re.compile(r"^[+-]?0[0-9]+$")
 
 
 def integer_text(rendered: str) -> int | None:
-    """Parse exact integer syntax without coercing decimals or whitespace."""
+    """Parse exact ASCII integer syntax without coercing Unicode digits."""
     stripped = rendered.strip()
     if not _INTEGER_PATTERN.fullmatch(stripped):
         return None
@@ -29,7 +30,7 @@ def integer_text(rendered: str) -> int | None:
 
 
 def numeric_decimal(kind: str, rendered: str) -> Decimal | None:
-    """Parse exact numeric evidence while retaining binary-float provenance."""
+    """Parse exact ASCII numeric evidence while retaining float provenance."""
     stripped = rendered.strip()
     if kind in {"integer", "decimal"}:
         return Decimal(stripped)
@@ -64,16 +65,15 @@ def parse_supported_date(
 def boolean_value(
     kind: str,
     rendered: str,
-    policy: SchemaProposalPolicy,
+    true_values: frozenset[str],
+    false_values: frozenset[str],
 ) -> bool | None:
-    """Return a boolean only for native bool or approved exact vocabulary."""
+    """Return a boolean only for native bool or prevalidated exact vocabulary."""
     if kind == "boolean":
         return rendered == "true"
     if kind != "string":
         return None
     candidate = unicodedata.normalize("NFKC", rendered).casefold().strip()
-    true_values = normalized_vocabulary(policy.boolean_true_values)
-    false_values = normalized_vocabulary(policy.boolean_false_values)
     if candidate in true_values:
         return True
     if candidate in false_values:
@@ -98,7 +98,8 @@ def infer_type(
         rendered.strip() for kind, rendered in nonblank if kind == "string"
     )
     leading_zero = any(
-        re.fullmatch(r"[+-]?0\d+", item) is not None for item in stripped_strings
+        _LEADING_ZERO_PATTERN.fullmatch(item) is not None
+        for item in stripped_strings
     )
 
     if identifier_semantics or leading_zero:
@@ -107,8 +108,11 @@ def infer_type(
             evidence.append("leading_zero_value")
         return "text", tuple(evidence), ()
 
+    true_values = normalized_vocabulary(policy.boolean_true_values)
+    false_values = normalized_vocabulary(policy.boolean_false_values)
     boolean_values = tuple(
-        boolean_value(kind, rendered, policy) for kind, rendered in nonblank
+        boolean_value(kind, rendered, true_values, false_values)
+        for kind, rendered in nonblank
     )
     if all(value is not None for value in boolean_values):
         if kinds == {"boolean"} or boolean_semantics:
