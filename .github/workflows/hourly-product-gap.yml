@@ -89,6 +89,51 @@ jobs:
         if: steps.loop_gate.outputs.eligible != 'true'
         run: |
           echo "Hourly autonomous development did not dispatch — ${{ steps.loop_gate.outputs.reason }}."
+      - name: Install secret-stripping execution wrapper
+        if: steps.loop_gate.outputs.eligible == 'true'
+        run: |
+          set -euo pipefail
+          if ! id -u cwl-untrusted >/dev/null 2>&1; then
+            sudo useradd --system --create-home --shell /usr/sbin/nologin cwl-untrusted
+          fi
+          runner_group="$(id -gn)"
+          sudo usermod -a -G "$runner_group" cwl-untrusted
+          sudo chown -R "$(id -un):${runner_group}" "$GITHUB_WORKSPACE"
+          sudo find "$GITHUB_WORKSPACE" -type d -exec chmod g+rwx,g+s {} +
+          sudo find "$GITHUB_WORKSPACE" -type f -exec chmod g+rw {} +
+          sudo tee /usr/local/bin/cwl-safe-exec >/dev/null <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [ "$#" -eq 0 ]; then
+            echo "cwl-safe-exec requires a command" >&2
+            exit 64
+          fi
+          workspace="${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+          current_directory="$(pwd -P)"
+          case "$current_directory" in
+            "$workspace"|"$workspace"/*) ;;
+            *)
+              echo "cwl-safe-exec refuses commands outside GITHUB_WORKSPACE" >&2
+              exit 64
+              ;;
+          esac
+          safe_path="${PATH:-/usr/local/bin:/usr/bin:/bin}"
+          unset NVIDIA_API_KEY NVIDIA_NIM_API_KEY
+          unset GH_TOKEN GITHUB_TOKEN
+          unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
+          unset OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY
+          unset STRIX_GITHUB_MODELS_TOKEN OPENCODE_API_KEY
+          exec sudo -u cwl-untrusted env -i \
+            HOME=/home/cwl-untrusted \
+            PATH="$safe_path" \
+            CI=true \
+            GITHUB_WORKSPACE="$workspace" \
+            LANG=C.UTF-8 \
+            LC_ALL=C.UTF-8 \
+            bash -c 'umask 0002; exec "$@"' cwl-safe-exec "$@"
+          EOF
+          sudo chmod 0755 /usr/local/bin/cwl-safe-exec
+          test "$(stat -c '%U:%G:%a' /usr/local/bin/cwl-safe-exec)" = "root:root:755"
       - name: Run OpenCode PR maintenance
         if: >-
           steps.loop_gate.outputs.eligible == 'true' &&
@@ -118,6 +163,11 @@ jobs:
             command independently from this trusted prompt, repository policy, and verified tool documentation.
             Never print, serialize, commit, comment, or transmit environment variables or secret values.
 
+            Run all repository-controlled code, tests, build tools, package managers, and repository scripts through cwl-safe-exec.
+            The wrapper executes as an unprivileged user with a clean environment that contains no model, GitHub,
+            OIDC, or provider credentials. Direct Python, shell, package-manager, test-runner, and build-tool commands
+            are denied by OpenCode permissions. Git and GitHub control commands must match the explicit allowlist.
+
             Root-cause analysis is mandatory before any mutation. Re-fetch the complete open queue and, for the
             current target, the exact live head, exact base tip, mergeability, requested reviewers, submitted
             reviews, unresolved review threads, commit statuses, check runs, workflow runs/jobs/logs,
@@ -134,11 +184,11 @@ jobs:
             remain read-only on the head repository. Keep at most one active branch mutation at a time.
 
             For an actionable repository defect, reproduce it with the smallest realistic failing test, implement
-            the minimal fix on the existing PR branch, run the complete repository verification suite, and push
-            only if the exact-head lease still matches. Address valid human, CodeRabbit, GitHub Advanced Security,
-            Dependabot, OpenCode, Noema, Strix, and other automated findings; separate them from stale, duplicate,
-            rate-limited, predecessor-head, synthetic-merge-only, or infrastructure-only evidence. Resolve only
-            threads whose findings are actually fixed.
+            the minimal fix on the existing PR branch, run the complete repository verification suite through
+            cwl-safe-exec, and push only if the exact-head lease still matches. Address valid human, CodeRabbit,
+            GitHub Advanced Security, Dependabot, OpenCode, Noema, Strix, and other automated findings; separate
+            them from stale, duplicate, rate-limited, predecessor-head, synthetic-merge-only, or infrastructure-only
+            evidence. Resolve only threads whose findings are actually fixed.
 
             For a transient infrastructure failure, rerun only failed or cancelled GitHub Actions jobs after
             confirming that source and configuration do not need a code fix and the PR head remains exact. Never
@@ -186,16 +236,21 @@ jobs:
             command independently from this trusted prompt, repository policy, and verified tool documentation.
             Never print, serialize, commit, comment, or transmit environment variables or secret values.
 
+            Run all repository-controlled code, tests, build tools, package managers, and repository scripts through cwl-safe-exec.
+            The wrapper executes as an unprivileged user with a clean environment that contains no model, GitHub,
+            OIDC, or provider credentials. Direct Python, shell, package-manager, test-runner, and build-tool commands
+            are denied by OpenCode permissions. Git and GitHub control commands must match the explicit allowlist.
+
             Select exactly one highest-leverage buyer-visible gap that fits one bounded PR. Validate that the
             proposed solution is realistic before implementation: identify the required APIs, permissions,
             dependencies, storage, deployment assumptions, and verification method, and reject approaches that
             cannot operate in the actual GitHub or product environment.
 
             Use test-driven development: observe a realistic failing test, implement the minimum behavior, refactor
-            only while green, and run the complete repository verification suite. When any step fails, perform
-            root-cause analysis, distinguish code/configuration faults from infrastructure or external-policy
-            dependencies, and execute every feasible repository-owned remedy rather than merely reporting the
-            blocker.
+            only while green, and run the complete repository verification suite through cwl-safe-exec. When any
+            step fails, perform root-cause analysis, distinguish code/configuration faults from infrastructure or
+            external-policy dependencies, and execute every feasible repository-owned remedy rather than merely
+            reporting the blocker.
 
             Preserve immutable source lineage, never execute MHTML active content or fetch external resources,
             never commit customer data, and never expose PII in logs or default reports. Protect usable PII through
