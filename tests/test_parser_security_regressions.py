@@ -29,10 +29,8 @@ class ParserSecurityRegressionTests(unittest.TestCase):
             b"<html>later</html>\r\n"
             b"--outer--\r\n"
         )
-
         with self.assertRaises(MhtmlGatewayError) as caught:
             parse_mhtml_bytes(source)
-
         self.assertEqual(caught.exception.code, ErrorCode.MISSING_HTML_ROOT)
 
     def test_start_duplicate_is_ambiguous_before_media_type_validation(self) -> None:
@@ -51,10 +49,8 @@ class ParserSecurityRegressionTests(unittest.TestCase):
             b"<html>root</html>\r\n"
             b"--abc--\r\n"
         )
-
         with self.assertRaises(MhtmlGatewayError) as caught:
             parse_mhtml_bytes(source)
-
         self.assertEqual(caught.exception.code, ErrorCode.AMBIGUOUS_HTML_ROOT)
 
     def test_mismatched_suppressed_end_tag_cannot_escape_outer_boundary(self) -> None:
@@ -70,9 +66,7 @@ class ParserSecurityRegressionTests(unittest.TestCase):
             root_content_id=None,
             diagnostics=(),
         )
-
         table = extract_tables(document)[0]
-
         self.assertEqual(table.headers, ("visibleafter",))
         self.assertNotIn("secret", table.headers[0])
 
@@ -88,10 +82,46 @@ class ParserSecurityRegressionTests(unittest.TestCase):
             root_content_id=None,
             diagnostics=(),
         )
-
         table = extract_tables(document)[0]
-
         self.assertEqual(table.headers, ("A",))
+
+    @staticmethod
+    def _nested_related_source(depth: int) -> bytes:
+        """Build a deeply nested MIME entity with one HTML leaf."""
+        chunks: list[str] = []
+        for index in range(depth):
+            boundary = f"nested_{index}"
+            chunks.append(
+                "MIME-Version: 1.0\r\n"
+                f'Content-Type: multipart/related; boundary={boundary}; type="text/html"\r\n\r\n'
+                f"--{boundary}\r\n"
+            )
+        chunks.append(
+            "Content-Type: text/html; charset=utf-8\r\n\r\n"
+            "<html>root</html>\r\n"
+        )
+        for index in reversed(range(depth)):
+            chunks.append(f"--nested_{index}--\r\n")
+        return "".join(chunks).encode("ascii")
+
+    def test_mime_depth_budget_rejects_nested_entities(self) -> None:
+        """Nested multipart entities consume an explicit depth budget."""
+        from mhtml_etl_gateway.models import ParseLimits
+
+        with self.assertRaises(MhtmlGatewayError) as caught:
+            parse_mhtml_bytes(
+                self._nested_related_source(4),
+                limits=ParseLimits(max_mime_depth=2),
+            )
+
+        self.assertEqual(caught.exception.code, ErrorCode.MIME_NESTING_TOO_DEEP)
+
+    def test_extreme_mime_nesting_never_escapes_as_recursion_error(self) -> None:
+        """Parser recursion exhaustion is converted to a stable fail-closed error."""
+        with self.assertRaises(MhtmlGatewayError) as caught:
+            parse_mhtml_bytes(self._nested_related_source(2_000))
+
+        self.assertEqual(caught.exception.code, ErrorCode.MIME_NESTING_TOO_DEEP)
 
 
 if __name__ == "__main__":
