@@ -110,6 +110,29 @@ class WorkflowContractTests(unittest.TestCase):
         for phrase in required_phrases:
             self.assertGreaterEqual(self.hourly_text.count(phrase), 2)
 
+    def test_repository_code_runs_under_a_secret_stripped_unprivileged_identity(self) -> None:
+        """Tests and build tools cannot inherit the model or GitHub control credentials."""
+        required_workflow_fragments = (
+            "Install secret-stripping execution wrapper",
+            "useradd --system --create-home --shell /usr/sbin/nologin cwl-untrusted",
+            "/usr/local/bin/cwl-safe-exec",
+            "unset NVIDIA_API_KEY NVIDIA_NIM_API_KEY",
+            "unset GH_TOKEN GITHUB_TOKEN",
+            "unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL",
+            "exec sudo -u cwl-untrusted env -i",
+            "Run all repository-controlled code, tests, build tools, package managers, and repository scripts through cwl-safe-exec",
+        )
+        for fragment in required_workflow_fragments:
+            self.assertIn(fragment, self.hourly_text)
+        self.assertGreaterEqual(self.hourly_text.count("through cwl-safe-exec"), 2)
+
+        self.assertIn('"bash": {', self.opencode_text)
+        self.assertIn('"*": "deny"', self.opencode_text)
+        self.assertIn('"cwl-safe-exec *": "allow"', self.opencode_text)
+        self.assertNotIn('"bash": "allow"', self.opencode_text)
+        for command in ("env *", "printenv *", "curl *", "wget *", "python *", "bash *", "sh *"):
+            self.assertNotIn(f'"{command}": "allow"', self.opencode_text)
+
     def test_hourly_loop_uses_durable_agent_task_only_for_product_mode(self) -> None:
         """A follow-on product PR cannot be opened while PR maintenance owns the lease."""
         self.assertIn("Ensure one durable agent task", self.hourly_text)
