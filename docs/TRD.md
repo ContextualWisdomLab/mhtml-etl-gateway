@@ -2,7 +2,7 @@
 
 **Version:** 0.1
 **Status:** Accepted implementation baseline
-**Date:** 2026-08-07
+**Date:** 2026-08-09
 
 ## Runtime baseline
 
@@ -35,24 +35,27 @@ The MIME layer shall:
 
 - parse with the Python standard-library email parser under a deterministic policy;
 - enforce `max_source_bytes` before parsing;
+- convert standard-library recursion exhaustion into the stable `mime_nesting_too_deep` failure rather than exposing `RecursionError`;
+- traverse the parsed MIME tree iteratively after parsing;
+- enforce `max_mime_depth` on every nested body entity;
+- enforce `max_mime_parts` on all body entities, including multipart containers, rather than counting leaves only;
 - reject message-level or part-level parser defects;
 - reject duplicate `Content-Type`, `Content-ID`, `Content-Location`, and `Content-Transfer-Encoding` headers;
 - inspect raw top-level Content-Type parameters before structured parsing and reject repeated `boundary`, `start`, or `type` names;
 - parse raw parameter delimiters without splitting quoted strings or comments;
-- bound the number of leaf MIME parts;
 - never use Content-Location as retrieval authority.
 
-Unknown Content-Transfer-Encoding values form a narrow compatibility lane: payload bytes are treated as identity data and a generic diagnostic is emitted. This exception does not relax duplicate-header checks or root-selection metadata validation.
+Unknown Content-Transfer-Encoding values form a narrow compatibility lane: payload bytes are treated as identity data and a generic diagnostic is emitted. This exception does not relax duplicate-header checks, depth/count budgets, or root-selection metadata validation.
 
 ## RFC 2387 root requirements
 
 - Standalone non-multipart `text/html` is a valid root.
 - Other top-level media types fail.
-- When `start` is present, matching uses normalized Content-ID across all leaf parts.
+- When `start` is present, matching uses normalized Content-ID across all descendant body entities.
 - Zero matches fails with `missing_html_root`.
-- More than one match fails with `ambiguous_html_root`.
-- A unique non-HTML match fails.
-- When `start` is absent, the first body part is the root; a later HTML part must never be substituted.
+- More than one match fails with `ambiguous_html_root` before media-type validation, so part ordering cannot change the ambiguity result.
+- A unique multipart or non-HTML match fails.
+- When `start` is absent, the first direct body part is the root; neither a later HTML part nor a nested HTML leaf may be substituted.
 - A present `type` parameter must match the selected root media type.
 - A missing `type` is accepted only with `missing_related_type` diagnostic because observed enterprise exports omit it despite the normative RFC requirement.
 
@@ -71,6 +74,7 @@ The `HTMLParser`-based extractor shall:
 - collect only top-level tables;
 - reject nested tables until an explicit domain flattening policy exists;
 - treat `script`, `style`, `noscript`, and `template` as inert suppression regions;
+- preserve exact nested suppression boundaries so a mismatched closing tag cannot expose enclosed content;
 - ignore resource-bearing attributes and non-table structures;
 - normalize whitespace and block/line-break separators deterministically;
 - reject invalid non-positive span values;
@@ -109,5 +113,7 @@ The loader architecture shall use separate `raw_import`, `staging_data`, `normal
 - 100% public API docstrings;
 - compileall, repository-contract, wheel-build, and installed-wheel smoke checks;
 - full-SHA action pinning;
+- `unittest discover` must execute every repository-owned quality contract test;
+- agent-branch pushes must materialize exact-head quality evidence without duplicating a same-SHA PR run;
 - no customer-like `.mhtml` or `.mht` committed;
 - current-head central review, security, and merge policy.
