@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from scripts.hourly_product_gap import (
     GateDecision,
+    _output_value,
     evaluate_gate,
     load_records,
     main,
@@ -26,19 +27,20 @@ def pull_request(
     head_repository: str = _REPOSITORY,
     head_ref: str | None = None,
     base_ref: str = "main",
+    base_repository: str = _REPOSITORY,
 ) -> dict[str, object]:
     """Return realistic GitHub pull-request metadata for scheduler tests."""
     return {
         "number": number,
         "state": "open",
         "head": {
-            "sha": sha or f"{number:x}" * 40,
+            "sha": sha or f"{number:040x}",
             "ref": head_ref or f"agent/pr-{number}",
             "repo": {"full_name": head_repository},
         },
         "base": {
             "ref": base_ref,
-            "repo": {"full_name": _REPOSITORY},
+            "repo": {"full_name": base_repository},
         },
     }
 
@@ -50,7 +52,10 @@ class HourlyProductGapTests(unittest.TestCase):
         """GitHub CLI ``--slurp`` pages are flattened into individual records."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "records.json"
-            path.write_text(json.dumps([[{"number": 1}], [{"number": 2}]]), encoding="utf-8")
+            path.write_text(
+                json.dumps([[{"number": 1}], [{"number": 2}]]),
+                encoding="utf-8",
+            )
             self.assertEqual([item["number"] for item in load_records(path)], [1, 2])
 
     def test_load_records_rejects_non_array_json(self) -> None:
@@ -77,7 +82,7 @@ class HourlyProductGapTests(unittest.TestCase):
                 load_records(path)
 
     def test_gate_requires_repository_identity(self) -> None:
-        """The gate cannot infer same-repository write authority without repository identity."""
+        """The gate cannot infer same-repository write authority without identity."""
         self.assertEqual(
             evaluate_gate(
                 [],
@@ -89,7 +94,7 @@ class HourlyProductGapTests(unittest.TestCase):
         )
 
     def test_gate_requires_nvidia_key_before_any_agent_mode(self) -> None:
-        """Neither PR repair nor product work runs without the approved NIM credential."""
+        """Neither PR repair nor product work runs without the approved credential."""
         self.assertEqual(
             evaluate_gate(
                 [pull_request(4)],
@@ -124,8 +129,13 @@ class HourlyProductGapTests(unittest.TestCase):
             ),
         )
 
+    def test_factory_sha_remains_exactly_40_hex_characters(self) -> None:
+        """PR numbers above hexadecimal digit boundaries keep valid test heads."""
+        generated = pull_request(16)["head"]
+        self.assertEqual(len(generated["sha"]), 40)  # type: ignore[index]
+
     def test_gate_marks_fork_pr_read_only_instead_of_assuming_write_access(self) -> None:
-        """A fork PR can be diagnosed but cannot be treated as a writable branch lease."""
+        """A fork PR can be diagnosed but cannot be treated as a writable lease."""
         decision = evaluate_gate(
             [pull_request(5, head_repository="outside/fork")],
             [],
@@ -155,8 +165,47 @@ class HourlyProductGapTests(unittest.TestCase):
             ),
         )
 
+    def test_gate_rejects_untrusted_ref_syntax(self) -> None:
+        """Head and base refs cannot inject outputs or trusted prompt content."""
+        for pull in (
+            pull_request(4, head_ref="agent/good\neligible=true"),
+            pull_request(4, base_ref="main\rmode=develop_product_gap"),
+        ):
+            with self.subTest(pull=pull):
+                self.assertEqual(
+                    evaluate_gate(
+                        [pull],
+                        [],
+                        nvidia_key_configured=True,
+                        repository_full_name=_REPOSITORY,
+                    ),
+                    GateDecision(
+                        False,
+                        "blocked",
+                        "pull_request_metadata_invalid",
+                        open_pull_request_count=1,
+                    ),
+                )
+
+    def test_gate_rejects_pull_request_targeting_another_repository(self) -> None:
+        """A foreign base repository cannot become a local write target."""
+        self.assertEqual(
+            evaluate_gate(
+                [pull_request(4, base_repository="outside/other")],
+                [],
+                nvidia_key_configured=True,
+                repository_full_name=_REPOSITORY,
+            ),
+            GateDecision(
+                False,
+                "blocked",
+                "pull_request_metadata_invalid",
+                open_pull_request_count=1,
+            ),
+        )
+
     def test_pr_maintenance_is_not_blocked_by_stale_product_task_duplicates(self) -> None:
-        """Queue-hygiene issues are part of RCA and do not halt the selected PR repair run."""
+        """Queue-hygiene issues do not halt the selected PR repair run."""
         issues = [
             {"number": 7, "labels": [{"name": "agent-task"}]},
             {"number": 8, "labels": [{"name": "agent-task"}]},
@@ -188,8 +237,8 @@ class HourlyProductGapTests(unittest.TestCase):
             ),
         )
 
-    def test_gate_rejects_malformed_durable_task_number_when_pr_queue_is_empty(self) -> None:
-        """An agent-task issue without a positive integer number fails closed."""
+    def test_gate_rejects_malformed_durable_task_number_when_queue_is_empty(self) -> None:
+        """An agent task without a positive integer number fails closed."""
         issues = [{"number": "7", "labels": [{"name": "agent-task"}]}]
         self.assertEqual(
             evaluate_gate(
@@ -201,8 +250,8 @@ class HourlyProductGapTests(unittest.TestCase):
             GateDecision(False, "blocked", "agent_task_metadata_invalid"),
         )
 
-    def test_gate_stops_for_multiple_active_agent_tasks_when_pr_queue_is_empty(self) -> None:
-        """Ambiguous durable product work fails closed when there is no PR to maintain."""
+    def test_gate_stops_for_multiple_active_agent_tasks_when_queue_is_empty(self) -> None:
+        """Ambiguous durable product work fails closed when there is no PR."""
         issues = [
             {"number": 7, "labels": [{"name": "agent-task"}]},
             {"number": 8, "labels": [{"name": "agent-task"}]},
@@ -218,7 +267,7 @@ class HourlyProductGapTests(unittest.TestCase):
         )
 
     def test_gate_ignores_malformed_and_unrelated_labels(self) -> None:
-        """Malformed or unrelated issue labels cannot manufacture active product work."""
+        """Malformed or unrelated labels cannot manufacture active product work."""
         issues = [
             {"number": 7, "labels": "agent-task"},
             {"number": 8, "labels": ["agent-task", {"name": "documentation"}]},
@@ -234,7 +283,7 @@ class HourlyProductGapTests(unittest.TestCase):
         )
 
     def test_gate_ignores_pr_shaped_issue_records(self) -> None:
-        """The issues endpoint's PR records are not counted as durable product tasks."""
+        """The issues endpoint's PR records are not durable product tasks."""
         issues = [{"number": 7, "pull_request": {"url": "https://example.invalid"}}]
         self.assertEqual(
             evaluate_gate(
@@ -246,8 +295,14 @@ class HourlyProductGapTests(unittest.TestCase):
             GateDecision(True, "develop_product_gap", "create_agent_task"),
         )
 
-    def test_main_writes_product_development_outputs(self) -> None:
-        """The empty PR queue selects the bounded product-development mode."""
+    def test_output_value_rejects_multiline_injection(self) -> None:
+        """No scalar can add a second GitHub output assignment."""
+        for value in ("safe\neligible=true", "safe\rmode=blocked"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                _output_value(value)
+
+    def test_main_appends_product_development_outputs(self) -> None:
+        """The gate preserves earlier step outputs while adding its fields."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             pulls = root / "pulls.json"
@@ -255,10 +310,11 @@ class HourlyProductGapTests(unittest.TestCase):
             output = root / "github-output.txt"
             pulls.write_text("[]", encoding="utf-8")
             issues.write_text("[]", encoding="utf-8")
+            output.write_text("existing=value\n", encoding="utf-8")
             with patch.dict(
                 os.environ,
                 {
-                    "NVIDIA_NIM_API_KEY": "configured",
+                    "NVIDIA_NIM_API_KEY_CONFIGURED": "true",
                     "GITHUB_REPOSITORY": _REPOSITORY,
                 },
                 clear=False,
@@ -276,6 +332,7 @@ class HourlyProductGapTests(unittest.TestCase):
             self.assertEqual(return_code, 0)
             self.assertEqual(
                 output.read_text(encoding="utf-8"),
+                "existing=value\n"
                 "eligible=true\n"
                 "mode=develop_product_gap\n"
                 "reason=create_agent_task\n"
@@ -289,18 +346,22 @@ class HourlyProductGapTests(unittest.TestCase):
             )
 
     def test_main_writes_selected_pr_exact_head_outputs(self) -> None:
-        """The workflow receives a validated PR lease instead of parsing raw JSON itself."""
+        """The workflow receives a validated PR lease rather than raw JSON."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             pulls = root / "pulls.json"
             issues = root / "issues.json"
             output = root / "github-output.txt"
-            pulls.write_text(json.dumps([pull_request(2, sha="c" * 40)]), encoding="utf-8")
+            pulls.write_text(
+                json.dumps([pull_request(2, sha="c" * 40)]),
+                encoding="utf-8",
+            )
             issues.write_text("[]", encoding="utf-8")
+            output.touch()
             with patch.dict(
                 os.environ,
                 {
-                    "NVIDIA_NIM_API_KEY": "configured",
+                    "NVIDIA_NIM_API_KEY_CONFIGURED": "true",
                     "GITHUB_REPOSITORY": _REPOSITORY,
                 },
                 clear=False,
@@ -315,11 +376,12 @@ class HourlyProductGapTests(unittest.TestCase):
                         str(output),
                     ]
                 )
+            rendered = output.read_text(encoding="utf-8")
             self.assertEqual(return_code, 0)
-            self.assertIn("mode=maintain_pull_request\n", output.read_text(encoding="utf-8"))
-            self.assertIn("pull_request_number=2\n", output.read_text(encoding="utf-8"))
-            self.assertIn(f"pull_request_head_sha={'c' * 40}\n", output.read_text(encoding="utf-8"))
-            self.assertIn("pull_request_writable=true\n", output.read_text(encoding="utf-8"))
+            self.assertIn("mode=maintain_pull_request\n", rendered)
+            self.assertIn("pull_request_number=2\n", rendered)
+            self.assertIn(f"pull_request_head_sha={'c' * 40}\n", rendered)
+            self.assertIn("pull_request_writable=true\n", rendered)
 
 
 if __name__ == "__main__":
