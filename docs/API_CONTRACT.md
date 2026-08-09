@@ -1,5 +1,9 @@
 # API Contract
 
+## Current scope
+
+Version `0.1.0` exposes a deterministic, synchronous, local inspection API. It performs no database write, schema inference, network request, browser rendering, office execution, or external-resource retrieval.
+
 ## Python API
 
 ```python
@@ -13,15 +17,12 @@ inspect_mhtml_bytes(
     source_bytes: bytes,
     *,
     limits: ParseLimits | None = None,
-    include_header_values: bool = False,
 ) -> InspectionReport
 ```
 
-The function is deterministic for identical bytes, limits, package version, and Python-compatible parser behavior. It performs no network or database operation.
+The function is deterministic for identical bytes, limits, package version, and supported Python parser behavior. It returns structural metadata only. No cell-derived value, including header text, is present in the report.
 
 ### `ParseLimits`
-
-The immutable limits contract includes:
 
 ```python
 ParseLimits(
@@ -37,63 +38,81 @@ ParseLimits(
 )
 ```
 
-`max_mime_parts` counts every descendant MIME body entity, including multipart containers. `max_mime_depth` counts direct body parts at depth 1. Every value must be a positive non-boolean integer.
+`max_mime_parts` counts every descendant MIME body entity, including multipart containers. `max_mime_depth` counts direct body parts at depth 1. `max_total_cells` bounds both raw source-cell construction and normalized logical cells. Every value must be a positive non-boolean integer.
 
 ### `inspect_mhtml_file`
 
-Reads one local path once and delegates to the byte API. Source-read failures produce `source_read_failed` without echoing the path.
+```python
+inspect_mhtml_file(
+    source_path: str | pathlib.Path,
+    *,
+    limits: ParseLimits | None = None,
+) -> InspectionReport
+```
+
+The file wrapper reads one local path and delegates to the byte API. Source-read failures produce `source_read_failed` without reflecting the path.
 
 ## CLI
 
 ```text
 mhtml-etl-gateway inspect SOURCE_PATH [--pretty]
-                          [--include-header-values]
                           [--max-source-bytes INTEGER]
 ```
 
-Expected parser failures return status `2` and one JSON object on stderr.
+Successful inspection writes exactly one JSON object to stdout and returns status `0`. Expected argument, source, MIME, decoding, or table failures write exactly one fixed-message JSON object to stderr and return status `2`. Unexpected programming defects are not reclassified as argument errors.
 
-## Default report schema
+The public CLI has no header-value disclosure flag. Header access requires a future authenticated source-custody and schema-governance workflow; it is not an inspection-report feature.
+
+## Public report schema
 
 ```json
 {
   "source_hash_sha256": "64 lowercase hex characters",
   "source_size_bytes": 467343,
-  "root_content_type": "text/html",
-  "root_content_location_scheme": "file",
-  "root_content_location_hash_sha256": "64 lowercase hex characters",
+  "root_content_location_hash_sha256": "64 lowercase hex characters or null",
   "table_count": 1,
   "diagnostics": [
-    {"code": "missing_related_type", "message": "fixed generic text"}
+    {
+      "code": "missing_related_type",
+      "message": "fixed approved-safe text"
+    }
   ],
   "tables": [
     {
-      "table_index": 0,
       "row_count": 14,
       "data_row_count": 13,
       "column_count": 40,
       "header_row_index": 0,
       "header_source": "positional",
       "header_value_count": 40,
-      "header_values_included": false,
-      "headers": [],
       "diagnostics": [
-        {"code": "positional_header", "message": "fixed generic text"}
+        {
+          "code": "positional_header",
+          "message": "fixed approved-safe text"
+        }
       ]
     }
   ]
 }
 ```
 
-Values shown are structural examples. No source row or header value appears in the default representation.
+The array order preserves document table order. No sequential table identifier is exposed. `header_row_index` is a coordinate within one table rather than a persistent external identifier.
 
-## Protected header opt-in
+The report deliberately excludes:
 
-When `include_header_values=True` or `--include-header-values` is used, `headers` contains the selected header row and `header_values_included` is true when a header exists. This is not a public-log mode; the caller must apply source-equivalent authorization, encryption, retention, and export controls.
+- data-row and header values;
+- decoded HTML;
+- raw Content-ID and Content-Location;
+- Content-Location scheme;
+- source-controlled media type, charset, and transfer encoding;
+- resource payloads and active-content text;
+- local source path.
+
+The source SHA-256 is part of the lineage contract. Access and retention policy still apply because hashes permit equality correlation.
 
 ## Diagnostics
 
-Current document diagnostics include:
+Current nonfatal document diagnostics include:
 
 - `missing_related_type`;
 - `identity_transfer_encoding`.
@@ -102,22 +121,29 @@ Current table diagnostics include:
 
 - `positional_header`.
 
-Diagnostics are nonfatal and have fixed messages.
+Diagnostic messages are fixed and nonreflecting.
 
 ## Fatal error contract
 
-Fatal failures use `MhtmlGatewayError` and stable `ErrorCode` values. The current MIME resource errors include:
+Fatal failures use `MhtmlGatewayError` and stable `ErrorCode` values. Public serialization contains only:
 
-- `source_too_large`;
-- `too_many_mime_parts`;
-- `mime_nesting_too_deep`.
+```json
+{
+  "error_code": "stable_machine_code",
+  "message": "fixed approved-safe text"
+}
+```
 
-`mime_nesting_too_deep` covers both an explicit `max_mime_depth` violation after parsing and standard-library recursion exhaustion during MIME parsing. It never exposes a raw `RecursionError` through the public parser contract.
+Current codes cover invalid arguments, source read/size failures, invalid or ambiguous MIME, MIME entity/depth limits, missing roots, charset/decoding failures, decoded HTML limits, table/row/column/cell/text limits, nested tables, and invalid spans.
+
+`mime_nesting_too_deep` covers both an explicit `max_mime_depth` violation after parsing and standard-library recursion exhaustion during MIME parsing. Raw Python recursion exceptions do not escape the public parser contract.
 
 ## Compatibility policy
 
-New fields may be added in a backward-compatible minor release. Existing field meaning, diagnostic code, and error code changes require an ADR and versioned contract. Cell values will not be added to the inspection report; row transport belongs to a separate future extraction/load artifact.
+Backward-compatible fields may be added in a minor release only when they preserve the value-free and nonreflection boundary. Removing fields, changing field meaning, changing error/diagnostic semantics, or adding protected values requires a versioned contract and ADR.
+
+Cell values will not be added to `InspectionReport`. Future extraction and load artifacts will be separate authorized contracts with source custody, lineage, approval, and retention controls.
 
 ## Future service API
 
-A network service will be defined in OpenAPI 3.2.0 only after authentication, tenancy, idempotency, object-storage custody, asynchronous job, and export-authorization contracts are implemented. The current package exposes no unauthenticated upload endpoint.
+A network service will be defined in OpenAPI only after authentication, tenancy, idempotency, encrypted object-storage custody, asynchronous jobs, cancellation/retry, export authorization, and audit contracts are implemented and verified. The current package exposes no upload endpoint.
