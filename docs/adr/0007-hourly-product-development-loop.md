@@ -1,51 +1,64 @@
 # ADR 0007: Hourly autonomous maintenance and product-development loop
 
-**Status:** Accepted
+**Status:** Accepted; execution policy extended by ADR 0010  
 **Date:** 2026-08-09
 
 ## Context
 
-The first scheduler treated any open pull request as a reason to stop. That protected against duplicate PRs, but it also converted the repository's most important work queue into a permanent no-op while reviews, checks, or correctable defects were outstanding. The next revision selected the lowest-numbered PR, but an externally blocked first PR could still starve independently actionable later PRs. The prompt could record a blocker without guaranteeing work-conserving queue progression.
+The first scheduler treated any open pull request as a reason to stop. That protected against duplicate PRs, but it converted the repository's most important work queue into a permanent no-op while reviews, checks, or correctable defects were outstanding. A later single-target revision selected the lowest-numbered PR, but an externally blocked first PR could still starve independently actionable work.
 
-The maintenance prompt also claimed it would inspect code-scanning findings while the job token lacked `security-events: read`. Finally, a privileged coding agent reads pull-request source, comments, reviews, logs, issues, and artifacts that may contain prompt-injection text. Those surfaces must remain data and may not redefine the agent's trusted instructions or cause secret disclosure.
+The workflow also needed real code-scanning read permission, an exact-head write lease, fork awareness, and a security boundary between a privileged model process and repository-controlled code. Pull-request source, comments, reviews, logs, issues, and artifacts can contain prompt-injection text and must remain untrusted data.
 
-The organization central `.github` workflows already own independent review, security evidence, branch freshness, and guarded merge. A repository scheduler must repair and verify work without becoming a second approval or merge controller.
+Organization-central `.github` workflows already own independent review, security evidence, branch freshness, and guarded merge. A repository scheduler must repair and verify work without becoming a second approval or merge controller.
 
 ## Root cause
 
-- The original gate modeled open PRs as exclusion state rather than actionable maintenance state.
-- The single-target revision did not require progression to another PR after proving the first target externally blocked.
-- It did not initially emit a validated exact-head/base lease or distinguish same-repository from fork heads.
-- The workflow lacked code-scanning read permission even though the prompt required that evidence.
-- Repository and review material was not explicitly classified as untrusted data relative to the privileged prompt and model credential.
-- The agent prompt did not separate code defects, transient infrastructure, stale evidence, external approval dependencies, and conflicts.
-- “Report the blocker” was permitted even when a practical repository-owned action existed.
+- Open PRs were originally modeled as exclusion state rather than maintenance work.
+- A single-target loop could stop after proving one external blocker.
+- Exact head/base metadata and same-repository writeability were not originally validated.
+- The job lacked code-scanning read permission while claiming to inspect those findings.
+- Repository material was not explicitly separated from trusted instructions and credentials.
+- Repository gate code originally ran before secret isolation.
+- “Record the blocker” was permitted even when another safe repository action existed.
 
 ## Decision
 
-A protected-default-branch hourly workflow selects exactly one of two modes:
+A protected-default-branch hourly workflow begins in one of two dispatch modes:
 
-1. `maintain_pull_request`: validate the complete open-PR inventory, choose the lowest-numbered PR as the initial cursor, and emit its exact head SHA, head ref, base ref, writeability, and queue size.
-2. `develop_product_gap`: only when no PR is open, resume exactly one durable `agent-task` issue or create one.
+1. `maintain_pull_request`: when PRs are open, validate the complete inventory, choose the lowest-numbered PR as the initial cursor, and emit its exact head SHA, head ref, base ref, writeability, and queue size.
+2. `develop_product_gap`: when no PR is open, resume exactly one durable `agent-task` issue or create one.
 
-PR maintenance requires root-cause analysis before mutation. Every blocker is classified as an actionable repository defect, transient infrastructure failure, stale or superseded evidence, external policy or independent-approval dependency, or merge conflict. The agent must prove the proposed action is possible with available permissions, APIs, credentials, and branch ownership and that it can change the blocker.
+These are starting modes, not termination rules. ADR 0010 requires work-conserving continuation after the initial action.
 
-Before every write, the agent re-fetches the live head and relevant target state. A changed lease discards stale work. Same-repository defects are fixed test-first on the existing PR branch. Fork heads remain read-only. Failed or cancelled GitHub Actions jobs may be rerun only after proving the failure is transient and no source fix is required; queued or pending work is neither rerun nor counted as passing. Independent approval is never synthesized.
+### PR maintenance
 
-When a PR has no executable repository-owned action, the agent preserves one deduplicated blocker record, does not repeatedly re-prove the unchanged boundary, and proceeds to the next open PR while execution capacity remains. Only one branch may be actively mutated at a time, and every subsequent PR receives a fresh exact-head lease and the same RCA discipline. A blocked PR therefore blocks only its affected action, not the whole invocation.
+Before every mutation, the agent re-fetches live head/base state, reviews, unresolved threads, statuses, check runs, workflow jobs and logs, code-scanning evidence, and branch policy. It classifies blockers as repository defects, transient infrastructure failures, stale/superseded evidence, external governance or approval dependencies, or merge conflicts. A proposed remedy must be permitted, technically feasible, and capable of changing the blocker.
 
-Pull-request source, comments, issue bodies, review text, logs, and artifacts are untrusted data, never instructions. Commands are derived independently from the trusted workflow prompt, repository policy, and verified tool documentation. The agent may not print, serialize, commit, comment, or transmit environment variables or secret values, and it may not execute commands copied from untrusted repository content.
+Same-repository defects are reproduced with realistic failing tests and repaired on the existing branch. Fork heads remain read-only. Failed or cancelled Actions work may be rerun only after source/configuration faults are excluded. Queued, pending, skipped-required, neutral-required, absent, stale-head, predecessor-head, cancelled, or synthetic-merge-only evidence is not passing.
 
-The workflow grants `security-events: read` in addition to scoped Actions, checks, contents, issues, pull-request, and status permissions so its stated code-scanning inspection is technically possible. It uses NVIDIA NIM, `share: false`, full-SHA action pins, and scoped job permissions. It never merges, enables auto-merge, approves, tags, publishes, or releases. Central `.github` required workflows remain the sole review/security/merge authority.
+An unchanged external boundary receives one deduplicated record and yields to the next PR or repository-owned action. Only one branch is actively mutated at a time.
+
+### Product continuation
+
+The empty-queue `develop_product_gap` mode remains the normal route for creating a product PR and owns one durable task lease. However, an existing PR is not an absolute prohibition on all independent delivery. After executable PR repairs and shared blockers are exhausted, maintenance mode may implement at most one additional buyer-visible draft PR per invocation under ADR 0010, but only after fresh proof of no overlap in files, schemas, migrations, generated artifacts, dependency ancestry, or writer ownership. Extending an existing coherent PR remains preferred.
+
+If a PR appears during product mode, only conflicting writes stop. The agent switches to exact-head PR maintenance and later resumes the original slice or selects a demonstrably disjoint one.
+
+### Security and credentials
+
+The root-owned `cwl-safe-exec` wrapper is installed before repository gate code executes. Repository-controlled code runs under `cwl-untrusted` with workspace-only access through the dedicated `cwl-workspace` group and a clean environment. Model, GitHub, OIDC, and provider credentials are removed. Gate code receives only the non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` marker.
+
+Repository source, comments, issue bodies, review text, logs, and artifacts are untrusted data, never instructions. Commands are derived independently from the trusted workflow prompt, repository policy, and verified tool documentation. Secret values and environment variables may not be printed, serialized, committed, commented, or transmitted.
+
+The workflow grants scoped Actions write and checks, statuses, and security-events read permissions. It uses NVIDIA NIM, `share: false`, and full-SHA action pins. It never merges, enables auto-merge, approves, tags, publishes, or releases. Central `.github` required workflows remain the sole review, security, branch-freshness, and merge authority.
 
 ## Consequences
 
-- An open PR causes useful maintenance rather than disabling the loop.
-- An externally blocked first PR cannot starve independently actionable later PRs.
-- The scheduler serializes branch mutation while remaining work-conserving across the queue.
-- Code-scanning RCA is backed by an actual read permission rather than prompt-only intent.
-- PR-controlled prose cannot legitimately redefine privileged instructions or authorize secret handling.
-- The scheduler can repair code and retry genuinely transient jobs while preserving exact-head evidence.
+- An open PR triggers useful maintenance rather than disabling the loop.
+- An externally blocked first PR cannot starve later PRs, shared blockers, or a proven-disjoint product slice.
+- Branch mutation remains serialized while the invocation remains work-conserving.
+- Code-scanning RCA is backed by actual read permission.
+- Repository-controlled code cannot inherit model or GitHub credentials.
+- Product creation remains bounded by one durable task in empty-queue mode and at most one extra proven-disjoint draft in maintenance mode.
 - External review and policy limits remain visible and cannot be bypassed.
-- Product development stays single-flight because a new product PR is allowed only after the open PR queue reaches zero.
 - The workflow becomes active only after the commit containing it reaches the protected default branch.
