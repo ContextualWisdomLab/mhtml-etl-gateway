@@ -9,7 +9,15 @@ import re
 from .errors import ErrorCode, MhtmlGatewayError
 from .models import Diagnostic, ExtractedTable, MhtmlDocument, ParseLimits, TableCell
 
-_SUPPRESSED_TAGS = {"script", "style", "noscript", "template"}
+_SUPPRESSED_TAGS = {
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "iframe",
+    "object",
+    "embed",
+}
 _BLOCK_BREAK_TAGS = {"div", "p", "li"}
 _WHITESPACE_RUN = re.compile(r"[\t\f\v ]+")
 _NEWLINE_PADDING = re.compile(r" *\n *")
@@ -206,6 +214,95 @@ def _normalize_text(fragments: list[str]) -> str:
     return compact.strip(" \n")
 
 
+def _project_table_shape(
+    raw_table: _RawTable,
+    limits: ParseLimits,
+    total_cells_so_far: int,
+) -> tuple[int, int]:
+    """Validate span geometry and return final rows and width before allocation."""
+    pending: dict[int, int] = {}
+    processed_rows = 0
+    max_width = 0
+
+    def reject_oversized_projection() -> None:
+        trailing_rows = max(pending.values(), default=0)
+        projected_rows = processed_rows + trailing_rows
+        pending_width = max(pending, default=-1) + 1
+        projected_width = max(max_width, pending_width)
+        if (
+            total_cells_so_far + projected_rows * projected_width
+            > limits.max_total_cells
+        ):
+            raise MhtmlGatewayError(
+                ErrorCode.TOO_MANY_CELLS,
+                "Document exceeds the normalized cell safety limit",
+            )
+
+    for source_row in raw_table.rows:
+        column = 0
+
+        def consume_pending_until_free() -> None:
+            nonlocal column
+            while column in pending:
+                remaining = pending[column]
+                if remaining <= 1:
+                    del pending[column]
+                else:
+                    pending[column] = remaining - 1
+                column += 1
+
+        consume_pending_until_free()
+        for raw_cell in source_row:
+            consume_pending_until_free()
+            if processed_rows + raw_cell.rowspan > limits.max_rows_per_table:
+                raise MhtmlGatewayError(
+                    ErrorCode.TOO_MANY_ROWS,
+                    "Rowspan expansion exceeds the configured row limit",
+                )
+            for _ in range(raw_cell.colspan):
+                if column in pending:
+                    raise MhtmlGatewayError(
+                        ErrorCode.INVALID_TABLE_SPAN,
+                        "A colspan overlaps an active rowspan",
+                    )
+                if column >= limits.max_columns_per_table:
+                    raise MhtmlGatewayError(
+                        ErrorCode.TOO_MANY_COLUMNS,
+                        "Table exceeds the configured column limit",
+                    )
+                if raw_cell.rowspan > 1:
+                    pending[column] = raw_cell.rowspan - 1
+                column += 1
+            consume_pending_until_free()
+
+        while pending and column <= max(pending):
+            if column in pending:
+                remaining = pending[column]
+                if remaining <= 1:
+                    del pending[column]
+                else:
+                    pending[column] = remaining - 1
+            column += 1
+        processed_rows += 1
+        max_width = max(max_width, column)
+        reject_oversized_projection()
+
+    trailing_rows = max(pending.values(), default=0)
+    final_rows = processed_rows + trailing_rows
+    final_width = max(max_width, max(pending, default=-1) + 1)
+    if final_rows > limits.max_rows_per_table:
+        raise MhtmlGatewayError(
+            ErrorCode.TOO_MANY_ROWS,
+            "Rowspan expansion exceeds the configured row limit",
+        )
+    if total_cells_so_far + final_rows * final_width > limits.max_total_cells:
+        raise MhtmlGatewayError(
+            ErrorCode.TOO_MANY_CELLS,
+            "Document exceeds the normalized cell safety limit",
+        )
+    return final_rows, final_width
+
+
 def _expand_table(
     raw_table: _RawTable,
     table_index: int,
@@ -213,6 +310,11 @@ def _expand_table(
     total_cells_so_far: int,
 ) -> tuple[ExtractedTable, int]:
     """Expand spans, pad rows, infer headers, and return total cell usage."""
+    projected_rows, projected_width = _project_table_shape(
+        raw_table,
+        limits,
+        total_cells_so_far,
+    )
     normalized_rows: list[list[TableCell]] = []
     pending: dict[int, tuple[int, TableCell]] = {}
     max_width = 0
@@ -239,25 +341,7 @@ def _expand_table(
                 _normalize_text(raw_cell.fragments),
                 raw_cell.is_header,
             )
-            if (
-                len(normalized_rows) + raw_cell.rowspan
-                > limits.max_rows_per_table
-            ):
-                raise MhtmlGatewayError(
-                    ErrorCode.TOO_MANY_ROWS,
-                    f"Rowspan expansion exceeds row limit {limits.max_rows_per_table}",
-                )
             for _ in range(raw_cell.colspan):
-                if column in pending:
-                    raise MhtmlGatewayError(
-                        ErrorCode.INVALID_TABLE_SPAN,
-                        f"colspan overlaps an active rowspan at logical column {column}",
-                    )
-                if column >= limits.max_columns_per_table:
-                    raise MhtmlGatewayError(
-                        ErrorCode.TOO_MANY_COLUMNS,
-                        f"Table exceeds column limit {limits.max_columns_per_table}",
-                    )
                 row.append(cell)
                 if raw_cell.rowspan > 1:
                     pending[column] = (raw_cell.rowspan - 1, cell)
@@ -300,12 +384,12 @@ def _expand_table(
         )
 
     normalized_cell_count = len(normalized_rows) * max_width
+    if (
+        len(normalized_rows) != projected_rows
+        or max_width != projected_width
+    ):
+        raise RuntimeError("table shape preflight diverged from expansion")
     new_total = total_cells_so_far + normalized_cell_count
-    if new_total > limits.max_total_cells:
-        raise MhtmlGatewayError(
-            ErrorCode.TOO_MANY_CELLS,
-            f"Document exceeds normalized cell limit {limits.max_total_cells}",
-        )
 
     header_index = next(
         (
@@ -345,7 +429,7 @@ def extract_tables(
     if len(document.html_text) > effective_limits.max_html_chars:
         raise MhtmlGatewayError(
             ErrorCode.HTML_TOO_LARGE,
-            f"Decoded HTML contains {len(document.html_text)} characters; limit is {effective_limits.max_html_chars}",
+            "Decoded HTML exceeds the configured safety limit",
         )
     parser = _TableParser(effective_limits)
     parser.feed(document.html_text)
