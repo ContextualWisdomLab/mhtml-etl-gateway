@@ -50,15 +50,21 @@ def discover_mhtml_files(
     if root.is_file():
         return [root]
     if not root.exists():
-        # Glob only supports relative patterns on pathlib; absolute globs use shell-style via Path.parent.
+        # pathlib.glob does not accept absolute patterns; peel to an existing parent.
         pattern = str(source)
+        matches: list[Path] = []
         if Path(pattern).is_absolute():
             p = Path(pattern)
-            parent, name = p.parent, p.name
-            if parent.exists():
-                matches = sorted(parent.glob(name))
-            else:
-                matches = []
+            # Support /base/**/*.mhtml style by walking up to an existing directory.
+            cur, parts = p, []
+            while str(cur) not in ("", "/") and not cur.exists():
+                parts.append(cur.name)
+                cur = cur.parent
+            if cur.exists() and parts:
+                rel = "/".join(reversed(parts))
+                matches = sorted(cur.glob(rel))
+            elif p.parent.exists():
+                matches = sorted(p.parent.glob(p.name))
         else:
             matches = sorted(Path().glob(pattern))
         return [
@@ -133,8 +139,9 @@ def run_batch(
                 if callable(rollback):
                     try:
                         rollback()
-                    except Exception:
-                        pass
+                    except Exception as rb_exc:
+                        # Best-effort: connection may already be closed mid-batch.
+                        fr.error = f"{fr.error}; rollback_failed={rb_exc}"
                 if not continue_on_error:
                     report.results.append(fr)
                     raise

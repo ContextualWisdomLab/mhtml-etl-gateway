@@ -98,17 +98,10 @@ def _parse_decimal(v: str) -> Decimal | None:
     s = v.strip()
     if not s:
         return None
+    # Reject malformed thousand groupings (e.g. "12,34", "1,23,456").
     if "," in s:
-        # thousand separators only before optional decimal part
-        if not re.fullmatch(r"[+-]?\d{1,3}(,\d{3})*(\.\d+)?", s) and not re.fullmatch(
-            r"[+-]?\d+(\.\d+)?", s.replace(",", "")
-        ):
-            # fall through: try after removing commas if plain number
-            s2 = s.replace(",", "")
-            try:
-                return Decimal(s2)
-            except (InvalidOperation, ValueError):
-                return None
+        if not re.fullmatch(r"[+-]?\d{1,3}(,\d{3})*(\.\d+)?", s):
+            return None
         s = s.replace(",", "")
     try:
         return Decimal(s)
