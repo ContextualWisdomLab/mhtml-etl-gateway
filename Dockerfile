@@ -1,6 +1,7 @@
 # Operator image: mount MHTML sources and pass DSN at runtime.
 # Never bake private CRM absolute paths into the image.
-FROM python:3.12-slim
+# Pin base image digest (Scorecard / DS pinned-dependencies).
+FROM python:3.12-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36
 
 WORKDIR /app
 

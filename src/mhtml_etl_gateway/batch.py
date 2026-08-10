@@ -50,8 +50,17 @@ def discover_mhtml_files(
     if root.is_file():
         return [root]
     if not root.exists():
-        # Treat as glob pattern relative to cwd
-        matches = sorted(Path().glob(str(source)))
+        # Glob only supports relative patterns on pathlib; absolute globs use shell-style via Path.parent.
+        pattern = str(source)
+        if Path(pattern).is_absolute():
+            p = Path(pattern)
+            parent, name = p.parent, p.name
+            if parent.exists():
+                matches = sorted(parent.glob(name))
+            else:
+                matches = []
+        else:
+            matches = sorted(Path().glob(pattern))
         return [
             p
             for p in matches
@@ -119,6 +128,13 @@ def run_batch(
                 fr.ok = False
                 fr.error = str(exc)
                 report.failure_count += 1
+                # Reset aborted transaction so later files can continue.
+                rollback = getattr(shared_sink, "rollback", None)
+                if callable(rollback):
+                    try:
+                        rollback()
+                    except Exception:
+                        pass
                 if not continue_on_error:
                     report.results.append(fr)
                     raise
