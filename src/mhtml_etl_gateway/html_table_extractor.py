@@ -139,13 +139,10 @@ def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:
         for i, h in enumerate(headers):
             norm_headers.append(h if h else f"col_{i + 1}")
         rows: list[list[str]] = []
-        width = len(norm_headers)
         for raw_row in raw[1:]:
+            # Preserve raw cell counts — do NOT pad/truncate. Validation rejects
+            # inconsistent shapes fail-closed before load.
             cells = [str(c) for c in raw_row]
-            if len(cells) < width:
-                cells = cells + [""] * (width - len(cells))
-            elif len(cells) > width:
-                cells = cells[:width]
             if not any(c.strip() for c in cells):
                 continue
             rows.append(cells)
