@@ -278,7 +278,9 @@ class PsycopgSink:
         for i, col in enumerate(schema.columns):
             if col.pg_type == PG_TEXT:
                 continue
-            prepared = [row[i] if i < len(row) else None for row in rows]
+            # Use generator expression so values_require_text can short-circuit
+            # and avoid materializing large intermediate lists in memory.
+            prepared = (row[i] if i < len(row) else None for row in rows)
             if values_require_text(col.pg_type, prepared):
                 to_promote.append(col.db_name)
         return to_promote
