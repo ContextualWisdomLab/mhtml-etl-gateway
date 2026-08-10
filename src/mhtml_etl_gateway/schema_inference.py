@@ -204,18 +204,30 @@ def infer_table_schema(
 
 
 def coerce_value(value: str, pg_type: str):
-    """Coerce a cell string to a Python value suitable for psycopg / PostgreSQL."""
+    """Coerce a cell string to a Python value suitable for psycopg / PostgreSQL.
+
+    Non-conforming values fall back to the original string (caller/sink may
+    promote the column to TEXT for multi-file schema evolution).
+    """
     if value is None:
         return None
     s = str(value).strip()
     if s == "":
         return None
     if pg_type == PG_BOOLEAN:
-        return s.lower() in {"true", "t", "yes", "y", "1"}
+        if s.lower() in {"true", "t", "yes", "y", "1", "false", "f", "no", "n", "0"}:
+            return s.lower() in {"true", "t", "yes", "y", "1"}
+        return s
     if pg_type == PG_BIGINT:
-        return int(s.replace(",", ""))
+        try:
+            return int(s.replace(",", ""))
+        except ValueError:
+            return s
     if pg_type == PG_NUMERIC:
-        return Decimal(s.replace(",", ""))
+        try:
+            return Decimal(s.replace(",", ""))
+        except (InvalidOperation, ValueError):
+            return s
     if pg_type == PG_DATE:
         for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y%m%d", "%d.%m.%Y"):
             try:
@@ -238,3 +250,25 @@ def coerce_value(value: str, pg_type: str):
                 continue
         return s
     return s
+
+
+def values_require_text(pg_type: str, values: Sequence[object]) -> bool:
+    """True when typed column cannot hold one of the prepared values."""
+    if pg_type == PG_TEXT:
+        return False
+    for v in values:
+        if v is None:
+            continue
+        if pg_type == PG_BIGINT and not isinstance(v, int):
+            return True
+        if pg_type == PG_NUMERIC and not isinstance(v, (int, Decimal, float)):
+            return True
+        if pg_type == PG_BOOLEAN and not isinstance(v, bool):
+            return True
+        if pg_type == PG_DATE and not isinstance(v, date):
+            return True
+        if pg_type == PG_TIME and not isinstance(v, time):
+            return True
+        if pg_type == PG_TIMESTAMP and not isinstance(v, datetime):
+            return True
+    return False

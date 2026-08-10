@@ -14,8 +14,10 @@ from mhtml_etl_gateway.ingest_catalog import (
     make_catalog_entry,
 )
 from mhtml_etl_gateway.schema_inference import (
+    PG_TEXT,
     TableSchema,
     coerce_value,
+    values_require_text,
 )
 
 OnDuplicate = Literal["skip", "replace"]
@@ -224,6 +226,32 @@ class PsycopgSink:
             row = cur.fetchone()
             return int(row[0]) if row else 0
 
+    def _promote_columns_to_text(self, schema: TableSchema, rows: Sequence[Sequence[Any]]) -> None:
+        """Widen BIGINT/NUMERIC/etc. columns to TEXT when multi-file values require it."""
+        to_promote: list[str] = []
+        for i, col in enumerate(schema.columns):
+            if col.pg_type == PG_TEXT:
+                continue
+            col_vals = [row[i] if i < len(row) else None for row in rows]
+            # Also re-coerce strings that would not fit.
+            prepared: list[Any] = []
+            for v in col_vals:
+                if isinstance(v, str):
+                    prepared.append(coerce_value(v, col.pg_type))
+                else:
+                    prepared.append(v)
+            if values_require_text(col.pg_type, prepared):
+                to_promote.append(col.db_name)
+        if not to_promote:
+            return
+        with self._conn.cursor() as cur:
+            for name in to_promote:
+                cur.execute(
+                    f'ALTER TABLE "{schema.table_name}" '
+                    f'ALTER COLUMN "{name}" TYPE TEXT USING "{name}"::text'
+                )
+        self._conn.commit()
+
     def write_artifact_rows(
         self,
         schema: TableSchema,
@@ -236,6 +264,9 @@ class PsycopgSink:
         start_row_number: int = 1,
     ) -> int:
         """Single transaction: optional delete-by-sha + insert + catalog upsert."""
+        # Multi-file evolution: promote rigid types before insert when needed.
+        self._promote_columns_to_text(schema, rows)
+
         col_names = [c.db_name for c in schema.columns] + [
             "source_artifact_path",
             "source_artifact_sha256",
