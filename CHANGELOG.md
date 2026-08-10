@@ -10,6 +10,7 @@
 - Batch: rollback shared Postgres sink on per-file failure; safer absolute globs.
 - Loader: type promote + insert in one transaction; public `rollback()` for batch recovery.
 - CI/Dockerfile: pin actions and base image digests; non-root already required.
+- Dockerfile: add HEALTHCHECK for CLI entrypoint (Strix medium finding).
 
 ## [0.2.0] — Unresolved
 

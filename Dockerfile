@@ -15,5 +15,10 @@ RUN pip install --no-cache-dir . \
 
 USER appuser
 
+# Container health signal for orchestrators (Strix / CIS baseline).
+# CLI image: verify the installed entrypoint responds.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD mhtml-etl-gateway --help >/dev/null || exit 1
+
 ENTRYPOINT ["mhtml-etl-gateway"]
 CMD ["--help"]
