@@ -9,18 +9,19 @@ from typing import Any
 
 CATALOG_TABLE = "mhtml_ingest_artifact"
 
-CATALOG_DDL = f'''
-CREATE TABLE IF NOT EXISTS "{CATALOG_TABLE}" (
-    "source_artifact_sha256" TEXT NOT NULL,
-    "table_name" TEXT NOT NULL,
-    "source_artifact_path" TEXT NOT NULL,
-    "source_artifact_size" BIGINT,
-    "row_count" BIGINT NOT NULL,
-    "status" TEXT NOT NULL,
-    "loaded_at" TIMESTAMP NOT NULL DEFAULT NOW(),
-    PRIMARY KEY ("source_artifact_sha256", "table_name")
+# Constant DDL only — no user-controlled interpolation.
+CATALOG_DDL = """
+CREATE TABLE IF NOT EXISTS mhtml_ingest_artifact (
+    source_artifact_sha256 TEXT NOT NULL,
+    table_name TEXT NOT NULL,
+    source_artifact_path TEXT NOT NULL,
+    source_artifact_size BIGINT,
+    row_count BIGINT NOT NULL,
+    status TEXT NOT NULL,
+    loaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (source_artifact_sha256, table_name)
 );
-'''.strip()
+""".strip()
 
 
 @dataclass(frozen=True)

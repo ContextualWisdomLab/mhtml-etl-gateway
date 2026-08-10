@@ -48,8 +48,8 @@ def test_schema_from_fixture_pipeline(sample_mhtml_path) -> None:
     assert "source_artifact_sha256" in ddl
     assert "source_row_number" in ddl
     # multiword snake_case columns
-    assert '"mandt"' in ddl
-    assert '"voc_pucode"' in ddl
+    assert "mandt" in ddl
+    assert "voc_pucode" in ddl
 
 
 def test_unique_snake_collision() -> None:

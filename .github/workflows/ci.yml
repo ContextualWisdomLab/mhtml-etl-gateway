@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
 
+# Scorecard Token-Permissions: least privilege for GITHUB_TOKEN
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,7 +16,8 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

@@ -13,6 +13,7 @@ from mhtml_etl_gateway.ingest_catalog import (
     CatalogEntry,
     make_catalog_entry,
 )
+from mhtml_etl_gateway.sql_ident import require_safe_ident
 from mhtml_etl_gateway.schema_inference import (
     PG_TEXT,
     TableSchema,
@@ -199,14 +200,15 @@ class PsycopgSink:
         self._conn.commit()
 
     def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
-        sql = f'''
-            SELECT source_artifact_sha256, table_name, source_artifact_path,
-                   source_artifact_size, row_count, status, loaded_at
-            FROM "{CATALOG_TABLE}"
-            WHERE source_artifact_sha256 = %s AND table_name = %s
-        '''
+        # Fixed catalog relation; bind parameters for values only.
+        query = (
+            "SELECT source_artifact_sha256, table_name, source_artifact_path, "
+            "source_artifact_size, row_count, status, loaded_at "
+            "FROM mhtml_ingest_artifact "
+            "WHERE source_artifact_sha256 = %s AND table_name = %s"
+        )
         with self._conn.cursor() as cur:
-            cur.execute(sql, (sha256, table_name))
+            cur.execute(query, (sha256, table_name))
             row = cur.fetchone()
         if not row:
             return None
@@ -221,19 +223,24 @@ class PsycopgSink:
         )
 
     def count_rows(self, table_name: str) -> int:
+        from psycopg import sql as pgsql
+
+        ident = require_safe_ident(table_name)
+        query = pgsql.SQL("SELECT COUNT(*) FROM {}").format(pgsql.Identifier(ident))
         with self._conn.cursor() as cur:
-            cur.execute(f'SELECT COUNT(*) FROM "{table_name}"')
+            cur.execute(query)
             row = cur.fetchone()
             return int(row[0]) if row else 0
 
     def _promote_columns_to_text(self, schema: TableSchema, rows: Sequence[Sequence[Any]]) -> None:
         """Widen BIGINT/NUMERIC/etc. columns to TEXT when multi-file values require it."""
+        from psycopg import sql as pgsql
+
         to_promote: list[str] = []
         for i, col in enumerate(schema.columns):
             if col.pg_type == PG_TEXT:
                 continue
             col_vals = [row[i] if i < len(row) else None for row in rows]
-            # Also re-coerce strings that would not fit.
             prepared: list[Any] = []
             for v in col_vals:
                 if isinstance(v, str):
@@ -244,12 +251,18 @@ class PsycopgSink:
                 to_promote.append(col.db_name)
         if not to_promote:
             return
+        table = require_safe_ident(schema.table_name)
         with self._conn.cursor() as cur:
             for name in to_promote:
-                cur.execute(
-                    f'ALTER TABLE "{schema.table_name}" '
-                    f'ALTER COLUMN "{name}" TYPE TEXT USING "{name}"::text'
+                col = require_safe_ident(name)
+                query = pgsql.SQL(
+                    "ALTER TABLE {} ALTER COLUMN {} TYPE TEXT USING {}::text"
+                ).format(
+                    pgsql.Identifier(table),
+                    pgsql.Identifier(col),
+                    pgsql.Identifier(col),
                 )
+                cur.execute(query)
         self._conn.commit()
 
     def write_artifact_rows(
@@ -264,29 +277,35 @@ class PsycopgSink:
         start_row_number: int = 1,
     ) -> int:
         """Single transaction: optional delete-by-sha + insert + catalog upsert."""
-        # Multi-file evolution: promote rigid types before insert when needed.
+        from psycopg import sql as pgsql
+
         self._promote_columns_to_text(schema, rows)
 
-        col_names = [c.db_name for c in schema.columns] + [
+        table = require_safe_ident(schema.table_name)
+        col_names = [require_safe_ident(c.db_name) for c in schema.columns] + [
             "source_artifact_path",
             "source_artifact_sha256",
             "source_row_number",
         ]
-        placeholders = ", ".join(["%s"] * len(col_names))
-        quoted = ", ".join(f'"{n}"' for n in col_names)
-        insert_sql = f'INSERT INTO "{schema.table_name}" ({quoted}) VALUES ({placeholders})'
-        catalog_sql = f'''
-            INSERT INTO "{CATALOG_TABLE}" (
-                source_artifact_sha256, table_name, source_artifact_path,
-                source_artifact_size, row_count, status, loaded_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (source_artifact_sha256, table_name) DO UPDATE SET
-                source_artifact_path = EXCLUDED.source_artifact_path,
-                source_artifact_size = EXCLUDED.source_artifact_size,
-                row_count = EXCLUDED.row_count,
-                status = EXCLUDED.status,
-                loaded_at = EXCLUDED.loaded_at
-        '''
+        col_idents = [pgsql.Identifier(n) for n in col_names]
+        placeholders = pgsql.SQL(", ").join(pgsql.Placeholder() * len(col_names))
+        insert_sql = pgsql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+            pgsql.Identifier(table),
+            pgsql.SQL(", ").join(col_idents),
+            placeholders,
+        )
+        catalog_sql = (
+            "INSERT INTO mhtml_ingest_artifact ("
+            "source_artifact_sha256, table_name, source_artifact_path, "
+            "source_artifact_size, row_count, status, loaded_at"
+            ") VALUES (%s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (source_artifact_sha256, table_name) DO UPDATE SET "
+            "source_artifact_path = EXCLUDED.source_artifact_path, "
+            "source_artifact_size = EXCLUDED.source_artifact_size, "
+            "row_count = EXCLUDED.row_count, "
+            "status = EXCLUDED.status, "
+            "loaded_at = EXCLUDED.loaded_at"
+        )
         payloads: list[tuple[Any, ...]] = []
         for offset, row in enumerate(rows):
             values: list[Any] = []
@@ -308,11 +327,10 @@ class PsycopgSink:
         try:
             with self._conn.cursor() as cur:
                 if replace_existing:
-                    cur.execute(
-                        f'DELETE FROM "{schema.table_name}" '
-                        f'WHERE "source_artifact_sha256" = %s',
-                        (source_artifact_sha256,),
-                    )
+                    del_q = pgsql.SQL(
+                        "DELETE FROM {} WHERE source_artifact_sha256 = %s"
+                    ).format(pgsql.Identifier(table))
+                    cur.execute(del_q, (source_artifact_sha256,))
                 if payloads:
                     cur.executemany(insert_sql, payloads)
                 cur.execute(
@@ -337,8 +355,12 @@ class PsycopgSink:
         return self.count_rows(table_name)
 
     def query_sample(self, table_name: str, limit: int = 5) -> list[tuple]:
+        from psycopg import sql as pgsql
+
+        ident = require_safe_ident(table_name)
+        query = pgsql.SQL("SELECT * FROM {} LIMIT %s").format(pgsql.Identifier(ident))
         with self._conn.cursor() as cur:
-            cur.execute(f'SELECT * FROM "{table_name}" LIMIT %s', (limit,))
+            cur.execute(query, (limit,))
             return list(cur.fetchall())
 
 

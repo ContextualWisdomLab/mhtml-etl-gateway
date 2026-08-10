@@ -164,19 +164,29 @@ class TableSchema:
     columns: list[ColumnSpec]
 
     def ddl(self, *, include_lineage: bool = True) -> str:
-        """Emit CREATE TABLE DDL with optional lineage columns."""
-        cols = [f'    "{c.db_name}" {c.pg_type}' for c in self.columns]
+        """Emit CREATE TABLE DDL with optional lineage columns.
+
+        Identifiers are restricted to validated snake_case (see sql_ident).
+        """
+        from mhtml_etl_gateway.sql_ident import require_safe_ident
+
+        table = require_safe_ident(self.table_name)
+        cols: list[str] = []
+        for c in self.columns:
+            col = require_safe_ident(c.db_name)
+            # pg_type is from a fixed allow-list in this package.
+            cols.append(f"    {col} {c.pg_type}")
         if include_lineage:
             cols.extend(
                 [
-                    '    "source_artifact_path" TEXT NOT NULL',
-                    '    "source_artifact_sha256" TEXT NOT NULL',
-                    '    "source_row_number" BIGINT NOT NULL',
-                    '    "loaded_at" TIMESTAMP NOT NULL DEFAULT NOW()',
+                    "    source_artifact_path TEXT NOT NULL",
+                    "    source_artifact_sha256 TEXT NOT NULL",
+                    "    source_row_number BIGINT NOT NULL",
+                    "    loaded_at TIMESTAMP NOT NULL DEFAULT NOW()",
                 ]
             )
         body = ",\n".join(cols)
-        return f'CREATE TABLE IF NOT EXISTS "{self.table_name}" (\n{body}\n);'
+        return f"CREATE TABLE IF NOT EXISTS {table} (\n{body}\n);"
 
     def type_map(self) -> dict[str, str]:
         return {c.source_name: c.pg_type for c in self.columns}
