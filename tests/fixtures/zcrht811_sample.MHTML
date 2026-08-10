@@ -1,0 +1,53 @@
+MIME-Version: 1.0
+X-Document-Type: Worksheet
+Content-Type: multipart/related; boundary="----=_NextPart_01C5084F.FEF9A7A0"
+
+------=_NextPart_01C5084F.FEF9A7A0
+Content-Location: file:///C:/Mappe1.htm
+Content-Transfer-Encoding: 8bit
+Content-Type: text/html; charset="utf-8"
+
+<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<style><!-- table {mso-displayed-decimal-separator:"\.";} --></style>
+</head><body>
+<table>
+<tr>
+<td class="x139" x:str="MANDT">MANDT</td>
+<td class="x139" x:str="GUID">GUID</td>
+<td class="x139" x:str="DOCNOSUB">DOCNOSUB</td>
+<td class="x139" x:str="TITLE">TITLE</td>
+<td class="x139" x:str="POSNR">POSNR</td>
+<td class="x139" x:str="ERDAT">ERDAT</td>
+<td class="x139" x:str="ERZET">ERZET</td>
+<td class="x139" x:str="VOC_PUCODE">VOC_PUCODE</td>
+<td class="x139" x:str="AMOUNT">AMOUNT</td>
+<td class="x139" x:str="ACTIVE">ACTIVE</td>
+</tr>
+<tr>
+<td x:str="603">603</td>
+<td x:str="0050569512931FE183BEBA5F974B88B9">0050569512931FE183BEBA5F974B88B9</td>
+<td x:str="260220-0001-01">260220-0001-01</td>
+<td x:str="Sample title one">Sample title one</td>
+<td>0</td>
+<td x:str="2026-02-20">2026-02-20</td>
+<td x:str="09:48:09">09:48:09</td>
+<td x:str="D01">D01</td>
+<td>1234.56</td>
+<td x:str="true">true</td>
+</tr>
+<tr>
+<td x:str="603">603</td>
+<td x:str="005056953E611FD183C0497B3C1C455E">005056953E611FD183C0497B3C1C455E</td>
+<td x:str="260220-0004-01">260220-0004-01</td>
+<td x:str="Sample title two with nested">Sample title two</td>
+<td>12</td>
+<td x:str="2026-02-21">2026-02-21</td>
+<td x:str="11:17:26">11:17:26</td>
+<td x:str="D01">D01</td>
+<td>99</td>
+<td x:str="false">false</td>
+</tr>
+</table>
+</body></html>
+------=_NextPart_01C5084F.FEF9A7A0--
