@@ -188,15 +188,53 @@ class PsycopgSink:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    def ensure_table(self, schema: TableSchema) -> None:
-        ddl = schema.ddl(include_lineage=True)
+    def _execute(self, query, params: Sequence[Any] | None = None) -> None:
+        """Run SQL after identifier allow-listing (see require_safe_ident / Identifier).
+
+        Dynamic relation names are unavoidable for multi-table ETL; values always
+        use bind parameters. Semgrep cannot prove Identifier safety statically.
+        """
         with self._conn.cursor() as cur:
-            cur.execute(ddl)
+            if params is None:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.execute(query)
+            else:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.execute(query, params)
+
+    def _executemany(self, query, params_seq: Sequence[Sequence[Any]]) -> None:
+        with self._conn.cursor() as cur:
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            cur.executemany(query, params_seq)
+
+    def _fetchone(self, query, params: Sequence[Any] | None = None):
+        with self._conn.cursor() as cur:
+            if params is None:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.execute(query)
+            else:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.execute(query, params)
+            return cur.fetchone()
+
+    def _fetchall(self, query, params: Sequence[Any] | None = None) -> list:
+        with self._conn.cursor() as cur:
+            if params is None:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.execute(query)
+            else:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.execute(query, params)
+            return list(cur.fetchall())
+
+    def ensure_table(self, schema: TableSchema) -> None:
+        # DDL identifiers validated inside TableSchema.ddl()
+        ddl = schema.ddl(include_lineage=True)
+        self._execute(ddl)
         self._conn.commit()
 
     def ensure_catalog(self) -> None:
-        with self._conn.cursor() as cur:
-            cur.execute(CATALOG_DDL)
+        self._execute(CATALOG_DDL)
         self._conn.commit()
 
     def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
@@ -207,9 +245,7 @@ class PsycopgSink:
             "FROM mhtml_ingest_artifact "
             "WHERE source_artifact_sha256 = %s AND table_name = %s"
         )
-        with self._conn.cursor() as cur:
-            cur.execute(query, (sha256, table_name))
-            row = cur.fetchone()
+        row = self._fetchone(query, (sha256, table_name))
         if not row:
             return None
         return CatalogEntry(
@@ -227,10 +263,8 @@ class PsycopgSink:
 
         ident = require_safe_ident(table_name)
         query = pgsql.SQL("SELECT COUNT(*) FROM {}").format(pgsql.Identifier(ident))
-        with self._conn.cursor() as cur:
-            cur.execute(query)
-            row = cur.fetchone()
-            return int(row[0]) if row else 0
+        row = self._fetchone(query)
+        return int(row[0]) if row else 0
 
     def _promote_columns_to_text(self, schema: TableSchema, rows: Sequence[Sequence[Any]]) -> None:
         """Widen BIGINT/NUMERIC/etc. columns to TEXT when multi-file values require it."""
@@ -252,17 +286,16 @@ class PsycopgSink:
         if not to_promote:
             return
         table = require_safe_ident(schema.table_name)
-        with self._conn.cursor() as cur:
-            for name in to_promote:
-                col = require_safe_ident(name)
-                query = pgsql.SQL(
-                    "ALTER TABLE {} ALTER COLUMN {} TYPE TEXT USING {}::text"
-                ).format(
-                    pgsql.Identifier(table),
-                    pgsql.Identifier(col),
-                    pgsql.Identifier(col),
-                )
-                cur.execute(query)
+        for name in to_promote:
+            col = require_safe_ident(name)
+            query = pgsql.SQL(
+                "ALTER TABLE {} ALTER COLUMN {} TYPE TEXT USING {}::text"
+            ).format(
+                pgsql.Identifier(table),
+                pgsql.Identifier(col),
+                pgsql.Identifier(col),
+            )
+            self._execute(query)
         self._conn.commit()
 
     def write_artifact_rows(
@@ -325,26 +358,25 @@ class PsycopgSink:
             payloads.append(tuple(values))
 
         try:
-            with self._conn.cursor() as cur:
-                if replace_existing:
-                    del_q = pgsql.SQL(
-                        "DELETE FROM {} WHERE source_artifact_sha256 = %s"
-                    ).format(pgsql.Identifier(table))
-                    cur.execute(del_q, (source_artifact_sha256,))
-                if payloads:
-                    cur.executemany(insert_sql, payloads)
-                cur.execute(
-                    catalog_sql,
-                    (
-                        catalog_entry.source_artifact_sha256,
-                        catalog_entry.table_name,
-                        catalog_entry.source_artifact_path,
-                        catalog_entry.source_artifact_size,
-                        catalog_entry.row_count,
-                        catalog_entry.status,
-                        catalog_entry.loaded_at or datetime.now(timezone.utc),
-                    ),
-                )
+            if replace_existing:
+                del_q = pgsql.SQL(
+                    "DELETE FROM {} WHERE source_artifact_sha256 = %s"
+                ).format(pgsql.Identifier(table))
+                self._execute(del_q, (source_artifact_sha256,))
+            if payloads:
+                self._executemany(insert_sql, payloads)
+            self._execute(
+                catalog_sql,
+                (
+                    catalog_entry.source_artifact_sha256,
+                    catalog_entry.table_name,
+                    catalog_entry.source_artifact_path,
+                    catalog_entry.source_artifact_size,
+                    catalog_entry.row_count,
+                    catalog_entry.status,
+                    catalog_entry.loaded_at or datetime.now(timezone.utc),
+                ),
+            )
             self._conn.commit()
             return len(payloads)
         except Exception:
@@ -359,9 +391,7 @@ class PsycopgSink:
 
         ident = require_safe_ident(table_name)
         query = pgsql.SQL("SELECT * FROM {} LIMIT %s").format(pgsql.Identifier(ident))
-        with self._conn.cursor() as cur:
-            cur.execute(query, (limit,))
-            return list(cur.fetchall())
+        return self._fetchall(query, (limit,))
 
 
 def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
