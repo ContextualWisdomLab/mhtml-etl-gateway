@@ -11,3 +11,4 @@ htmlcov/
 venv/
 *.egg
 .DS_Store
+src/*.egg-info/

@@ -1,0 +1,132 @@
+"""Batch directory / glob ingestion over the single-file pipeline."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Sequence
+
+from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres
+from mhtml_etl_gateway.postgres_loader import OnDuplicate, RowSink
+
+MHTML_SUFFIXES = {".mhtml", ".MHTML"}
+
+
+@dataclass
+class FileResult:
+    path: str
+    ok: bool
+    sha256: str | None = None
+    rows: int = 0
+    inserted_rows: int = 0
+    skipped: bool = False
+    error: str | None = None
+    table_name: str | None = None
+
+
+@dataclass
+class BatchReport:
+    source: str
+    files_discovered: int
+    success_count: int = 0
+    failure_count: int = 0
+    skipped_count: int = 0
+    total_data_rows: int = 0
+    total_inserted_rows: int = 0
+    results: list[FileResult] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        return d
+
+
+def discover_mhtml_files(
+    source: str | Path,
+    *,
+    recursive: bool = True,
+) -> list[Path]:
+    """Discover .MHTML / .mhtml files under a directory or expand a single file/glob."""
+    root = Path(source)
+    if root.is_file():
+        return [root]
+    if not root.exists():
+        # Treat as glob pattern relative to cwd
+        matches = sorted(Path().glob(str(source)))
+        return [
+            p
+            for p in matches
+            if p.is_file() and p.suffix.lower() == ".mhtml"
+        ]
+
+    paths: list[Path] = []
+    iterator = root.rglob("*") if recursive else root.glob("*")
+    for p in iterator:
+        if p.is_file() and p.suffix.lower() == ".mhtml":
+            paths.append(p)
+    return sorted(paths)
+
+
+def run_batch(
+    source: str | Path,
+    *,
+    dsn: str | None = None,
+    sink: RowSink | None = None,
+    table_name: str | None = None,
+    on_duplicate: OnDuplicate = "skip",
+    continue_on_error: bool = True,
+    recursive: bool = True,
+    required_headers: Sequence[str] | None = None,
+    limit: int | None = None,
+) -> BatchReport:
+    """Process all MHTML files under ``source`` with the single-file pipeline."""
+    files = discover_mhtml_files(source, recursive=recursive)
+    if limit is not None:
+        files = files[: max(0, limit)]
+
+    report = BatchReport(source=str(source), files_discovered=len(files))
+    shared_sink = sink
+    own_pg = False
+    if shared_sink is None and dsn:
+        from mhtml_etl_gateway.postgres_loader import PsycopgSink
+
+        shared_sink = PsycopgSink(dsn)
+        own_pg = True
+
+    try:
+        for path in files:
+            fr = FileResult(path=str(path), ok=False)
+            try:
+                result = convert_mhtml_to_postgres(
+                    path,
+                    dsn=None if shared_sink is not None else dsn,
+                    sink=shared_sink,
+                    table_name=table_name,
+                    on_duplicate=on_duplicate,
+                    required_headers=required_headers,
+                )
+                fr.ok = True
+                fr.sha256 = result["source_sha256"]
+                fr.rows = int(result["data_row_count"])
+                fr.inserted_rows = int(result["inserted_rows"])
+                fr.skipped = bool(result.get("skipped"))
+                fr.table_name = result.get("table_name")
+                report.success_count += 1
+                if fr.skipped:
+                    report.skipped_count += 1
+                report.total_data_rows += fr.rows
+                report.total_inserted_rows += fr.inserted_rows
+            except Exception as exc:
+                fr.ok = False
+                fr.error = str(exc)
+                report.failure_count += 1
+                if not continue_on_error:
+                    report.results.append(fr)
+                    raise
+            report.results.append(fr)
+    finally:
+        if own_pg and shared_sink is not None:
+            close = getattr(shared_sink, "close", None)
+            if callable(close):
+                close()
+
+    return report

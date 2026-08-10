@@ -68,14 +68,16 @@ def test_pipeline_dry_run_end_to_end(sample_mhtml_path, tmp_path) -> None:
 )
 def test_live_postgres_load(sample_mhtml_path) -> None:
     dsn = os.environ.get("MHTML_ETL_DSN") or os.environ.get("DATABASE_URL")
-    # Use a dedicated test table name.
+    table = "zcrht811_fixture_test_rows"
+    # replace first so re-runs of the suite stay stable
     result = convert_mhtml_to_postgres(
         sample_mhtml_path,
         dsn=dsn,
-        table_name="zcrht811_fixture_test_rows",
+        table_name=table,
+        on_duplicate="replace",
     )
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
-    # Sample should include mandt / guid among early columns + lineage.
     sample = result["queryable"]["sample"]
     assert sample
+    assert result.get("catalog")

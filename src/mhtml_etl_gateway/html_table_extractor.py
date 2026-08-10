@@ -11,6 +11,10 @@ class TableExtractError(ValueError):
     """Fail-closed error when no usable table can be extracted."""
 
 
+# Chunk size for incremental HTMLParser.feed (memory-bounded incremental parse).
+_FEED_CHUNK = 256 * 1024
+
+
 @dataclass(frozen=True)
 class ExtractedTable:
     headers: list[str]
@@ -48,7 +52,6 @@ class _TopLevelTableParser(HTMLParser):
             return
         if self._table_depth < 1:
             return
-        # Nested tables: only contribute textual content to the open cell.
         if self._table_depth > 1:
             if self._in_td and tag == "br":
                 self._cur_cell.append("\n")
@@ -96,8 +99,24 @@ class _TopLevelTableParser(HTMLParser):
             self._cur_cell.append(data)
 
 
+def _feed_parser_chunked(parser: _TopLevelTableParser, text: str) -> None:
+    """Feed HTML to the parser in chunks to bound intermediate parser buffer growth."""
+    n = len(text)
+    if n <= _FEED_CHUNK:
+        parser.feed(text)
+        parser.close()
+        return
+    for i in range(0, n, _FEED_CHUNK):
+        parser.feed(text[i : i + _FEED_CHUNK])
+    parser.close()
+
+
 def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:
-    """Parse HTML string/bytes and return extracted top-level tables."""
+    """Parse HTML string/bytes and return extracted top-level tables.
+
+    Accepts bytes (decoded once to str) or str. Feeds the parser incrementally
+    so large worksheets are not re-copied into many intermediate full strings.
+    """
     if isinstance(html, bytes):
         text = html.decode("utf-8", errors="replace")
     else:
@@ -106,8 +125,8 @@ def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:
         raise TableExtractError("empty HTML input")
 
     parser = _TopLevelTableParser()
-    parser.feed(text)
-    parser.close()
+    _feed_parser_chunked(parser, text)
+    # Allow GC of the full HTML string after parse by not retaining `text` beyond this.
 
     results: list[ExtractedTable] = []
     for raw in parser.tables:
@@ -116,7 +135,6 @@ def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:
         headers = [str(c).strip() for c in raw[0]]
         if not any(headers):
             continue
-        # Normalize header blanks to synthetic names.
         norm_headers: list[str] = []
         for i, h in enumerate(headers):
             norm_headers.append(h if h else f"col_{i + 1}")
@@ -128,7 +146,6 @@ def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:
                 cells = cells + [""] * (width - len(cells))
             elif len(cells) > width:
                 cells = cells[:width]
-            # Skip completely empty rows.
             if not any(c.strip() for c in cells):
                 continue
             rows.append(cells)
@@ -141,7 +158,6 @@ def extract_primary_table(html: str | bytes) -> ExtractedTable:
     tables = extract_tables_from_html(html)
     if not tables:
         raise TableExtractError("no HTML tables found")
-    # Prefer table with most data cells (headers * rows).
     best = max(tables, key=lambda t: t.column_count * max(t.row_count, 1))
     if not best.headers:
         raise TableExtractError("primary table has no headers")

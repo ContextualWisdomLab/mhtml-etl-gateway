@@ -1,4 +1,4 @@
-"""MIME multipart extraction from MHTML bytes (no script execution, no network)."""
+"""MIME multipart extraction from MHTML (no script execution, no network)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass
 from email import policy
 from email.parser import BytesParser
-from typing import Iterable
+from pathlib import Path
+from typing import BinaryIO, Iterable
 
 
 class MhtmlParseError(ValueError):
@@ -25,8 +26,6 @@ def _decode_part_payload(part) -> bytes | None:
     raw = part.get_payload(decode=True)
     if isinstance(raw, bytes) and raw:
         return raw
-    # SAP ALV sometimes sets Content-Transfer-Encoding: text/html (invalid).
-    # Fall back to the undecoded payload string/bytes.
     payload = part.get_payload(decode=False)
     if isinstance(payload, bytes) and payload:
         return payload
@@ -84,7 +83,6 @@ def parse_mhtml_parts(data: bytes) -> list[MimePart]:
         )
 
     if not parts:
-        # Fallback: treat entire body as a single HTML document if markers exist.
         if re.search(br"<html[\s>]", data, re.I):
             parts.append(
                 MimePart(
@@ -100,14 +98,47 @@ def parse_mhtml_parts(data: bytes) -> list[MimePart]:
 
 
 def extract_html_bytes(data: bytes) -> bytes:
-    """Return the primary HTML part payload from MHTML bytes (fail-closed)."""
+    """Return the primary HTML part payload from MHTML bytes (fail-closed).
+
+    Returns a view/reference to the part payload (one HTML buffer), not a second
+    full-file re-encode of the entire MHTML when the HTML part is already decoded.
+    """
     parts = parse_mhtml_parts(data)
     html_parts = [p for p in parts if p.content_type == "text/html"]
     if not html_parts:
-        # Prefer any part that looks like HTML.
         for p in parts:
-            if b"<html" in p.payload[:4096].lower() or b"<table" in p.payload[:8192].lower():
+            head = p.payload[:8192].lower()
+            if b"<html" in head or b"<table" in head:
                 return p.payload
         raise MhtmlParseError("no HTML part found in MHTML")
-    # Prefer the largest HTML part (worksheet body).
+    # Prefer the largest HTML part (worksheet body) — single buffer, no copy.
     return max(html_parts, key=lambda p: len(p.payload)).payload
+
+
+def read_mhtml_file(path: str | Path, *, chunk_size: int = 8 * 1024 * 1024) -> bytes:
+    """Read an MHTML file once via buffered chunks (single buffer assembly).
+
+    Avoids holding multiple independent full-file copies from layered readers.
+    For streaming table extraction, use :func:`extract_html_bytes` then
+    :func:`mhtml_etl_gateway.html_table_extractor.extract_primary_table` which
+    feeds the HTML parser in chunks without building intermediate table copies
+    beyond the extracted cell data.
+    """
+    p = Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(f"MHTML file not found: {p}")
+    # Single open; accumulate into one bytearray then freeze once.
+    buf = bytearray()
+    with p.open("rb") as fh:
+        while True:
+            chunk = fh.read(chunk_size)
+            if not chunk:
+                break
+            buf.extend(chunk)
+    return bytes(buf)
+
+
+def extract_html_from_path(path: str | Path) -> tuple[bytes, bytes]:
+    """Read file once; return (raw_mhtml, html_part) without re-reading disk."""
+    raw = read_mhtml_file(path)
+    return raw, extract_html_bytes(raw)

@@ -1,19 +1,30 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0] — Unreleased
 
 ### Added
 
-- MHTML MIME parser (`mhtml_parser`) for multipart Excel Web Archive / SAP ALV exports.
-- Top-level HTML table extractor that keeps nested cell markup as cell text.
-- Schema inference engine mapping columns to PostgreSQL types with multiword snake_case names.
-- PostgreSQL loader with lineage columns (`source_artifact_path`, `source_artifact_sha256`, `source_row_number`, `loaded_at`).
-- CLI entry point `mhtml-etl-gateway` (DSN via `--dsn` / `MHTML_ETL_DSN` / `DATABASE_URL`; `--dry-run` offline path).
-- Pytest suite with SAP ALV–shaped fixture (`tests/fixtures/zcrht811_sample.MHTML`).
-- Initial MHTML ETL Gateway repository baseline.
-- Architecture and agent development contracts.
+- Fail-closed **validation engine** (required headers incl. `MANDT`/`GUID` for ZCRHT811-shaped tables; row shape; non-empty data).
+- **Ingest catalog** table `mhtml_ingest_artifact` and loader integration.
+- **Idempotent load** via `--on-duplicate skip|replace` keyed by content sha256 + table name.
+- **Batch** CLI (`mhtml-etl-gateway batch`) with directory/glob discovery and summary report; `MHTML_ETL_SOURCE_DIR` env.
+- Memory-bounded file read + chunked HTML parser feed.
+- GitHub Actions CI (fixture pytest) and optional Dockerfile.
+- Tests: validation, idempotency, batch multi-file, memory path.
+
+### Changed
+
+- CLI uses `load` / `batch` subcommands (bare path still works as `load`).
+- Package version 0.2.0.
 
 ### Security
 
-- Established immutable raw artifact and active-content isolation policies.
-- Parser never executes embedded scripts and never fetches external resources; parse failures fail closed.
+- Real CRM absolute paths must not be committed; operator paths via env/CLI only.
+- Parser never executes scripts or fetches remote resources.
+
+## [Unreleased] / 0.1.0 baseline
+
+### Added
+
+- Initial MHTML MIME parser, HTML table extractor, schema inference, PostgreSQL loader, lineage, CLI.
+- Architecture and agent development contracts.
