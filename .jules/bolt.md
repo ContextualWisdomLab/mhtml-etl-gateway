@@ -1,0 +1,3 @@
+## 2024-03-08 - Fast Path Datetime Parsing
+**Learning:** `datetime.fromisoformat()` in Python 3.11+ natively handles standard space-separated timestamps (like `2024-01-01 12:00:00`), but it also erroneously accepts pure dates (like `2024-01-01`). When using it to distinguish between DATE and TIMESTAMP data types via type inference, it requires an explicit check (like `if " " in s or "T" in s or "t" in s:`) to ensure time components actually exist before parsing it as a timestamp.
+**Action:** When optimizing date/time parsing with `fromisoformat()` during type inference, always add explicit length/content checks to ensure correct type identification (preventing dates from being inferred as timestamps).
