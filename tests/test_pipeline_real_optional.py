@@ -1,22 +1,25 @@
-"""Optional integration against a real ZCRHT811 MHTML (skipped if unavailable)."""
+"""Optional integration against a real ZCRHT811 MHTML (path via env only)."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from mhtml_etl_gateway.pipeline import extract_table
 
-REAL = Path(
-    "/Users/seonghobae/Library/Mobile Documents/com~apple~CloudDocs/"
-    "Downloads/효성중공업 CRM 데이터/효성중공업CRM_2026/"
-    "ZCRHT811_export_20260220_20260301.MHTML"
+# Local-only path. Do not commit absolute CRM / iCloud paths into the repo.
+_REAL_ENV = os.environ.get("MHTML_ETL_REAL_SAMPLE", "").strip()
+REAL = Path(_REAL_ENV) if _REAL_ENV else None
+
+
+@pytest.mark.skipif(
+    REAL is None or not REAL.is_file(),
+    reason="Set MHTML_ETL_REAL_SAMPLE to a local .MHTML path to enable this test",
 )
-
-
-@pytest.mark.skipif(not REAL.is_file(), reason="real CRM MHTML not present on this machine")
 def test_real_zcrht811_extract_headers_and_rows() -> None:
+    assert REAL is not None
     extracted = extract_table(REAL)
     assert "MANDT" in extracted.headers
     assert "GUID" in extracted.headers
@@ -25,5 +28,5 @@ def test_real_zcrht811_extract_headers_and_rows() -> None:
     guid_i = extracted.headers.index("GUID")
     assert extracted.rows[0][mandt_i]
     assert extracted.rows[0][guid_i]
-    # No mutation of raw file size via read-only extract.
+    # Read-only extract; raw file must still exist with non-zero size.
     assert REAL.stat().st_size > 0

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -7,12 +8,9 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures"
 SAMPLE_MHTML = FIXTURES / "zcrht811_sample.MHTML"
 
-# Optional real CRM path (launch/evidence only; unit tests use fixture).
-REAL_CRM_SMALL = Path(
-    "/Users/seonghobae/Library/Mobile Documents/com~apple~CloudDocs/"
-    "Downloads/효성중공업 CRM 데이터/효성중공업CRM_2026/"
-    "ZCRHT811_export_20260220_20260301.MHTML"
-)
+# Optional real CRM sample: set MHTML_ETL_REAL_SAMPLE to an absolute .MHTML path locally.
+# Never hardcode machine/user data paths in the repository.
+REAL_CRM_SMALL = Path(os.environ["MHTML_ETL_REAL_SAMPLE"]) if os.environ.get("MHTML_ETL_REAL_SAMPLE") else None
 
 
 @pytest.fixture

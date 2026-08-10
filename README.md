@@ -83,10 +83,13 @@ print(result["inserted_rows"], result["ddl"])
 
 ```bash
 export MHTML_ETL_DSN="postgresql:///mhtml_etl"   # optional live-DB test
+# Optional: point at a local real export (do not commit this path)
+# export MHTML_ETL_REAL_SAMPLE="/path/to/ZCRHT811_export_….MHTML"
 pytest -v
 ```
 
-Fixture: `tests/fixtures/zcrht811_sample.MHTML` (SAP ALV–shaped multipart HTML).
+Fixture: `tests/fixtures/zcrht811_sample.MHTML` (SAP ALV–shaped multipart HTML).  
+Real CRM paths stay on the operator machine via `MHTML_ETL_REAL_SAMPLE` — never committed.
 
 ## Current Status
 
