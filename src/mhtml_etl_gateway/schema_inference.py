@@ -46,48 +46,82 @@ def to_snake_case(name: str) -> str:
 
 
 def unique_snake_names(headers: Sequence[str]) -> list[str]:
-    """Map headers to unique snake_case names (suffix _2, _3, ... on collision)."""
-    seen: dict[str, int] = {}
+    """Map headers to unique snake_case names (suffix _2, _3, ... on collision).
+
+    Re-checks truncated candidates so ["A", "A_2", "A"] and 63-char cuts stay unique.
+    """
+    used: set[str] = set()
     out: list[str] = []
     for h in headers:
         base = to_snake_case(h)
-        n = seen.get(base, 0) + 1
-        seen[base] = n
-        out.append(base if n == 1 else f"{base}_{n}"[:63])
+        candidate = base[:63]
+        n = 1
+        while candidate in used:
+            n += 1
+            suffix = f"_{n}"
+            candidate = f"{base[: 63 - len(suffix)]}{suffix}"
+        used.add(candidate)
+        out.append(candidate)
     return out
 
 
+_BOOL_LITERALS = frozenset({"true", "false", "t", "f", "yes", "no", "y", "n"})
+
+
 def _is_bool(v: str) -> bool:
-    return v.strip().lower() in {"true", "false", "t", "f", "yes", "no", "y", "n", "1", "0"} and v.strip().lower() in {
-        "true",
-        "false",
-        "t",
-        "f",
-        "yes",
-        "no",
-        "y",
-        "n",
-    }
+    return v.strip().lower() in _BOOL_LITERALS
+
+
+def _parse_int(v: str) -> int | None:
+    """Shared int parse for inference and coerce (thousand separators allowed)."""
+    s = v.strip()
+    if not s or s in {"+", "-"}:
+        return None
+    # Allow 1,234 style thousands only (not arbitrary commas).
+    if "," in s:
+        if not re.fullmatch(r"[+-]?\d{1,3}(,\d{3})+", s):
+            return None
+        s = s.replace(",", "")
+    if s[0] in "+-":
+        body = s[1:]
+    else:
+        body = s
+    if not body.isdigit():
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+def _parse_decimal(v: str) -> Decimal | None:
+    s = v.strip()
+    if not s:
+        return None
+    if "," in s:
+        # thousand separators only before optional decimal part
+        if not re.fullmatch(r"[+-]?\d{1,3}(,\d{3})*(\.\d+)?", s) and not re.fullmatch(
+            r"[+-]?\d+(\.\d+)?", s.replace(",", "")
+        ):
+            # fall through: try after removing commas if plain number
+            s2 = s.replace(",", "")
+            try:
+                return Decimal(s2)
+            except (InvalidOperation, ValueError):
+                return None
+        s = s.replace(",", "")
+    try:
+        return Decimal(s)
+    except (InvalidOperation, ValueError):
+        return None
 
 
 def _is_int(v: str) -> bool:
-    s = v.strip().replace(",", "")
-    if not s or s in {"+", "-"}:
-        return False
-    if s[0] in "+-":
-        s = s[1:]
-    return s.isdigit()
+    return _parse_int(v) is not None
 
 
 def _is_numeric(v: str) -> bool:
-    s = v.strip().replace(",", "")
-    if not s:
-        return False
-    try:
-        Decimal(s)
-        return True
-    except (InvalidOperation, ValueError):
-        return False
+    return _parse_decimal(v) is not None
 
 
 def _is_date(v: str) -> bool:
@@ -225,19 +259,16 @@ def coerce_value(value: str, pg_type: str):
     if s == "":
         return None
     if pg_type == PG_BOOLEAN:
-        if s.lower() in {"true", "t", "yes", "y", "1", "false", "f", "no", "n", "0"}:
-            return s.lower() in {"true", "t", "yes", "y", "1"}
+        low = s.lower()
+        if low in _BOOL_LITERALS:
+            return low in {"true", "t", "yes", "y"}
         return s
     if pg_type == PG_BIGINT:
-        try:
-            return int(s.replace(",", ""))
-        except ValueError:
-            return s
+        parsed = _parse_int(s)
+        return parsed if parsed is not None else s
     if pg_type == PG_NUMERIC:
-        try:
-            return Decimal(s.replace(",", ""))
-        except (InvalidOperation, ValueError):
-            return s
+        parsed = _parse_decimal(s)
+        return parsed if parsed is not None else s
     if pg_type == PG_DATE:
         for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y%m%d", "%d.%m.%Y"):
             try:

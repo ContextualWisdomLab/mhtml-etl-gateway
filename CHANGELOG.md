@@ -1,6 +1,18 @@
 # Changelog
 
-## [0.2.0] — Unreleased
+## [0.2.1] — Unresolved
+
+### Fixed
+
+- Validation: case-insensitive required headers; ZCRHT shape detection without circular MANDT/GUID dependency.
+- HTML extractor: honor `colspan`; replace `assert` with fail-closed errors.
+- Schema: collision-safe unique snake_case (including `A`/`A_2`/`A`); shared int/decimal parse helpers.
+- Batch: rollback shared Postgres sink on per-file failure; safer absolute globs.
+- Loader: type promote + insert in one transaction; public `rollback()` for batch recovery.
+- CI/Dockerfile: pin actions and base image digests; non-root already required.
+- Dockerfile: add HEALTHCHECK for CLI entrypoint (Strix medium finding).
+
+## [0.2.0] — Unresolved
 
 ### Added
 

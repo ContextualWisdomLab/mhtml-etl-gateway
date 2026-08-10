@@ -84,8 +84,18 @@ class _TopLevelTableParser(HTMLParser):
                 val = x_str
             else:
                 val = ""
-            assert self._cur_row is not None
-            self._cur_row.append(val)
+            if self._cur_row is None:
+                raise TableExtractError("table cell closed without an open row")
+            # Expand colspan so header/data column counts stay aligned.
+            span = 1
+            raw_span = self._cell_attrs.get("colspan") or self._cell_attrs.get("COLSPAN")
+            if raw_span:
+                try:
+                    span = max(1, int(str(raw_span).strip()))
+                except ValueError as exc:
+                    raise TableExtractError(f"invalid colspan={raw_span!r}") from exc
+            for _ in range(span):
+                self._cur_row.append(val)
             self._in_td = False
             self._cur_cell = []
         elif tag == "tr" and self._in_tr:

@@ -58,3 +58,9 @@ def test_unique_snake_collision() -> None:
     assert names[0] == "foo"
     assert names[1] == "foo_2"
     assert names[2] == "foo_bar"
+    # Secondary collision: base + suffix already used as a header.
+    schema2 = infer_table_schema(["A", "A_2", "A"], [["1", "2", "3"]])
+    names2 = [c.db_name for c in schema2.columns]
+    assert len(names2) == len(set(names2))
+    assert names2[0] == "a"
+    assert "a_2" in names2

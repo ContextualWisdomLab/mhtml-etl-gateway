@@ -28,6 +28,23 @@ def test_validate_pass_with_mandt_guid() -> None:
     assert "MANDT" in result.required_headers
 
 
+def test_validate_case_insensitive_required_headers() -> None:
+    result = validate_extracted_table(
+        ["mandt", "guid", "TITLE"],
+        [["603", "ABC", "t"]],
+    )
+    assert result.ok
+
+
+def test_zcrht_hint_headers_require_mandt_guid_without_table_name() -> None:
+    # DOCNOSUB + VOCTP imply ZCRHT family even if MANDT/GUID missing.
+    with pytest.raises(ValidationError, match="missing required headers"):
+        validate_extracted_table(
+            ["DOCNOSUB", "VOCTP", "TITLE"],
+            [["x", "VOC", "t"]],
+        )
+
+
 def test_validate_empty_rows_fails() -> None:
     with pytest.raises(ValidationError, match="no data rows"):
         validate_extracted_table(["MANDT", "GUID"], [])

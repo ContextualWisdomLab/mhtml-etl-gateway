@@ -45,3 +45,15 @@ def test_empty_html_fails_closed() -> None:
         extract_tables_from_html("")
     with pytest.raises(TableExtractError):
         extract_primary_table("<html><body>no tables</body></html>")
+
+
+def test_colspan_expands_header_cells() -> None:
+    html = """
+    <html><body><table>
+      <tr><td colspan="2">MERGED</td><td>C</td></tr>
+      <tr><td>a</td><td>b</td><td>c</td></tr>
+    </table></body></html>
+    """
+    table = extract_primary_table(html)
+    assert table.headers == ["MERGED", "MERGED", "C"]
+    assert table.rows[0] == ["a", "b", "c"]

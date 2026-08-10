@@ -182,6 +182,10 @@ class PsycopgSink:
     def close(self) -> None:
         self._conn.close()
 
+    def rollback(self) -> None:
+        """Clear aborted transaction so batch continue_on_error can proceed."""
+        self._conn.rollback()
+
     def __enter__(self) -> "PsycopgSink":
         return self
 
@@ -266,37 +270,18 @@ class PsycopgSink:
         row = self._fetchone(query)
         return int(row[0]) if row else 0
 
-    def _promote_columns_to_text(self, schema: TableSchema, rows: Sequence[Sequence[Any]]) -> None:
-        """Widen BIGINT/NUMERIC/etc. columns to TEXT when multi-file values require it."""
-        from psycopg import sql as pgsql
-
+    def _columns_to_promote(
+        self, schema: TableSchema, rows: Sequence[Sequence[Any]]
+    ) -> list[str]:
+        """Return db column names that must widen to TEXT for these values."""
         to_promote: list[str] = []
         for i, col in enumerate(schema.columns):
             if col.pg_type == PG_TEXT:
                 continue
-            col_vals = [row[i] if i < len(row) else None for row in rows]
-            prepared: list[Any] = []
-            for v in col_vals:
-                if isinstance(v, str):
-                    prepared.append(coerce_value(v, col.pg_type))
-                else:
-                    prepared.append(v)
+            prepared = [row[i] if i < len(row) else None for row in rows]
             if values_require_text(col.pg_type, prepared):
                 to_promote.append(col.db_name)
-        if not to_promote:
-            return
-        table = require_safe_ident(schema.table_name)
-        for name in to_promote:
-            col = require_safe_ident(name)
-            query = pgsql.SQL(
-                "ALTER TABLE {} ALTER COLUMN {} TYPE TEXT USING {}::text"
-            ).format(
-                pgsql.Identifier(table),
-                pgsql.Identifier(col),
-                pgsql.Identifier(col),
-            )
-            self._execute(query)
-        self._conn.commit()
+        return to_promote
 
     def write_artifact_rows(
         self,
@@ -309,12 +294,11 @@ class PsycopgSink:
         replace_existing: bool,
         start_row_number: int = 1,
     ) -> int:
-        """Single transaction: optional delete-by-sha + insert + catalog upsert."""
+        """Single transaction: promote-if-needed + delete-if-replace + insert + catalog."""
         from psycopg import sql as pgsql
 
-        self._promote_columns_to_text(schema, rows)
-
         table = require_safe_ident(schema.table_name)
+        to_promote = self._columns_to_promote(schema, rows)
         col_names = [require_safe_ident(c.db_name) for c in schema.columns] + [
             "source_artifact_path",
             "source_artifact_sha256",
@@ -358,6 +342,17 @@ class PsycopgSink:
             payloads.append(tuple(values))
 
         try:
+            # DDL + DML share one transaction so promote rolls back with insert failure.
+            for name in to_promote:
+                col = require_safe_ident(name)
+                query = pgsql.SQL(
+                    "ALTER TABLE {} ALTER COLUMN {} TYPE TEXT USING {}::text"
+                ).format(
+                    pgsql.Identifier(table),
+                    pgsql.Identifier(col),
+                    pgsql.Identifier(col),
+                )
+                self._execute(query)
             if replace_existing:
                 del_q = pgsql.SQL(
                     "DELETE FROM {} WHERE source_artifact_sha256 = %s"

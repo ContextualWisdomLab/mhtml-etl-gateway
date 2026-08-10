@@ -114,31 +114,22 @@ def _run_load(args: argparse.Namespace) -> int:
     on_dup: OnDuplicate = args.on_duplicate  # type: ignore[assignment]
 
     try:
-        if args.dry_run:
-            result = convert_mhtml_to_postgres(
-                path,
-                sink=None,
-                table_name=args.table_name,
-                lineage_json=args.lineage_json,
-                on_duplicate=on_dup,
-                required_headers=required,
+        if not args.dry_run and not args.dsn:
+            print(
+                "error: --dsn or MHTML_ETL_DSN/DATABASE_URL required "
+                "(or pass --dry-run)",
+                file=sys.stderr,
             )
-        else:
-            if not args.dsn:
-                print(
-                    "error: --dsn or MHTML_ETL_DSN/DATABASE_URL required "
-                    "(or pass --dry-run)",
-                    file=sys.stderr,
-                )
-                return 2
-            result = convert_mhtml_to_postgres(
-                path,
-                dsn=args.dsn,
-                table_name=args.table_name,
-                lineage_json=args.lineage_json,
-                on_duplicate=on_dup,
-                required_headers=required,
-            )
+            return 2
+        result = convert_mhtml_to_postgres(
+            path,
+            dsn=None if args.dry_run else args.dsn,
+            sink=None,
+            table_name=args.table_name,
+            lineage_json=args.lineage_json,
+            on_duplicate=on_dup,
+            required_headers=required,
+        )
 
         if getattr(args, "ddl_out", None):
             Path(args.ddl_out).write_text(result["ddl"] + "\n", encoding="utf-8")

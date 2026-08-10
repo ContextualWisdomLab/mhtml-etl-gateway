@@ -8,6 +8,19 @@ from typing import Sequence
 # Default required headers for ZCRHT811-shaped SAP ALV CRM exports.
 DEFAULT_REQUIRED_HEADERS: tuple[str, ...] = ("MANDT", "GUID")
 
+# Weaker signals that still indicate ZCRHT811-family CRM exports even when
+# MANDT/GUID are missing (so we can fail closed on missing required headers).
+_ZCRHT_HINT_HEADERS = frozenset(
+    {
+        "DOCNOSUB",
+        "ACTHGUID",
+        "VOCTP",
+        "VOCCTS",
+        "ERTCD",
+        "ZGBISPJTNO",
+    }
+)
+
 
 class ValidationError(ValueError):
     """Fail-closed validation failure — do not load business rows."""
@@ -23,11 +36,19 @@ class ValidationResult:
 
 
 def is_zcrht811_shaped(headers: Sequence[str], *, table_name: str | None = None) -> bool:
-    """Heuristic: ZCRHT811-style exports expose MANDT + GUID columns."""
-    upper = {h.upper() for h in headers}
-    if "MANDT" in upper and "GUID" in upper:
-        return True
+    """Heuristic for ZCRHT811-family exports — independent of required-header check.
+
+    True when table name suggests ZCRHT811, or headers include MANDT/GUID, or
+    enough ZCRHT-specific column names appear (so missing MANDT/GUID still
+    triggers required-header failure rather than silently skipping validation).
+    """
     if table_name and "zcrht811" in table_name.lower():
+        return True
+    upper = {h.upper() for h in headers}
+    if "MANDT" in upper or "GUID" in upper:
+        return True
+    hints = upper & _ZCRHT_HINT_HEADERS
+    if len(hints) >= 2:
         return True
     return False
 
@@ -72,14 +93,13 @@ def validate_extracted_table(
     req = resolve_required_headers(
         hdrs, table_name=table_name, required_headers=required_headers
     )
-    missing = [h for h in req if h not in hdrs]
+    # Case-insensitive required-header check (SAP exports vary casing).
+    present_upper = {h.upper() for h in hdrs}
+    missing = [h for h in req if h.upper() not in present_upper]
     if missing:
         raise ValidationError(
             f"validation failed: missing required headers {missing}; present={hdrs[:20]}"
         )
-
-    # Empty required header cells in first data row are allowed (values can be blank);
-    # but header names must exist.
 
     width = len(hdrs)
     if not allow_ragged:
@@ -91,10 +111,6 @@ def validate_extracted_table(
 
     if require_data_rows and len(rows) < 1:
         raise ValidationError("validation failed: no data rows")
-
-    if msgs:
-        # Soft messages only if we didn't raise — currently unused for hard fails.
-        pass
 
     return ValidationResult(
         ok=True,
