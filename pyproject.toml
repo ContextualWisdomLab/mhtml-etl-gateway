@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mhtml-etl-gateway"
+version = "0.1.0"
+description = "Enterprise MHTML ingestion gateway for SAP ALV / Excel Web Archive exports into PostgreSQL"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ContextualWisdomLab" }]
+dependencies = [
+  "psycopg[binary]>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+]
+
+[project.scripts]
+mhtml-etl-gateway = "mhtml_etl_gateway.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

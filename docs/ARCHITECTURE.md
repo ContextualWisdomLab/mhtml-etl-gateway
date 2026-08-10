@@ -6,7 +6,7 @@
 MHTML Artifact
     |
     v
-Raw Import Layer
+Raw Import Layer (read-only; sha256 lineage)
     |
     v
 MIME Parser
@@ -18,13 +18,13 @@ HTML Table Extractor
 Schema Inference
     |
     v
-Validation Engine
+Validation Engine (fail-closed)
     |
     v
 PostgreSQL Loader
     |
     v
-Governed Data Asset
+Governed Data Asset + lineage columns
 ```
 
 ## Trust Boundaries
@@ -34,15 +34,26 @@ Governed Data Asset
 - External resources are never fetched during parsing.
 - Every loaded record has lineage metadata.
 
-## Planned Modules
+## Implemented Modules
 
-- mhtml_parser
-- html_table_extractor
-- schema_inference_engine
-- validation_engine
-- postgres_loader
-- lineage_tracker
+| Module | Package path | Role |
+|--------|--------------|------|
+| mhtml_parser | `mhtml_etl_gateway.mhtml_parser` | MIME multipart → HTML bytes |
+| html_table_extractor | `mhtml_etl_gateway.html_table_extractor` | HTML → headers + rows |
+| schema_inference_engine | `mhtml_etl_gateway.schema_inference` | columns → PG types + snake_case |
+| postgres_loader | `mhtml_etl_gateway.postgres_loader` | DDL + insert (live or injectable sink) |
+| lineage_tracker | `mhtml_etl_gateway.lineage` | sha256 / path / row provenance |
+| pipeline | `mhtml_etl_gateway.pipeline` | orchestrates stages |
+| cli | `mhtml_etl_gateway.cli` | launchable entry point |
+
+## Lineage columns (every loaded table)
+
+- `source_artifact_path` TEXT
+- `source_artifact_sha256` TEXT
+- `source_row_number` BIGINT
+- `loaded_at` TIMESTAMP
 
 ## Deployment Direction
 
 Docker-first modular services with PostgreSQL persistence and future worker orchestration.
+Local/dev: `pip install -e .` and `mhtml-etl-gateway <file.MHTML> --dsn postgresql:///dbname`.
