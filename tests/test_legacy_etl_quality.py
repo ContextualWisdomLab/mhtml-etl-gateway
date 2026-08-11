@@ -459,6 +459,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             self.fetchall_result: list[tuple[object, ...]] = []
             self.fail_execute = False
             self.fail_executemany = False
+            self.fail_rollback = False
 
         def cursor(self):
             return Cursor(self)
@@ -468,6 +469,8 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
 
         def rollback(self) -> None:
             self.rollbacks += 1
+            if self.fail_rollback:
+                raise RuntimeError("rollback failed")
 
         def close(self) -> None:
             self.closed = True
@@ -485,23 +488,47 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     connection.fetchall_result = [("a",), ("b",)]
     assert sink._fetchall("SELECT") == [("a",), ("b",)]
     assert sink._fetchall("SELECT %s", (1,)) == [("a",), ("b",)]
+
+    connection.fail_execute = True
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._execute("SELECT secret")
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._fetchone("SELECT secret")
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._fetchall("SELECT secret")
+    connection.fail_execute = False
+    connection.fail_executemany = True
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._executemany("INSERT", [("secret",)])
+    connection.fail_executemany = False
+
     sink.rollback()
     assert connection.rollbacks == 1
     assert sink.__enter__() is sink
     sink.__exit__(None, None, None)
     assert connection.closed
 
+    with patch("psycopg.connect", side_effect=RuntimeError("secret DSN details")):
+        with pytest.raises(LoadError, match="database connection failed") as error:
+            PsycopgSink("postgresql://secret")
+    assert "secret DSN details" not in str(error.value)
+
     connection = Connection()
     sink = object.__new__(PsycopgSink)
     sink._conn = connection
     schema = TableSchema(
         table_name="mapped_rows",
-        columns=[ColumnSpec("VALUE", "value", PG_TEXT, comment="business value")],
+        columns=[ColumnSpec("VALUE", "value_field", PG_TEXT, comment="business value")],
     )
-    connection.fetchall_result = [("value", "text")]
+    connection.fetchall_result = [("value_field", "text")]
     sink.ensure_table(schema)
     sink.ensure_catalog()
     assert connection.commits == 2
+    assert any("load_status_code" in str(query) for _, query, _ in connection.calls)
+    assert any(
+        "RENAME COLUMN status TO load_status_code" in str(query)
+        for _, query, _ in connection.calls
+    )
     connection.fetchone_result = None
     assert sink.catalog_get("a" * 64, "mapped_rows") is None
     connection.fetchone_result = ("a" * 64, "mapped_rows", "artifact:aaaaaaaaaaaaaaaa", 1, 1, "loaded", None)
@@ -519,7 +546,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     connection.fetchall_result = []
     unsupported_schema = TableSchema(
         table_name="mapped_rows",
-        columns=[ColumnSpec("VALUE", "value", "UNSUPPORTED")],
+        columns=[ColumnSpec("VALUE", "value_field", "UNSUPPORTED")],
     )
     with pytest.raises(LoadError, match="unsupported schema"):
         sink._ensure_missing_columns(unsupported_schema)
@@ -547,7 +574,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     write_connection = Connection()
     write_sink = object.__new__(PsycopgSink)
     write_sink._conn = write_connection
-    write_sink._columns_to_promote = lambda schema, rows: ["value"]
+    write_sink._columns_to_promote = lambda schema, rows: ["value_field"]
     catalog_entry = make_catalog_entry(
         sha256="a" * 64,
         table_name="mapped_rows",
@@ -589,7 +616,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     failing_sink = object.__new__(PsycopgSink)
     failing_sink._conn = failing_connection
     failing_sink._columns_to_promote = lambda schema, rows: []
-    with pytest.raises(RuntimeError, match="executemany failed"):
+    with pytest.raises(LoadError, match="database load failed") as error:
         failing_sink.write_artifact_rows(
             schema,
             [["x"]],
@@ -598,14 +625,32 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             catalog_entry=catalog_entry,
             replace_existing=False,
         )
+    assert "executemany failed" not in str(error.value)
     assert failing_connection.rollbacks == 1
+
+    rollback_failure_connection = Connection()
+    rollback_failure_connection.fail_executemany = True
+    rollback_failure_connection.fail_rollback = True
+    rollback_failure_sink = object.__new__(PsycopgSink)
+    rollback_failure_sink._conn = rollback_failure_connection
+    rollback_failure_sink._columns_to_promote = lambda schema, rows: []
+    with pytest.raises(LoadError, match="database load failed"):
+        rollback_failure_sink.write_artifact_rows(
+            schema,
+            [["x"]],
+            source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
+            source_artifact_sha256="a" * 64,
+            catalog_entry=catalog_entry,
+            replace_existing=False,
+        )
+    assert rollback_failure_connection.rollbacks == 1
 
 
 def test_inmemory_sink_and_load_edge_contracts() -> None:
     """The injectable sink preserves atomic state and rejects invalid digests."""
     schema = TableSchema(
         table_name="edge_rows",
-        columns=[ColumnSpec("VALUE", "value", PG_TEXT)],
+        columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
     sink = InMemorySink()
     entry = make_catalog_entry(
@@ -701,7 +746,7 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         sink=InMemorySink(),
         column_mapping=mapping_path,
     )
-    assert result["column_comments"]["mandt"] == "client identifier"
+    assert result["column_comments"]["mandt_field"] == "client identifier"
     assert result["column_mapping"]["matched_count"] == 1
 
     class GenericSink:
@@ -798,10 +843,22 @@ def test_validation_and_identifier_contracts() -> None:
         validate_extracted_table(["A"], [["1", "2"]], required_headers=[])
 
     assert require_safe_ident("multiword_name") == "multiword_name"
+    valid_maximum = "a" * 30 + "_" + "b" * 32
+    assert require_safe_ident(valid_maximum) == valid_maximum
     with pytest.raises(UnsafeIdentifierError):
         require_safe_ident("one-word")
     with pytest.raises(UnsafeIdentifierError):
         require_safe_ident("A")
+    with pytest.raises(UnsafeIdentifierError):
+        require_safe_ident("a" * 64)
+    with pytest.raises(UnsafeIdentifierError) as unsafe_error:
+        require_safe_ident("secret_customer_identifier-unsafe")
+    assert "secret_customer_identifier-unsafe" not in str(unsafe_error.value)
+    with pytest.raises(SchemaInferenceError, match="unsupported PostgreSQL"):
+        TableSchema(
+            table_name="safe_table",
+            columns=[ColumnSpec("VALUE", "value_field", "DROP TABLE")],
+        ).ddl()
     assert quote_sql_literal("a\\b'c\n") == "E'a\\\\b''c\\n'"
     with pytest.raises(TypeError):
         quote_sql_literal(1)  # type: ignore[arg-type]
@@ -816,6 +873,7 @@ def test_schema_inference_and_coercion_contracts() -> None:
             to_snake_case(bad)  # type: ignore[arg-type]
     assert to_snake_case("CamelCase Value") == "camel_case_value"
     long_name = "x" * 63
+    assert to_snake_case(long_name).endswith("_field")
     assert len(to_snake_case(long_name)) == 63
     names = unique_snake_names([long_name, long_name, "A", "A_2", "A"])
     assert len(names) == len(set(names))
@@ -991,8 +1049,9 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
         "a_b"
     ]
     assert mapping_module._source_candidates(schema, "not valid !!!") == []
-    assert mapping_module._target_candidates(schema, "title") == ["title"]
-    assert mapping_module._target_candidates(schema, "TITLE") == ["title"]
+    assert mapping_module._target_candidates(schema, "title_field") == ["title_field"]
+    assert mapping_module._target_candidates(schema, "title") == ["title_field"]
+    assert mapping_module._target_candidates(schema, "TITLE") == ["title_field"]
     assert mapping_module._target_candidates(schema, "not valid !!!") == []
     assert mapping_module._target_candidates(schema, "!!!") == []
 
@@ -1043,7 +1102,7 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
         mappings=conflict.mappings,
     )
     merged, _ = mapping_module.attach_column_comments(schema, pptx_conflict)
-    assert merged.comment_map()["title"] == "first; second"
+    assert merged.comment_map()["title_field"] == "first; second"
 
 
 def test_mapping_reference_handles_unreadable_artifact(tmp_path: Path) -> None:

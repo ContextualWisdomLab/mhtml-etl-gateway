@@ -8,6 +8,7 @@ import pytest
 from mhtml_etl_gateway.pipeline import extract_table, infer_schema_for_extract
 from mhtml_etl_gateway.schema_inference import (
     PG_BIGINT,
+    PG_BIGINT_MAX,
     PG_BOOLEAN,
     PG_DATE,
     PG_NUMERIC,
@@ -18,16 +19,67 @@ from mhtml_etl_gateway.schema_inference import (
     coerce_value,
     infer_pg_type,
     infer_table_schema,
+    to_table_name,
     to_snake_case,
+    unique_snake_names,
     values_require_text,
 )
 
 
 def test_to_snake_case_multiword() -> None:
     assert to_snake_case("VOC_PUCODE") == "voc_pucode"
-    assert to_snake_case("MANDT") == "mandt"
+    assert to_snake_case("MANDT") == "mandt_field"
     assert to_snake_case("ZCRHT811 Export Rows") == "zcrht811_export_rows"
-    assert to_snake_case("123abc") == "col_123abc"
+    assert to_snake_case("123abc") == "col_123abc_field"
+    assert to_table_name("123abc") == "col_123abc_table"
+    assert to_table_name("simple") == "simple_table"
+    assert to_table_name("simple_rows") == "simple_rows"
+
+
+@pytest.mark.parametrize("length", [58, 63, 80])
+def test_single_token_table_names_preserve_suffix_at_postgres_boundary(
+    length: int,
+) -> None:
+    result = to_table_name("x" * length)
+
+    assert len(result.encode("ascii")) <= 63
+    assert result.endswith("_table")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "alpha_" + "x" * 61,
+        "alpha_" + "x" * 60 + "_omega",
+    ],
+)
+def test_long_multiword_table_names_remain_safe_and_multiword(source: str) -> None:
+    result = to_table_name(source)
+
+    assert len(result.encode("ascii")) <= 63
+    assert "_" in result
+    assert not result.endswith("_")
+
+
+def test_long_multiword_table_name_prefers_complete_leading_tokens() -> None:
+    assert to_table_name("alpha_beta_" + "x" * 60) == "alpha_beta"
+
+
+def test_long_multiword_table_name_preserves_second_token_when_first_is_long() -> None:
+    result = to_table_name("x" * 80 + "_rows")
+
+    assert len(result) == 63
+    assert result.endswith("_r")
+
+
+def test_unique_long_single_token_names_preserve_field_suffix_on_collision() -> None:
+    names = unique_snake_names(["x" * 63, "x" * 63])
+
+    assert names[0].endswith("_field")
+    assert names[1].endswith("_field_2")
+    assert len(names[0]) == len(names[1]) == 63
+    assert len(set(names)) == 2
+    assert unique_snake_names(["a_b", "a_b"]) == ["a_b", "a_b_2"]
 
 
 def test_infer_pg_types_unit() -> None:
@@ -38,6 +90,7 @@ def test_infer_pg_types_unit() -> None:
     assert infer_pg_type(["09:48:09", "11:17:26"]) == PG_TIME
     assert infer_pg_type(["hello", "world"]) == PG_TEXT
     assert infer_pg_type(["", ""]) == PG_TEXT
+    assert infer_pg_type([str(PG_BIGINT_MAX + 1)]) == PG_NUMERIC
     assert _is_time("9:48:09") is True
 
 
@@ -113,19 +166,19 @@ def test_schema_from_fixture_pipeline(sample_mhtml_path) -> None:
     assert "source_artifact_sha256" in ddl
     assert "source_row_number" in ddl
     # multiword snake_case columns
-    assert "mandt" in ddl
+    assert "mandt_field" in ddl
     assert "voc_pucode" in ddl
 
 
 def test_unique_snake_collision() -> None:
     schema = infer_table_schema(["FOO", "foo", "Foo Bar"], [["1", "2", "x"]])
     names = [c.db_name for c in schema.columns]
-    assert names[0] == "foo"
-    assert names[1] == "foo_2"
+    assert names[0] == "foo_field"
+    assert names[1] == "foo_field_2"
     assert names[2] == "foo_bar"
     # Secondary collision: base + suffix already used as a header.
     schema2 = infer_table_schema(["A", "A_2", "A"], [["1", "2", "3"]])
     names2 = [c.db_name for c in schema2.columns]
     assert len(names2) == len(set(names2))
-    assert names2[0] == "a"
+    assert names2[0] == "a_field"
     assert "a_2" in names2

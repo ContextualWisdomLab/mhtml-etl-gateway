@@ -69,6 +69,13 @@ Domain tables are created only from approved artifacts. Example names include `i
 
 External and cross-service IDs use UUIDv7 according to RFC 9562. Database surrogate identifiers are never sequentially exposed. Natural SAP identifiers remain business values and are never used as tenant authorization boundaries.
 
+Every generated table and column name is lowercase multiword `snake_case` and
+fits PostgreSQL's 63-byte unquoted-identifier limit. Single-token columns use
+`_field`, single-token tables use `_table`, and direct unsafe names are rejected
+before DDL. The Python `CatalogEntry.status` state maps to the SQL catalog
+column `load_status_code`; an idempotent compatibility rename handles older
+catalogs.
+
 ## PII policy
 
 Operational values may be stored exactly when authorized. Access is controlled by tenant keying, PostgreSQL row-level security, column privileges or protected views, application authorization, encryption, purpose/retention policy, and audit. Logs and metrics contain identifiers by opaque ID or keyed hash, not raw values.

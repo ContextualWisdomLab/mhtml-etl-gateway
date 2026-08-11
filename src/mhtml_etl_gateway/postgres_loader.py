@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -9,11 +10,11 @@ from typing import Any, Literal, Protocol, Sequence
 
 from mhtml_etl_gateway.ingest_catalog import (
     CATALOG_DDL,
+    CATALOG_STATUS_MIGRATION_DDL,
     CatalogEntry,
     make_catalog_entry,
 )
 from mhtml_etl_gateway.lineage import artifact_reference
-from mhtml_etl_gateway.sql_ident import require_safe_ident
 from mhtml_etl_gateway.schema_inference import (
     PG_BIGINT,
     PG_BOOLEAN,
@@ -26,12 +27,54 @@ from mhtml_etl_gateway.schema_inference import (
     coerce_value,
     values_require_text,
 )
+from mhtml_etl_gateway.sql_ident import require_safe_ident
 
 OnDuplicate = Literal["skip", "replace"]
 
 
 class LoadError(ValueError):
     """Fail-closed load error."""
+
+
+_LEGACY_NON_ALNUM = re.compile(r"[^0-9a-zA-Z]+")
+_LEGACY_CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+
+
+def _legacy_column_names(schema: TableSchema) -> list[str]:
+    """Reconstruct pre-policy inferred names only for upgrade detection.
+
+    These names are never emitted as SQL identifiers.  They let the live sink
+    reject a load before a persisted legacy column and its suffixed successor
+    can silently coexist and split values.
+    """
+    used: set[str] = set()
+    names: list[str] = []
+    for column in schema.columns:
+        name = _LEGACY_CAMEL_BOUNDARY.sub(r"\1_\2", str(column.source_name).strip())
+        name = _LEGACY_NON_ALNUM.sub("_", name)
+        name = re.sub(r"_+", "_", name).strip("_").lower()
+        if name and name[0].isdigit():
+            name = f"col_{name}"
+        base = name[:63]
+        candidate = base
+        suffix_number = 1
+        while candidate in used:
+            suffix_number += 1
+            suffix = f"_{suffix_number}"
+            candidate = f"{base[: 63 - len(suffix)]}{suffix}"
+        used.add(candidate)
+        names.append(candidate)
+    return names
+
+
+def _legacy_table_name(source_name: str) -> str:
+    """Reconstruct the bounded table identifier emitted before this policy."""
+    name = _LEGACY_CAMEL_BOUNDARY.sub(r"\1_\2", str(source_name).strip())
+    name = _LEGACY_NON_ALNUM.sub("_", name)
+    name = re.sub(r"_+", "_", name).strip("_").lower()
+    if name and name[0].isdigit():
+        name = f"col_{name}"
+    return name[:63]
 
 
 @dataclass
@@ -199,7 +242,10 @@ class PsycopgSink:
             raise LoadError("psycopg is required for PostgreSQL loading") from exc
         self._psycopg = psycopg
         self._conninfo = conninfo
-        self._conn = psycopg.connect(conninfo)
+        try:
+            self._conn = psycopg.connect(conninfo)
+        except Exception:
+            raise LoadError("database connection failed") from None
         self._conn.autocommit = False
 
     def close(self) -> None:
@@ -222,43 +268,53 @@ class PsycopgSink:
         Dynamic relation names are unavoidable for multi-table ETL; values always
         use bind parameters. Semgrep cannot prove Identifier safety statically.
         """
-        with self._conn.cursor() as cur:
-            if params is None:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query)
-            else:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query, params)
+        try:
+            with self._conn.cursor() as cur:
+                if params is None:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query)
+                else:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query, params)
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _executemany(self, query, params_seq: Sequence[Sequence[Any]]) -> None:
-        with self._conn.cursor() as cur:
-            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            cur.executemany(query, params_seq)
+        try:
+            with self._conn.cursor() as cur:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.executemany(query, params_seq)
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _fetchone(self, query, params: Sequence[Any] | None = None):
-        with self._conn.cursor() as cur:
-            if params is None:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query)
-            else:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query, params)
-            return cur.fetchone()
+        try:
+            with self._conn.cursor() as cur:
+                if params is None:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query)
+                else:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query, params)
+                return cur.fetchone()
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _fetchall(self, query, params: Sequence[Any] | None = None) -> list:
-        with self._conn.cursor() as cur:
-            if params is None:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query)
-            else:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query, params)
-            return list(cur.fetchall())
+        try:
+            with self._conn.cursor() as cur:
+                if params is None:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query)
+                else:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query, params)
+                return list(cur.fetchall())
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _ensure_missing_columns(self, schema: TableSchema) -> None:
         """Add schema columns missing from an already-existing relation."""
-        from psycopg import sql as pgsql
-
         existing_names = {
             str(name)
             for name, _data_type in self._fetchall(
@@ -268,6 +324,16 @@ class PsycopgSink:
                 (schema.table_name,),
             )
         }
+        for column, legacy_name in zip(
+            schema.columns, _legacy_column_names(schema), strict=True
+        ):
+            if (
+                legacy_name != column.db_name
+                and legacy_name in existing_names
+            ):
+                raise LoadError("legacy column requires explicit migration")
+        from psycopg import sql as pgsql
+
         allowed_types = {
             PG_TEXT,
             PG_BOOLEAN,
@@ -292,11 +358,41 @@ class PsycopgSink:
             )
             existing_names.add(column.db_name)
 
+    def _reject_legacy_table_split(self, schema: TableSchema) -> None:
+        """Fail before a suffixed relation can be created beside legacy rows."""
+        candidates: set[str] = set()
+        if schema.source_table_name is not None:
+            candidates.add(_legacy_table_name(schema.source_table_name))
+        suffix = "_table"
+        if schema.table_name.endswith(suffix):
+            suffix_stripped = schema.table_name[: -len(suffix)]
+            if schema.source_table_name is not None or "_" not in suffix_stripped:
+                candidates.add(suffix_stripped)
+        candidates.discard("")
+        candidates.discard(schema.table_name)
+        if not candidates:
+            return
+        query_names = tuple(sorted({*candidates, schema.table_name}))
+        placeholders = ", ".join("%s" for _ in query_names)
+        existing_names = {
+            str(row[0])
+            for row in self._fetchall(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = current_schema() "
+                f"AND table_name IN ({placeholders})",
+                query_names,
+            )
+        }
+        matching_legacy = sorted(candidates & existing_names)
+        if matching_legacy:
+            raise LoadError("legacy table requires explicit migration")
+
     def ensure_table(self, schema: TableSchema) -> None:
         """Create or evolve a table and apply its safe column comments."""
         # DDL identifiers validated inside TableSchema.ddl().  Keep CREATE and
         # COMMENT statements separate so psycopg never has to prepare a
         # multi-command statement, while committing them together.
+        self._reject_legacy_table_split(schema)
         self._execute(schema.create_ddl(include_lineage=True))
         self._ensure_missing_columns(schema)
         for statement in schema.comment_ddl():
@@ -306,6 +402,7 @@ class PsycopgSink:
     def ensure_catalog(self) -> None:
         """Create the fixed artifact ingest catalog relation."""
         self._execute(CATALOG_DDL)
+        self._execute(CATALOG_STATUS_MIGRATION_DDL)
         self._conn.commit()
 
     def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
@@ -313,7 +410,7 @@ class PsycopgSink:
         # Fixed catalog relation; bind parameters for values only.
         query = (
             "SELECT source_artifact_sha256, table_name, source_artifact_path, "
-            "source_artifact_size, row_count, status, loaded_at "
+            "source_artifact_size, row_count, load_status_code, loaded_at "
             "FROM mhtml_ingest_artifact "
             "WHERE source_artifact_sha256 = %s AND table_name = %s"
         )
@@ -420,13 +517,13 @@ class PsycopgSink:
         catalog_sql = (
             "INSERT INTO mhtml_ingest_artifact ("
             "source_artifact_sha256, table_name, source_artifact_path, "
-            "source_artifact_size, row_count, status, loaded_at"
+            "source_artifact_size, row_count, load_status_code, loaded_at"
             ") VALUES (%s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (source_artifact_sha256, table_name) DO UPDATE SET "
             "source_artifact_path = EXCLUDED.source_artifact_path, "
             "source_artifact_size = EXCLUDED.source_artifact_size, "
             "row_count = EXCLUDED.row_count, "
-            "status = EXCLUDED.status, "
+            "load_status_code = EXCLUDED.load_status_code, "
             "loaded_at = EXCLUDED.loaded_at"
         )
         payloads: list[tuple[Any, ...]] = []
@@ -481,8 +578,12 @@ class PsycopgSink:
             self._conn.commit()
             return len(payloads)
         except Exception:
-            self._conn.rollback()
-            raise
+            try:
+                self._conn.rollback()
+            except Exception:
+                # Preserve the fixed load error when rollback itself fails.
+                raise LoadError("database load failed") from None
+            raise LoadError("database load failed") from None
 
     def query_count(self, table_name: str) -> int:
         """Return a queryable row count through the same identifier contract."""

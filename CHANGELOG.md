@@ -12,6 +12,22 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
   with tenant- and approval-scoped deterministic per-request idempotency keys,
   strict governance-context validation, and no raw source values.
 
+### Changed
+
+- Enforce multiword lowercase `snake_case` database names across inference,
+  DDL, `COMMENT ON COLUMN`, and dynamic SQL; canonicalize single-token inputs
+  with `_field`/`_table` suffixes and migrate the catalog status column to
+  `load_status_code`.
+- Fail closed when a persisted legacy table or column would otherwise coexist
+  with a parallel suffixed object; operators receive an explicit migration
+  requirement until the dynamic-object migration and rollback contract is
+  implemented.
+- Add an explicit catalog status-column down migration and reject ambiguous
+  dual-column states in both migration directions.
+- Bound signed BIGINT inference, reject arbitrary PostgreSQL DDL types, and
+  normalize database/identifier failures without reflecting secrets or provider
+  details.
+
 ### Planned
 
 - Approved schema decisions, streamed transactional loading, rejection

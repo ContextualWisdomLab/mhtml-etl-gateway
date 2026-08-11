@@ -9,6 +9,8 @@
 | opaque time-ordered external IDs | RFC 9562 | future service/database UUIDv7 contract |
 | API description | OpenAPI 3.2.0 | future authenticated service contract baseline |
 | PostgreSQL baseline | PostgreSQL 18.4 release notes | patched deployment baseline for future loader |
+| PostgreSQL type and error boundary | PostgreSQL Global Development Group. (2026). *PostgreSQL 18 documentation*; NIST SSDF 1.1 | keep generated types allow-listed, classify out-of-range integers as `NUMERIC`, and prevent DSN/SQL/provider details from public errors |
+| database identifier boundary | PostgreSQL Global Development Group. (2026). *4.1. Lexical structure*. PostgreSQL 18 documentation. https://www.postgresql.org/docs/current/sql-syntax-lexical.html | keep generated names lowercase, bounded to 63 bytes, and stricter multiword `snake_case` at every SQL boundary |
 | secure development | NIST SP 800-218 SSDF 1.1 | design decisions, provenance, vulnerability, least privilege, and isolated build/test environments |
 | application verification | OWASP ASVS 5.0.0 | future API/auth/session/validation acceptance criteria |
 | SBOM | SPDX 3.0.1 | release inventory and vulnerability relationships |

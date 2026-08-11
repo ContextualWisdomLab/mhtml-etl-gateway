@@ -78,6 +78,11 @@ per-request idempotency explicit before a caller crosses that boundary.
 
 ## P2: PostgreSQL loading
 
+Every generated database object must use descriptive lowercase multiword
+`snake_case`; single-token inputs are suffixed by the canonical schema engine
+and unsafe direct names are rejected before DDL. Catalog upgrades must preserve
+idempotency and use replay-safe migrations when an object name changes.
+
 The loader shall use transaction-safe staging and streamed `COPY FROM STDIN`, then reconcile:
 
 - extracted source row count;
