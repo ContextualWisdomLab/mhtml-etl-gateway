@@ -2,7 +2,10 @@
 
 ## Current library operation
 
-Version `0.1.0` is a synchronous local inspection library and CLI. It has no listening port, database credential, background worker, browser runtime, office dependency, or network egress.
+Version `0.3.0` is a synchronous local inspection, schema-governance, and
+catalog-manifest library/CLI. It has no listening port, database credential,
+background worker, browser runtime, office dependency, or network egress in
+the catalog connector.
 
 Operators control resource budgets through `ParseLimits` and the CLI source-byte limit. Programmatic budgets cover source bytes, all descendant MIME entities, MIME depth, decoded HTML, tables, rows, columns, raw cells, projected and realized normalized cells, and cell text. Every budget is a positive non-boolean integer.
 
@@ -24,6 +27,13 @@ The public package emits no operational logs by itself. The CLI writes one succe
 ## Current health and capacity model
 
 The package has no service health endpoint. A caller determines availability by importing the package or invoking the CLI. Service liveness/readiness contracts belong to a later authenticated service milestone.
+
+The Semantic Data Portal connector is also a synchronous in-process library
+boundary. Its success means only that a deterministic, value-free manifest was
+constructed. Operators must separately observe the caller-owned approval,
+authentication, request submission, retry, and remote upsert outcomes. A
+manifest ID is the idempotency and replay correlation key; it is not proof that
+the portal accepted the graph requests.
 
 Resource limits are per document and independent of deployment capacity. A future worker pool will add tenant queue quotas, concurrency limits, backpressure, hard process-memory limits, cancellation, and dead-letter recovery. Large input does not justify disabling parser budgets.
 

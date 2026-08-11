@@ -1,8 +1,8 @@
 # Technical Requirements Document: MHTML ETL Gateway
 
-**Version:** 0.1  
-**Status:** Accepted implementation baseline  
-**Date:** 2026-08-09
+**Version:** 0.3
+**Status:** Accepted implementation baseline with explicit future service boundaries
+**Date:** 2026-08-11
 
 ## Runtime baseline
 
@@ -112,6 +112,24 @@ Argparse failures and invalid `ParseLimits` construction map to `invalid_argumen
 ## Future PostgreSQL requirements
 
 The loader architecture shall use separate `raw_import`, `staging_data`, `normalized_data`, and `audit_log` schemas. Every object name contains at least two words and preferably uses `snake_case`. Loads use explicit transactions and streamed `COPY FROM STDIN`; dynamic identifiers are selected only from an approved schema artifact and never concatenated from source text.
+
+## Semantic catalog connector requirements
+
+The `semantic_catalog_connector` module shall:
+
+- accept only an existing `SchemaProposal` plus steward-provided catalog display
+  metadata;
+- emit deterministic dataset/column nodes and `contains_column` edges matching
+  the Semantic Data Portal graph request contract;
+- include source/proposal fingerprints, aggregate evidence, nullability, types,
+  and review reasons, but no raw headers or sample values;
+- derive a stable manifest ID from the contract version and canonical payload;
+- perform no network request, database operation, file write, LLM call, or
+  approval decision;
+- leave actor identity, authentication, tenant authorization, retry, and
+  transport to a caller-owned boundary;
+- remain importable as a standalone Python library and composable as an MSA
+  module.
 
 ## Autonomous-development requirements
 

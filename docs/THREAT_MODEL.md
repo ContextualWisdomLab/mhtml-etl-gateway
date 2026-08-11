@@ -24,6 +24,7 @@
 9. untrusted repository/review/log/artifact material to privileged agent reasoning;
 10. privileged agent process to secret-stripped repository-code execution;
 11. product repository to central organization governance.
+12. value-free catalog manifest to caller-owned Semantic Data Portal transport.
 
 ## Principal threats and mitigations
 
@@ -76,6 +77,7 @@
 | malformed or hidden `.yaml` workflow evades policy scanner | mutable action or credential drift | recursive `.yml` and `.yaml` validation |
 | false remediation activity | no blocker change despite cost | mandatory permission/API/effect feasibility proof |
 | compromised dependency/action | supply-chain compromise | dependency minimization, hash locks, full-SHA pins, verified agent binary, future SBOM/provenance |
+| catalog connector receives or emits protected values | semantic-catalog disclosure | accept only value-free `SchemaProposal` output, serialize hashes/aggregates/review reasons only, test raw-value absence, and leave transport/approval outside the library |
 
 ## Residual risks
 

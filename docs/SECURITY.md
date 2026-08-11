@@ -53,6 +53,15 @@ Errors and diagnostics expose only stable codes and approved fixed text. Caller-
 
 The public API and CLI provide no header-value disclosure path. Future schema governance must implement authenticated source custody, protected output, authorization, retention, export approval, and immutable audit before it can access values.
 
+### Semantic catalog handoff
+
+The Semantic Data Portal connector consumes only the value-free schema-proposal
+representation. It emits deterministic graph request shapes with fingerprints,
+normalized target names, bounded aggregates, and review reasons; it does not
+perform HTTP, persist data, attach credentials, or make approval decisions. A
+caller-owned boundary must enforce actor identity, tenant authorization,
+steward approval, idempotency, retry, TLS, and remote audit before submission.
+
 ### PII without destructive masking
 
 Exact business values may remain usable inside future authorized workflows. Compensating controls are tenant isolation, encryption, scoped credentials, row/column authorization, purpose limitation, retention, deletion/legal hold, export approval, immutable audit, and incident response. Public operational artifacts remain value-free.

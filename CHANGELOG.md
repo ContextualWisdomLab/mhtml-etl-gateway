@@ -4,10 +4,16 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- A deterministic, value-free Semantic Data Portal graph manifest connector for
+  schema-proposal discovery, with caller-owned authentication and transport.
+
 ### Planned
 
-- Approved schema governance, streamed transactional loading, rejection quarantine,
-  reconciliation, replay, tenant-aware APIs, and governed CWL connectors.
+- Approved schema decisions, streamed transactional loading, rejection
+  quarantine, reconciliation, replay, tenant-aware APIs, and authenticated
+  governed CWL connectors.
 
 ## [0.3.0] — 2026-08-11
 

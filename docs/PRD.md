@@ -1,8 +1,8 @@
 # Product Requirements Document: MHTML ETL Gateway
 
-**Version:** 0.1  
-**Status:** Accepted implementation baseline  
-**Date:** 2026-08-09
+**Version:** 0.3
+**Status:** Accepted implementation baseline with explicit future service boundaries
+**Date:** 2026-08-11
 
 ## Product vision
 
@@ -63,11 +63,16 @@ The `0.1.0` implementation shall:
 
 Header values required by future schema governance must remain inside an authenticated source-custody workflow with authorization, audit, retention, and protected output. That workflow is not part of the current public inspection API or CLI.
 
-## P1: governed schema proposals
+## P1: governed schema proposals and catalog handoff
 
 The next product slice shall produce versioned, reviewable PostgreSQL schema proposals without executing DDL. A protected proposal workflow includes source-header fingerprints, normalized multiword `snake_case` names, proposed data types, nullability evidence, date/number/code ambiguity, confidence, policy findings, reviewer decisions, and immutable source lineage.
 
 No automatic inference may reinterpret identifier-like values with leading zeroes as numbers without explicit policy evidence. Source headers and sample values must never be copied into public logs, issues, or default reports.
+
+The current P1 integration slice also emits a deterministic, value-free
+Semantic Data Portal manifest. It exposes dataset/column graph nodes and
+`contains_column` edges for caller-owned authenticated submission, while
+keeping network, tenant, approval, and transport authority outside the parser.
 
 ## P2: PostgreSQL loading
 
@@ -94,10 +99,11 @@ The product shall not apply destructive default masking when an authorized workf
 ## Ecosystem priorities
 
 1. `ContextualWisdomLab/.github`: inherited review, security, supply-chain, and merge governance.
-2. `pg-erd-cloud`: future reviewed schema proposal and lineage visualization contracts.
-3. `naruon`: future authenticated ingestion notifications and governed handoff artifacts.
-4. `pg-llm-batch`: optional post-ingestion enrichment, never in the trusted parser path.
-5. `contextual-orchestrator`: optional policy/review orchestration after deterministic evidence exists.
+2. `semantic-data-portal`: current value-free schema-proposal catalog handoff; future steward and ontology workflow.
+3. `pg-erd-cloud`: future reviewed schema proposal and lineage visualization contracts.
+4. `naruon`: future authenticated ingestion notifications and governed handoff artifacts.
+5. `pg-llm-batch`: optional post-ingestion enrichment, never in the trusted parser path.
+6. `contextual-orchestrator`: optional policy/review orchestration after deterministic evidence exists.
 
 ## Success metrics
 

@@ -14,10 +14,13 @@ flowchart TB
     H --> V["Validation and schema inference"]
     V --> R["JSON CSV PPTX mapping reference"]
     R --> D["CREATE TABLE and COMMENT ON COLUMN"]
+    V --> SP["Value-free schema proposal"]
+    SP --> SC["Semantic catalog manifest connector"]
     D --> L["Transactional PostgreSQL loader"]
     L --> P[("PostgreSQL")]
     V --> O["Audit and observability"]
     L --> O
+    SC --> SDP["semantic-data-portal graph ingestion"]
     P --> N["Approved opaque artifact for CWL connectors"]
 ```
 
@@ -31,6 +34,7 @@ flowchart TB
 | `inspection` | value-free structural evidence | no data values |
 | `validation_engine` | required headers and row-shape contracts | fail closed |
 | `schema_inference` / `schema_proposal` | safe types and versioned proposals | approval boundary |
+| `semantic_catalog_connector` | value-free dataset/column graph manifest | no network or approval bypass |
 | `column_mapping` | JSON/CSV/PPTX text-layer mapping | explicit comments only |
 | `postgres_loader` | DDL, comments, rows, catalog, lineage | scoped database DSN |
 | `batch` / `pipeline` | single-file and multi-file orchestration | opaque reporting |
@@ -53,6 +57,8 @@ sequenceDiagram
     T->>S: headers and rows
     S->>S: infer safe identifiers and mapped comments
     S->>P: transactional DDL, COMMENT ON, rows, catalog
+    S->>S: build deterministic semantic catalog manifest
+    S-->>G: caller-owned portal node/edge handoff
     P-->>G: aggregate counts and opaque lineage
     G-->>U: value-free result
 ```
@@ -102,6 +108,12 @@ Connectors consume approved opaque artifacts and cannot alter deterministic
 source evidence or bypass validation. The central `.github` workflows retain
 approval, rerun, merge, release, and credential authority. Local loops may
 prepare fixes and evidence but must not synthesize approvals or weaken gates.
+
+The semantic catalog connector emits request-compatible nodes and edges for
+`ContextualWisdomLab/semantic-data-portal` but performs no HTTP request. A
+caller-owned authenticated boundary supplies actor identity, tenant policy,
+approval, retry, and transport controls. This preserves standalone operation
+while providing a direct MSA seam for catalog discovery.
 
 ## Deployment modes
 

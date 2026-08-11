@@ -22,6 +22,7 @@ Exit criteria:
 - leading-zero identifier protection;
 - proposal JSON Schema;
 - human/policy approval and immutable decision artifact;
+- value-free Semantic Data Portal graph-manifest handoff;
 - pg-erd-cloud visualization handoff.
 
 ## M2 — Transactional PostgreSQL loading
@@ -55,6 +56,7 @@ Exit criteria:
 
 ## M5 — Ecosystem connectors
 
+- authenticated Semantic Data Portal submission and steward-review callback;
 - naruon notifications and governed handoff;
 - pg-erd-cloud schema/lineage visualization;
 - pg-llm-batch post-ingestion enrichment;

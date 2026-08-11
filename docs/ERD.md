@@ -48,6 +48,46 @@ classDiagram
 
 `MhtmlDocument` and `ExtractedTable` may contain protected values in process memory. `InspectionReport` intentionally does not serialize header or row values.
 
+## Current value-free catalog handoff
+
+```mermaid
+classDiagram
+    class SchemaProposal {
+      +schema_proposal_id
+      +proposal_version
+      +source_hash_sha256
+      +table_fingerprint_sha256
+      +columns
+    }
+    class SemanticCatalogManifest {
+      +manifest_id
+      +contract_version
+      +nodes
+      +edges
+      +privacy_mode = value_free
+    }
+    class CatalogNode {
+      +node_id
+      +kind
+      +label
+      +properties
+    }
+    class CatalogEdge {
+      +edge_type
+      +source_id
+      +target_id
+      +properties
+    }
+
+    SchemaProposal --> SemanticCatalogManifest : deterministic conversion
+    SemanticCatalogManifest "1" --> "1..*" CatalogNode : emits
+    SemanticCatalogManifest "1" --> "0..*" CatalogEdge : emits
+```
+
+This is an in-memory contract, not a database migration. The manifest can be
+submitted by a caller to the Semantic Data Portal graph API only after the
+caller performs authentication, tenant authorization, and steward approval.
+
 ## Future conceptual PostgreSQL ERD
 
 The following entities are target architecture for governed ingestion. Schema names are shown as prefixes for clarity. All database objects must use descriptive two-or-more-word `snake_case` names.

@@ -1,9 +1,10 @@
 # UML and Runtime Views
 
-**Status:** Accepted documentation baseline for the current inspection slice and explicitly marked future ingestion boundaries.  
-**Last reviewed:** 2026-08-09
+**Status:** Accepted documentation baseline for the current inspection and
+value-free catalog-handoff slices; persisted ingestion boundaries remain future.
+**Last reviewed:** 2026-08-11
 
-This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box labelled **future** is target architecture, not a claim that the component is implemented or deployable today. Current production behavior ends at the value-free `InspectionReport` boundary.
+This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box labelled **future** is target architecture, not a claim that the component is implemented or deployable today. Current production behavior includes value-free schema proposals and a caller-owned Semantic Data Portal manifest handoff; persisted ingestion services remain future.
 
 ## Component view
 
@@ -23,7 +24,11 @@ flowchart LR
         HTML --> MOD
         MIME --> ERR
         HTML --> ERR
-        INS --> MOD
+    INS --> MOD
+        PROPOSAL[schema_proposal]
+        CATALOG[semantic_catalog_connector]
+        INS --> PROPOSAL
+        PROPOSAL --> CATALOG
     end
 
     SRC[Untrusted MHTML bytes] --> CLI
@@ -38,6 +43,7 @@ flowchart LR
     end
 
     REPORT -. protected evidence reference .-> CUST
+    CATALOG -. value-free nodes and edges .-> PORTAL[semantic-data-portal]
     CUST -. authenticated header/value evidence .-> SCHEMA
     SCHEMA -. approved schema artifact .-> LOAD
     LOAD -. transaction and COPY .-> STORE

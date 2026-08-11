@@ -2,7 +2,10 @@
 
 ## Current scope
 
-Version `0.1.0` exposes a deterministic, synchronous, local inspection API. It performs no database write, schema inference, network request, browser rendering, office execution, or external-resource retrieval.
+Version `0.3.0` exposes deterministic, synchronous, local inspection, schema
+proposal, mapping, and value-free catalog-manifest APIs. It performs no
+database write through the catalog connector, network request, browser
+rendering, office execution, or external-resource retrieval.
 
 ## Python API
 
@@ -51,6 +54,27 @@ inspect_mhtml_file(
 ```
 
 The file wrapper reads one local path and delegates to the byte API. Source-read failures produce `source_read_failed` without reflecting the path.
+
+### `build_semantic_catalog_manifest`
+
+```python
+build_semantic_catalog_manifest(
+    proposal: SchemaProposal,
+    *,
+    catalog_name: str,
+) -> SemanticCatalogManifest
+```
+
+This in-process connector converts a value-free schema proposal into a
+deterministic manifest whose `nodes` and `edges` match the current
+Semantic Data Portal `GraphNodeRequest` and `GraphEdgeRequest` shapes. It does
+not submit the requests. The caller owns authentication, actor identity,
+tenant policy, approval, retries, and HTTP transport.
+
+The manifest contains proposal fingerprints, normalized target names, aggregate
+evidence, review reasons, and `privacy_mode: "value_free"`. It never contains
+raw source headers or sample values and performs no network, database, LLM, or
+file operation. See [the connector contract](SEMANTIC_CATALOG_CONNECTOR.md).
 
 ## CLI
 

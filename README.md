@@ -14,6 +14,8 @@ references as `COMMENT ON COLUMN`, and load rows with opaque artifact lineage.
 - PostgreSQL type inference with multiword `snake_case` identifiers, idempotent
   artifact cataloging, transactional type promotion, and row-level lineage.
 - JSON, CSV, and PPTX text-layer column mapping references for `COMMENT ON COLUMN`.
+- Value-free, deterministic schema proposals and a Semantic Data Portal graph
+  manifest connector for dataset/column discovery without network side effects.
 - Privacy-safe reports and errors that do not echo local paths, filenames, row
   values, or raw Content-Location values.
 
@@ -79,6 +81,23 @@ Ambiguous or conflicting mappings fail closed. PPTX support reads text-layer
 tokens and slide sections; text embedded only in screenshots requires a JSON or
 CSV mapping instead of implicit OCR.
 
+## Semantic catalog handoff
+
+```python
+from mhtml_etl_gateway import build_semantic_catalog_manifest
+
+manifest = build_semantic_catalog_manifest(
+    schema_proposal,
+    catalog_name="SAP VOC export",
+)
+```
+
+The manifest contains value-free dataset/column graph requests compatible with
+`semantic-data-portal` `/graph/nodes` and `/graph/edges`. It is deterministic and
+caller-owned: authentication, steward approval, tenant policy, retries, and
+network submission remain outside the gateway. See the
+[connector contract](docs/SEMANTIC_CATALOG_CONNECTOR.md).
+
 ## Batch loading
 
 ```bash
@@ -139,10 +158,11 @@ SLSA. The project does not claim those certifications.
 
 The parser/inspection boundary is usable as a standalone library or service.
 Future MSA boundaries separate source custody, deterministic parsing, schema
-governance, PostgreSQL loading, audit/observability, and CWL connectors. A
-connector may consume approved opaque artifacts but cannot bypass source
-validation, authorization, or lineage controls. Candidate integrations include
-the central `.github` workflows, `naruon`, `contextual-orchestrator`, and
+governance, PostgreSQL loading, audit/observability, and CWL connectors. The
+semantic catalog connector is the first concrete ecosystem seam; it may consume
+an approved value-free proposal but cannot bypass source validation,
+authorization, or lineage controls. Candidate integrations include the central
+`.github` workflows, `naruon`, `contextual-orchestrator`, `pg-erd-cloud`, and
 governed PostgreSQL/lineage products.
 
 ## Safety

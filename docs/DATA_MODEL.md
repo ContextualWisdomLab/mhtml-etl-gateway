@@ -7,8 +7,20 @@
 - `InspectionReport`: nonreflecting public metadata.
 - `ParseLimits`: explicit resource budgets.
 - `Diagnostic`: fixed-code nonfatal evidence.
+- `SchemaProposal`: ordered, content-addressed, value-free proposed columns.
+- `SemanticCatalogManifest`: deterministic dataset/column graph handoff with no
+  network or persistence authority.
 
 Data rows are intentionally absent from the serialized inspection model.
+
+### Semantic catalog handoff
+
+`SemanticCatalogManifest` contains a dataset node, column nodes, and
+`contains_column` edges. Node properties carry proposal IDs, source/header
+fingerprints, types, nullability, bounded aggregate evidence, and review
+reasons. It contains no raw source headers or sample values. Actor identity,
+tenant policy, approval, and transport credentials remain outside this
+in-memory contract.
 
 ## Future PostgreSQL schemas
 
