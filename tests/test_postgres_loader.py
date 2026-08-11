@@ -26,8 +26,8 @@ def test_inmemory_loader_with_lineage(sample_mhtml_path) -> None:
     stored = sink.rows["zcrht811_export_rows"]
     assert len(stored) == result.inserted_rows
     row0 = stored[0]
-    assert row0["mandt"] == 603
-    assert row0["guid"] == "0050569512931FE183BEBA5F974B88B9"
+    assert row0["mandt_field"] == 603
+    assert row0["guid_field"] == "0050569512931FE183BEBA5F974B88B9"
     assert row0["source_artifact_sha256"] == extracted.source_sha256
     assert row0["source_artifact_path"] == extracted.source_path
     assert extracted.source_path.startswith("artifact:")
@@ -42,7 +42,7 @@ def test_load_fails_without_columns() -> None:
     sink = InMemorySink()
     with pytest.raises(LoadError):
         load_table(
-            TableSchema(table_name="empty", columns=[]),
+            TableSchema(table_name="empty_table", columns=[]),
             [],
             sink=sink,
             source_artifact_path="x",
@@ -53,7 +53,7 @@ def test_load_fails_without_columns() -> None:
 def test_load_rejects_non_opaque_source_reference() -> None:
     schema = TableSchema(
         table_name="mhtml_rows",
-        columns=[ColumnSpec("VALUE", "value", PG_TEXT)],
+        columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
     with pytest.raises(LoadError, match="does not match"):
         load_table(

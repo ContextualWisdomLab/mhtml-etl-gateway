@@ -17,10 +17,36 @@ CREATE TABLE IF NOT EXISTS mhtml_ingest_artifact (
     source_artifact_path TEXT NOT NULL,
     source_artifact_size BIGINT,
     row_count BIGINT NOT NULL,
-    status TEXT NOT NULL,
+    load_status_code TEXT NOT NULL,
     loaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (source_artifact_sha256, table_name)
 );
+""".strip()
+
+# A reversible, constant migration for installations created before the
+# multiword status-column policy was enforced. It never interpolates a caller
+# value and is safe to run after CATALOG_DDL on every startup.
+CATALOG_STATUS_MIGRATION_DDL = """
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'mhtml_ingest_artifact'
+          AND column_name = 'status'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'mhtml_ingest_artifact'
+          AND column_name = 'load_status_code'
+    ) THEN
+        ALTER TABLE mhtml_ingest_artifact
+            RENAME COLUMN status TO load_status_code;
+    END IF;
+END
+$$;
 """.strip()
 
 

@@ -111,7 +111,7 @@ Argparse failures and invalid `ParseLimits` construction map to `invalid_argumen
 
 ## Future PostgreSQL requirements
 
-The loader architecture shall use separate `raw_import`, `staging_data`, `normalized_data`, and `audit_log` schemas. Every object name contains at least two words and preferably uses `snake_case`. Loads use explicit transactions and streamed `COPY FROM STDIN`; dynamic identifiers are selected only from an approved schema artifact and never concatenated from source text.
+The loader architecture shall use separate `raw_import`, `staging_data`, `normalized_data`, and `audit_log` schemas. Every object name contains at least two lowercase `snake_case` words and fits PostgreSQL's 63-byte unquoted-identifier limit. Single-token generated columns and tables receive `_field` and `_table` suffixes respectively; direct unsafe identifiers fail closed. Loads use explicit transactions and streamed `COPY FROM STDIN`; dynamic identifiers are selected only from an approved schema artifact and never concatenated from source text. Legacy catalog `status` is renamed to `load_status_code` by a constant replay-safe migration.
 
 ## Semantic catalog connector requirements
 

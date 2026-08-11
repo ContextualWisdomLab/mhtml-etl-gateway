@@ -12,6 +12,13 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
   with tenant- and approval-scoped deterministic per-request idempotency keys,
   strict governance-context validation, and no raw source values.
 
+### Changed
+
+- Enforce multiword lowercase `snake_case` database names across inference,
+  DDL, `COMMENT ON COLUMN`, and dynamic SQL; canonicalize single-token inputs
+  with `_field`/`_table` suffixes and migrate the catalog status column to
+  `load_status_code`.
+
 ### Planned
 
 - Approved schema decisions, streamed transactional loading, rejection

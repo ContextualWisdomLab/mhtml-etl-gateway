@@ -27,22 +27,36 @@ _NON_ALNUM = re.compile(r"[^0-9a-zA-Z]+")
 _CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
 
 
-def to_snake_case(name: str) -> str:
-    """Convert a header/identifier to multiword snake_case for PostgreSQL."""
+def _to_multiword_snake_case(name: str, *, suffix: str, label: str) -> str:
+    """Normalize an application identifier and preserve a second word."""
     if name is None:
-        raise SchemaInferenceError("column name is None")
+        raise SchemaInferenceError(f"{label} is None")
     s = str(name).strip()
     if not s:
-        raise SchemaInferenceError("empty column name")
+        raise SchemaInferenceError(f"empty {label}")
     s = _CAMEL_BOUNDARY.sub(r"\1_\2", s)
     s = _NON_ALNUM.sub("_", s)
     s = re.sub(r"_+", "_", s).strip("_").lower()
     if not s:
-        raise SchemaInferenceError(f"column name collapses to empty: {name!r}")
+        raise SchemaInferenceError(f"{label} collapses to empty: {name!r}")
     if s[0].isdigit():
         s = f"col_{s}"
-    # PostgreSQL identifier length safety.
+    # PostgreSQL keeps at most 63 bytes for an unquoted identifier. The
+    # supported naming policy also requires at least two words, so reserve the
+    # suffix before truncating a single-token input.
+    if "_" not in s:
+        return f"{s[: 63 - len(suffix)]}{suffix}"
     return s[:63]
+
+
+def to_snake_case(name: str) -> str:
+    """Convert a column header to bounded, multiword ``snake_case``."""
+    return _to_multiword_snake_case(name, suffix="_field", label="column name")
+
+
+def to_table_name(name: str) -> str:
+    """Convert a table name to bounded, multiword ``snake_case``."""
+    return _to_multiword_snake_case(name, suffix="_table", label="table name")
 
 
 def unique_snake_names(headers: Sequence[str]) -> list[str]:
@@ -305,7 +319,7 @@ def infer_table_schema(
     if not headers:
         raise SchemaInferenceError("no headers for schema inference")
     db_names = unique_snake_names(list(headers))
-    table = to_snake_case(table_name)
+    table = to_table_name(table_name)
     columns: list[ColumnSpec] = []
     sample_rows = list(rows[:sample_limit])
     for i, src in enumerate(headers):

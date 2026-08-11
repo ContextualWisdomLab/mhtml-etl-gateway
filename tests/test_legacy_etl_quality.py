@@ -496,12 +496,17 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     sink._conn = connection
     schema = TableSchema(
         table_name="mapped_rows",
-        columns=[ColumnSpec("VALUE", "value", PG_TEXT, comment="business value")],
+        columns=[ColumnSpec("VALUE", "value_field", PG_TEXT, comment="business value")],
     )
-    connection.fetchall_result = [("value", "text")]
+    connection.fetchall_result = [("value_field", "text")]
     sink.ensure_table(schema)
     sink.ensure_catalog()
     assert connection.commits == 2
+    assert any("load_status_code" in str(query) for _, query, _ in connection.calls)
+    assert any(
+        "RENAME COLUMN status TO load_status_code" in str(query)
+        for _, query, _ in connection.calls
+    )
     connection.fetchone_result = None
     assert sink.catalog_get("a" * 64, "mapped_rows") is None
     connection.fetchone_result = ("a" * 64, "mapped_rows", "artifact:aaaaaaaaaaaaaaaa", 1, 1, "loaded", None)
@@ -519,7 +524,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     connection.fetchall_result = []
     unsupported_schema = TableSchema(
         table_name="mapped_rows",
-        columns=[ColumnSpec("VALUE", "value", "UNSUPPORTED")],
+        columns=[ColumnSpec("VALUE", "value_field", "UNSUPPORTED")],
     )
     with pytest.raises(LoadError, match="unsupported schema"):
         sink._ensure_missing_columns(unsupported_schema)
@@ -547,7 +552,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     write_connection = Connection()
     write_sink = object.__new__(PsycopgSink)
     write_sink._conn = write_connection
-    write_sink._columns_to_promote = lambda schema, rows: ["value"]
+    write_sink._columns_to_promote = lambda schema, rows: ["value_field"]
     catalog_entry = make_catalog_entry(
         sha256="a" * 64,
         table_name="mapped_rows",
@@ -605,7 +610,7 @@ def test_inmemory_sink_and_load_edge_contracts() -> None:
     """The injectable sink preserves atomic state and rejects invalid digests."""
     schema = TableSchema(
         table_name="edge_rows",
-        columns=[ColumnSpec("VALUE", "value", PG_TEXT)],
+        columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
     sink = InMemorySink()
     entry = make_catalog_entry(
@@ -701,7 +706,7 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         sink=InMemorySink(),
         column_mapping=mapping_path,
     )
-    assert result["column_comments"]["mandt"] == "client identifier"
+    assert result["column_comments"]["mandt_field"] == "client identifier"
     assert result["column_mapping"]["matched_count"] == 1
 
     class GenericSink:
@@ -798,10 +803,14 @@ def test_validation_and_identifier_contracts() -> None:
         validate_extracted_table(["A"], [["1", "2"]], required_headers=[])
 
     assert require_safe_ident("multiword_name") == "multiword_name"
+    valid_maximum = "a" * 30 + "_" + "b" * 32
+    assert require_safe_ident(valid_maximum) == valid_maximum
     with pytest.raises(UnsafeIdentifierError):
         require_safe_ident("one-word")
     with pytest.raises(UnsafeIdentifierError):
         require_safe_ident("A")
+    with pytest.raises(UnsafeIdentifierError):
+        require_safe_ident("a" * 64)
     assert quote_sql_literal("a\\b'c\n") == "E'a\\\\b''c\\n'"
     with pytest.raises(TypeError):
         quote_sql_literal(1)  # type: ignore[arg-type]
@@ -816,6 +825,7 @@ def test_schema_inference_and_coercion_contracts() -> None:
             to_snake_case(bad)  # type: ignore[arg-type]
     assert to_snake_case("CamelCase Value") == "camel_case_value"
     long_name = "x" * 63
+    assert to_snake_case(long_name).endswith("_field")
     assert len(to_snake_case(long_name)) == 63
     names = unique_snake_names([long_name, long_name, "A", "A_2", "A"])
     assert len(names) == len(set(names))
@@ -991,8 +1001,9 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
         "a_b"
     ]
     assert mapping_module._source_candidates(schema, "not valid !!!") == []
-    assert mapping_module._target_candidates(schema, "title") == ["title"]
-    assert mapping_module._target_candidates(schema, "TITLE") == ["title"]
+    assert mapping_module._target_candidates(schema, "title_field") == ["title_field"]
+    assert mapping_module._target_candidates(schema, "title") == ["title_field"]
+    assert mapping_module._target_candidates(schema, "TITLE") == ["title_field"]
     assert mapping_module._target_candidates(schema, "not valid !!!") == []
     assert mapping_module._target_candidates(schema, "!!!") == []
 
@@ -1043,7 +1054,7 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
         mappings=conflict.mappings,
     )
     merged, _ = mapping_module.attach_column_comments(schema, pptx_conflict)
-    assert merged.comment_map()["title"] == "first; second"
+    assert merged.comment_map()["title_field"] == "first; second"
 
 
 def test_mapping_reference_handles_unreadable_artifact(tmp_path: Path) -> None:

@@ -9,6 +9,12 @@ the catalog connector.
 
 Operators control resource budgets through `ParseLimits` and the CLI source-byte limit. Programmatic budgets cover source bytes, all descendant MIME entities, MIME depth, decoded HTML, tables, rows, columns, raw cells, projected and realized normalized cells, and cell text. Every budget is a positive non-boolean integer.
 
+Database object names are canonicalized to multiword `snake_case` before DDL.
+Operators upgrading an ingest catalog may rerun setup safely: the constant
+compatibility migration renames legacy `status` to `load_status_code` only when
+the new column is absent. A migration failure must roll back the transaction
+and block the load; it must never silently create a second status column.
+
 ## Logging
 
 Applications may log stable error and diagnostic codes, source SHA-256, source byte size, table dimensions, parser version, duration, and an opaque correlation ID. They must not log:

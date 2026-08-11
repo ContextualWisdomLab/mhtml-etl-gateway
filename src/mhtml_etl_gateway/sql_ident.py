@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import re
 
-# Only multiword snake_case identifiers produced by schema_inference.
-_SAFE_IDENT = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+# Only lowercase, multiword snake_case identifiers produced by the inference
+# and schema-governance boundaries. Requiring an underscore makes the naming
+# policy observable at every dynamic SQL boundary, including caller-created
+# TableSchema objects.
+_SAFE_IDENT = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$")
 
 
 class UnsafeIdentifierError(ValueError):
@@ -13,8 +16,12 @@ class UnsafeIdentifierError(ValueError):
 
 
 def require_safe_ident(name: str) -> str:
-    """Return ``name`` if it is a safe SQL identifier, else raise."""
-    if not isinstance(name, str) or not _SAFE_IDENT.match(name):
+    """Return ``name`` if it is a safe multiword SQL identifier, else raise."""
+    if (
+        not isinstance(name, str)
+        or len(name.encode("utf-8")) > 63
+        or _SAFE_IDENT.fullmatch(name) is None
+    ):
         raise UnsafeIdentifierError(f"unsafe SQL identifier: {name!r}")
     return name
 

@@ -18,6 +18,7 @@ from mhtml_etl_gateway.schema_inference import (
     coerce_value,
     infer_pg_type,
     infer_table_schema,
+    to_table_name,
     to_snake_case,
     values_require_text,
 )
@@ -25,9 +26,11 @@ from mhtml_etl_gateway.schema_inference import (
 
 def test_to_snake_case_multiword() -> None:
     assert to_snake_case("VOC_PUCODE") == "voc_pucode"
-    assert to_snake_case("MANDT") == "mandt"
+    assert to_snake_case("MANDT") == "mandt_field"
     assert to_snake_case("ZCRHT811 Export Rows") == "zcrht811_export_rows"
     assert to_snake_case("123abc") == "col_123abc"
+    assert to_table_name("simple") == "simple_table"
+    assert to_table_name("simple_rows") == "simple_rows"
 
 
 def test_infer_pg_types_unit() -> None:
@@ -113,19 +116,19 @@ def test_schema_from_fixture_pipeline(sample_mhtml_path) -> None:
     assert "source_artifact_sha256" in ddl
     assert "source_row_number" in ddl
     # multiword snake_case columns
-    assert "mandt" in ddl
+    assert "mandt_field" in ddl
     assert "voc_pucode" in ddl
 
 
 def test_unique_snake_collision() -> None:
     schema = infer_table_schema(["FOO", "foo", "Foo Bar"], [["1", "2", "x"]])
     names = [c.db_name for c in schema.columns]
-    assert names[0] == "foo"
-    assert names[1] == "foo_2"
+    assert names[0] == "foo_field"
+    assert names[1] == "foo_field_2"
     assert names[2] == "foo_bar"
     # Secondary collision: base + suffix already used as a header.
     schema2 = infer_table_schema(["A", "A_2", "A"], [["1", "2", "3"]])
     names2 = [c.db_name for c in schema2.columns]
     assert len(names2) == len(set(names2))
-    assert names2[0] == "a"
+    assert names2[0] == "a_field"
     assert "a_2" in names2

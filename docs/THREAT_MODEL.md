@@ -80,6 +80,7 @@
 | compromised dependency/action | supply-chain compromise | dependency minimization, hash locks, full-SHA pins, verified agent binary, future SBOM/provenance |
 | catalog connector receives or emits protected values | semantic-catalog disclosure | accept only value-free `SchemaProposal` output, serialize hashes/aggregates/review reasons only, test raw-value absence, and leave transport/approval outside the library |
 | anonymous or cross-tenant catalog replay | unauthorized graph write or confused-deputy disclosure | require explicit actor, bounded tenant/approval references, tenant- and approval-scoped deterministic envelope/request IDs, reject surrounding whitespace, and require caller-owned actor authentication, tenant authorization, approval verification, remote acceptance, and immutable audit evidence |
+| one-word or attacker-shaped database identifier | inconsistent schema, SQL injection, or migration drift | canonicalize generated names to multiword `snake_case`, reserve suffixes within 63 bytes, reject unsafe direct identifiers before DDL, and run only constant catalog migration SQL |
 
 ## Residual risks
 

@@ -9,6 +9,7 @@ from typing import Any, Literal, Protocol, Sequence
 
 from mhtml_etl_gateway.ingest_catalog import (
     CATALOG_DDL,
+    CATALOG_STATUS_MIGRATION_DDL,
     CatalogEntry,
     make_catalog_entry,
 )
@@ -306,6 +307,7 @@ class PsycopgSink:
     def ensure_catalog(self) -> None:
         """Create the fixed artifact ingest catalog relation."""
         self._execute(CATALOG_DDL)
+        self._execute(CATALOG_STATUS_MIGRATION_DDL)
         self._conn.commit()
 
     def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
@@ -313,7 +315,7 @@ class PsycopgSink:
         # Fixed catalog relation; bind parameters for values only.
         query = (
             "SELECT source_artifact_sha256, table_name, source_artifact_path, "
-            "source_artifact_size, row_count, status, loaded_at "
+            "source_artifact_size, row_count, load_status_code, loaded_at "
             "FROM mhtml_ingest_artifact "
             "WHERE source_artifact_sha256 = %s AND table_name = %s"
         )
@@ -420,13 +422,13 @@ class PsycopgSink:
         catalog_sql = (
             "INSERT INTO mhtml_ingest_artifact ("
             "source_artifact_sha256, table_name, source_artifact_path, "
-            "source_artifact_size, row_count, status, loaded_at"
+            "source_artifact_size, row_count, load_status_code, loaded_at"
             ") VALUES (%s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (source_artifact_sha256, table_name) DO UPDATE SET "
             "source_artifact_path = EXCLUDED.source_artifact_path, "
             "source_artifact_size = EXCLUDED.source_artifact_size, "
             "row_count = EXCLUDED.row_count, "
-            "status = EXCLUDED.status, "
+            "load_status_code = EXCLUDED.load_status_code, "
             "loaded_at = EXCLUDED.loaded_at"
         )
         payloads: list[tuple[Any, ...]] = []

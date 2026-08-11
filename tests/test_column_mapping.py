@@ -54,13 +54,13 @@ def test_json_mapping_attaches_comments_by_qualified_source(tmp_path: Path) -> N
     assert document.path.startswith("artifact:")
     assert str(path) not in document.path
     assert report.matched == {
-        "ZCRHT810.ERDAT": "erdat",
-        "ZCRHT811.TITLE": "title",
+        "ZCRHT810.ERDAT": "erdat_field",
+        "ZCRHT811.TITLE": "title_field",
     }
     assert report.unmatched == ()
-    assert schema.comment_map() == {"erdat": "VOC 작성일자", "title": "상담 제목"}
-    assert "COMMENT ON COLUMN voc_rows.erdat IS E'VOC 작성일자';" in schema.ddl()
-    assert "COMMENT ON COLUMN voc_rows.title IS E'상담 제목';" in schema.ddl()
+    assert schema.comment_map() == {"erdat_field": "VOC 작성일자", "title_field": "상담 제목"}
+    assert "COMMENT ON COLUMN voc_rows.erdat_field IS E'VOC 작성일자';" in schema.ddl()
+    assert "COMMENT ON COLUMN voc_rows.title_field IS E'상담 제목';" in schema.ddl()
 
 
 def test_mapping_errors_do_not_include_source_path(tmp_path: Path) -> None:
@@ -84,8 +84,8 @@ def test_csv_mapping_and_unmatched_reference_are_reported(tmp_path: Path) -> Non
 
     schema, report = attach_column_comments(_schema(), load_column_mapping(path))
 
-    assert schema.comment_map() == {"erzet": "상담 생성 시간"}
-    assert report.matched == {"ZCRHT823.ERZET": "erzet"}
+    assert schema.comment_map() == {"erzet_field": "상담 생성 시간"}
+    assert report.matched == {"ZCRHT823.ERZET": "erzet_field"}
     assert report.unmatched == ("ZCRHT999.MISSING",)
 
 
@@ -140,14 +140,14 @@ def test_pipeline_result_and_ddl_include_column_comments(sample_mhtml_path, tmp_
     )
 
     assert result["column_comments"] == {
-        "mandt": "클라이언트",
-        "title": "상담 제목",
+        "mandt_field": "클라이언트",
+        "title_field": "상담 제목",
     }
     assert result["column_mapping"]["matched_count"] == 2
     assert result["column_mapping"]["path"].startswith("artifact:")
     assert str(mapping) not in json.dumps(result["column_mapping"], ensure_ascii=False)
-    assert "COMMENT ON COLUMN zcrht811_export_rows.mandt" in result["ddl"]
-    assert "COMMENT ON COLUMN zcrht811_export_rows.title" in result["ddl"]
+    assert "COMMENT ON COLUMN zcrht811_export_rows.mandt_field" in result["ddl"]
+    assert "COMMENT ON COLUMN zcrht811_export_rows.title_field" in result["ddl"]
 
 
 def test_pipeline_redacts_input_path_and_filename_derived_table_name(sample_mhtml_path) -> None:
@@ -245,7 +245,7 @@ def test_live_sink_executes_create_and_comments_separately() -> None:
     connection = Connection()
     sink = object.__new__(PsycopgSink)
     sink._conn = connection
-    schema = _schema().with_column_comments({"title": "상담 제목"})
+    schema = _schema().with_column_comments({"title_field": "상담 제목"})
     sink._fetchall = lambda query, params=None: [
         (column.db_name, column.pg_type.lower()) for column in schema.columns
     ]
@@ -255,5 +255,5 @@ def test_live_sink_executes_create_and_comments_separately() -> None:
     assert connection.commits == 1
     assert [query for query, _ in connection.calls] == [
         schema.create_ddl(include_lineage=True),
-        "COMMENT ON COLUMN voc_rows.title IS E'상담 제목';",
+        "COMMENT ON COLUMN voc_rows.title_field IS E'상담 제목';",
     ]

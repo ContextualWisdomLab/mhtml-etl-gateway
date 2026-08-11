@@ -65,6 +65,18 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - invalid governance references and control characters fail closed;
 - connector generation performs no HTTP, database, LLM, or file operation.
 
+### Database identifier and mapping contract
+
+- single-token headers become stable `_field` names and single-token table
+  inputs become `_table` names;
+- suffixes remain present at the 63-byte PostgreSQL boundary;
+- direct one-word, mixed-case, overlong, and punctuation-bearing identifiers
+  fail before DDL or row writes;
+- realistic mapped DDL contains only multiword table/column names and emits
+  `COMMENT ON COLUMN` in the same setup transaction;
+- the fixed catalog uses `load_status_code` and its replay-safe legacy rename
+  migration is emitted without caller-controlled SQL text.
+
 ### Repository and CI
 
 - complete required documentation;
