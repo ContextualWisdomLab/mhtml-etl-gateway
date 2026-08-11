@@ -26,7 +26,6 @@ from mhtml_etl_gateway.lineage import (
     sha256_file,
     write_lineage_json,
 )
-from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres, extract_table, infer_schema_for_extract
 from mhtml_etl_gateway.ingest_catalog import make_catalog_entry
 from mhtml_etl_gateway.postgres_loader import (
     InMemorySink,
@@ -693,10 +692,10 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         json.dumps({"columns": [{"source": "MANDT", "comment": "client identifier"}]}),
         encoding="utf-8",
     )
-    extracted = extract_table(tmp_path / "memory.MHTML", data=data)
+    extracted = pipeline_module.extract_table(tmp_path / "memory.MHTML", data=data)
     assert extracted.source_size == len(data)
-    assert infer_schema_for_extract(extracted).table_name == "mhtml_extracted_rows"
-    result = convert_mhtml_to_postgres(
+    assert pipeline_module.infer_schema_for_extract(extracted).table_name == "mhtml_extracted_rows"
+    result = pipeline_module.convert_mhtml_to_postgres(
         tmp_path / "memory.MHTML",
         data=data,
         sink=InMemorySink(),
@@ -724,7 +723,7 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         def write_artifact_rows(self, schema, rows, **kwargs):
             return self.inner.write_artifact_rows(schema, rows, **kwargs)
 
-    generic_result = convert_mhtml_to_postgres(
+    generic_result = pipeline_module.convert_mhtml_to_postgres(
         tmp_path / "generic.MHTML",
         data=data,
         sink=GenericSink(),
@@ -766,7 +765,7 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
             self.closed = True
 
     with patch.object(pipeline_module, "PsycopgSink", FakePsycopgSink):
-        postgres_result = convert_mhtml_to_postgres(
+        postgres_result = pipeline_module.convert_mhtml_to_postgres(
             tmp_path / "live.MHTML",
             data=data,
             dsn="postgresql://example",
