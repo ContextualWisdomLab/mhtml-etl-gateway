@@ -96,7 +96,7 @@ jobs:
           unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
           unset OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY
           unset STRIX_GITHUB_MODELS_TOKEN OPENCODE_API_KEY
-          exec sudo -u cwl-untrusted env -i \
+          exec sudo -u cwl-untrusted -g cwl-workspace env -i \
             HOME=/home/cwl-untrusted \
             PATH="$safe_path" \
             CI=true \
@@ -354,7 +354,7 @@ jobs:
           unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
           unset OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY
           unset STRIX_GITHUB_MODELS_TOKEN OPENCODE_API_KEY
-          exec sudo -u cwl-untrusted env -i \
+          exec sudo -u cwl-untrusted -g cwl-workspace env -i \
             HOME=/home/cwl-untrusted \
             PATH="$safe_path" \
             CI=true \
