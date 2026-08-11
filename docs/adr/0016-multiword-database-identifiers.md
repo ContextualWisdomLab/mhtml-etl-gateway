@@ -24,9 +24,12 @@ single-token name is shortened.
    fail-closed gate for every dynamic table and column identifier.
 3. The fixed ingest catalog uses `load_status_code` instead of the one-word
    SQL column `status`.
-4. Startup catalog setup runs a constant, reversible compatibility migration
+4. Startup catalog setup runs a constant compatibility up migration
    that renames an existing `status` column to `load_status_code` when the new
-   column is absent. No caller value is interpolated into this migration.
+   column is absent. An explicit constant down migration renames
+   `load_status_code` back to `status` before an application rollback. Both
+   directions fail closed if both columns coexist. No caller value is
+   interpolated into either migration.
 5. Mapping inputs may continue to use a steward's one-word target spelling;
    the same canonicalization resolves it to the generated multiword column.
    Direct callers constructing an unsafe `TableSchema` receive the existing

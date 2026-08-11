@@ -28,9 +28,39 @@ def test_to_snake_case_multiword() -> None:
     assert to_snake_case("VOC_PUCODE") == "voc_pucode"
     assert to_snake_case("MANDT") == "mandt_field"
     assert to_snake_case("ZCRHT811 Export Rows") == "zcrht811_export_rows"
-    assert to_snake_case("123abc") == "col_123abc"
+    assert to_snake_case("123abc") == "col_123abc_field"
+    assert to_table_name("123abc") == "col_123abc_table"
     assert to_table_name("simple") == "simple_table"
     assert to_table_name("simple_rows") == "simple_rows"
+
+
+@pytest.mark.parametrize("length", [58, 63, 80])
+def test_single_token_table_names_preserve_suffix_at_postgres_boundary(
+    length: int,
+) -> None:
+    result = to_table_name("x" * length)
+
+    assert len(result.encode("ascii")) <= 63
+    assert result.endswith("_table")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "alpha_" + "x" * 61,
+        "alpha_" + "x" * 60 + "_omega",
+    ],
+)
+def test_long_multiword_table_names_remain_safe_and_multiword(source: str) -> None:
+    result = to_table_name(source)
+
+    assert len(result.encode("ascii")) <= 63
+    assert "_" in result
+    assert not result.endswith("_")
+
+
+def test_long_multiword_table_name_prefers_complete_leading_tokens() -> None:
+    assert to_table_name("alpha_beta_" + "x" * 60) == "alpha_beta"
 
 
 def test_infer_pg_types_unit() -> None:

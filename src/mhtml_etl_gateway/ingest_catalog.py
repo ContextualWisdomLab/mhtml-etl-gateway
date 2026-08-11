@@ -23,9 +23,10 @@ CREATE TABLE IF NOT EXISTS mhtml_ingest_artifact (
 );
 """.strip()
 
-# A reversible, constant migration for installations created before the
-# multiword status-column policy was enforced. It never interpolates a caller
-# value and is safe to run after CATALOG_DDL on every startup.
+# A constant migration for installations created before the multiword
+# status-column policy was enforced. It never interpolates a caller value and
+# is safe to run after CATALOG_DDL on every startup. Ambiguous dual-column
+# states fail closed instead of silently selecting one source of truth.
 CATALOG_STATUS_MIGRATION_DDL = """
 DO $$
 BEGIN
@@ -35,7 +36,50 @@ BEGIN
         WHERE table_schema = current_schema()
           AND table_name = 'mhtml_ingest_artifact'
           AND column_name = 'status'
-    ) AND NOT EXISTS (
+    ) AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'mhtml_ingest_artifact'
+          AND column_name = 'load_status_code'
+    ) THEN
+        RAISE EXCEPTION
+            'catalog contains both status and load_status_code columns';
+    ELSIF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'mhtml_ingest_artifact'
+          AND column_name = 'status'
+    ) THEN
+        ALTER TABLE mhtml_ingest_artifact
+            RENAME COLUMN status TO load_status_code;
+    END IF;
+END
+$$;
+""".strip()
+
+# Operators run this explicit down migration in the same transaction before
+# reverting to an application release that still reads the legacy column.
+CATALOG_STATUS_ROLLBACK_DDL = """
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'mhtml_ingest_artifact'
+          AND column_name = 'status'
+    ) AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'mhtml_ingest_artifact'
+          AND column_name = 'load_status_code'
+    ) THEN
+        RAISE EXCEPTION
+            'catalog contains both status and load_status_code columns';
+    ELSIF EXISTS (
         SELECT 1
         FROM information_schema.columns
         WHERE table_schema = current_schema()
@@ -43,7 +87,7 @@ BEGIN
           AND column_name = 'load_status_code'
     ) THEN
         ALTER TABLE mhtml_ingest_artifact
-            RENAME COLUMN status TO load_status_code;
+            RENAME COLUMN load_status_code TO status;
     END IF;
 END
 $$;

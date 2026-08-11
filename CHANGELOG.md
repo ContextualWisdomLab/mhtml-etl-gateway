@@ -22,6 +22,8 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
   with a parallel suffixed object; operators receive an explicit migration
   requirement until the dynamic-object migration and rollback contract is
   implemented.
+- Add an explicit catalog status-column down migration and reject ambiguous
+  dual-column states in both migration directions.
 
 ### Planned
 

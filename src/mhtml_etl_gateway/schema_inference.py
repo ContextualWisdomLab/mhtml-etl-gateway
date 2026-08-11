@@ -39,14 +39,29 @@ def _to_multiword_snake_case(name: str, *, suffix: str, label: str) -> str:
     s = re.sub(r"_+", "_", s).strip("_").lower()
     if not s:
         raise SchemaInferenceError(f"{label} collapses to empty: {name!r}")
+    single_token = "_" not in s
     if s[0].isdigit():
         s = f"col_{s}"
     # PostgreSQL keeps at most 63 bytes for an unquoted identifier. The
     # supported naming policy also requires at least two words, so reserve the
     # suffix before truncating a single-token input.
-    if "_" not in s:
+    if single_token:
         return f"{s[: 63 - len(suffix)]}{suffix}"
-    return s[:63]
+    if len(s) <= 63:
+        return s
+
+    # Prefer complete leading tokens. If the second token alone crosses the
+    # boundary, retain a bounded part of it so the result remains multiword and
+    # never ends in an unsafe separator.
+    complete_tokens: list[str] = []
+    for token in s.split("_"):  # pragma: no branch - over-limit input must break
+        candidate = "_".join([*complete_tokens, token])
+        if len(candidate) > 63:
+            break
+        complete_tokens.append(token)
+    if len(complete_tokens) >= 2:
+        return "_".join(complete_tokens)
+    return s[:63].rstrip("_")
 
 
 def to_snake_case(name: str) -> str:
@@ -232,6 +247,7 @@ class TableSchema:
 
     table_name: str
     columns: list[ColumnSpec]
+    source_table_name: str | None = None
 
     def create_ddl(self, *, include_lineage: bool = True) -> str:
         """Emit CREATE TABLE DDL with optional lineage columns.
@@ -326,7 +342,11 @@ def infer_table_schema(
         samples = [str(r[i]) if i < len(r) else "" for r in sample_rows]
         pg_type = infer_pg_type(samples)
         columns.append(ColumnSpec(source_name=str(src), db_name=db_names[i], pg_type=pg_type))
-    return TableSchema(table_name=table, columns=columns)
+    return TableSchema(
+        table_name=table,
+        columns=columns,
+        source_table_name=str(table_name),
+    )
 
 
 def coerce_value(value: str, pg_type: str):

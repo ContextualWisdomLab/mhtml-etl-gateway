@@ -67,6 +67,16 @@ def _legacy_column_names(schema: TableSchema) -> list[str]:
     return names
 
 
+def _legacy_table_name(source_name: str) -> str:
+    """Reconstruct the bounded table identifier emitted before this policy."""
+    name = _LEGACY_CAMEL_BOUNDARY.sub(r"\1_\2", str(source_name).strip())
+    name = _LEGACY_NON_ALNUM.sub("_", name)
+    name = re.sub(r"_+", "_", name).strip("_").lower()
+    if name and name[0].isdigit():
+        name = f"col_{name}"
+    return name[:63]
+
+
 @dataclass
 class LoadResult:
     """Outcome and SQL evidence produced by one table load."""
@@ -339,21 +349,32 @@ class PsycopgSink:
 
     def _reject_legacy_table_split(self, schema: TableSchema) -> None:
         """Fail before a suffixed relation can be created beside legacy rows."""
+        candidates: set[str] = set()
+        if schema.source_table_name is not None:
+            candidates.add(_legacy_table_name(schema.source_table_name))
         suffix = "_table"
-        if not schema.table_name.endswith(suffix):
+        if schema.table_name.endswith(suffix):
+            suffix_stripped = schema.table_name[: -len(suffix)]
+            if schema.source_table_name is not None or "_" not in suffix_stripped:
+                candidates.add(suffix_stripped)
+        candidates.discard("")
+        candidates.discard(schema.table_name)
+        if not candidates:
             return
-        legacy_name = schema.table_name[: -len(suffix)]
-        if not legacy_name or "_" in legacy_name:
-            return
+        query_names = tuple(sorted({*candidates, schema.table_name}))
+        placeholders = ", ".join("%s" for _ in query_names)
         existing_names = {
             str(row[0])
             for row in self._fetchall(
                 "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema = current_schema() AND table_name IN (%s, %s)",
-                (legacy_name, schema.table_name),
+                "WHERE table_schema = current_schema() "
+                f"AND table_name IN ({placeholders})",
+                query_names,
             )
         }
-        if legacy_name in existing_names and schema.table_name not in existing_names:
+        matching_legacy = sorted(candidates & existing_names)
+        if matching_legacy and schema.table_name not in existing_names:
+            legacy_name = matching_legacy[0]
             raise LoadError(
                 f"legacy table {legacy_name!r} requires explicit migration "
                 f"before creating {schema.table_name!r}"

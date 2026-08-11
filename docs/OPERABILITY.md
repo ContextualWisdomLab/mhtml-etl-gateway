@@ -15,6 +15,13 @@ compatibility migration renames legacy `status` to `load_status_code` only when
 the new column is absent. A migration failure must roll back the transaction
 and block the load; it must never silently create a second status column.
 
+Before reverting to an application version that still reads `status`, stop
+writers, back up the catalog, and run `CATALOG_STATUS_ROLLBACK_DDL` in one
+transaction. Verify that exactly `status` exists, then deploy the predecessor.
+If both `status` and `load_status_code` exist, both up and down migrations raise
+an exception; operators must reconcile the duplicate state before any load or
+rollback proceeds.
+
 Dynamic business tables and columns have a separate upgrade boundary. If a
 legacy one-word predecessor exists, setup must fail closed before creating a
 parallel `_table` or `_field` object. Operators must preserve the transaction,

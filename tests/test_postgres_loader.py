@@ -5,6 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from mhtml_etl_gateway.ingest_catalog import (
+    CATALOG_STATUS_MIGRATION_DDL,
+    CATALOG_STATUS_ROLLBACK_DDL,
+)
 from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.pipeline import (
     convert_mhtml_to_postgres,
@@ -24,6 +28,7 @@ from mhtml_etl_gateway.schema_inference import (
     PG_TEXT,
     ColumnSpec,
     TableSchema,
+    to_table_name,
 )
 
 
@@ -154,7 +159,7 @@ def test_live_sink_rejects_parallel_legacy_column_creation() -> None:
         columns=[ColumnSpec("MANDT", "mandt_field", PG_BIGINT)],
     )
 
-    with pytest.raises(LoadError, match="legacy column.*mandt.*explicit migration"):
+    with pytest.raises(LoadError, match=r"legacy column.*mandt.*explicit migration"):
         sink._ensure_missing_columns(schema)
 
     assert statements == []
@@ -186,10 +191,50 @@ def test_live_sink_rejects_parallel_legacy_table_creation() -> None:
         columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
 
-    with pytest.raises(LoadError, match="legacy table.*simple.*explicit migration"):
+    with pytest.raises(LoadError, match=r"legacy table.*simple.*explicit migration"):
         sink.ensure_table(schema)
 
     assert statements == []
+
+
+@pytest.mark.parametrize("length", [58, 63, 80])
+def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> None:
+    """The lookup must include the pre-policy name, not a suffix-stripped cut."""
+    source_name = "x" * length
+    legacy_name = source_name[:63]
+    schema = TableSchema(
+        table_name=to_table_name(source_name),
+        source_table_name=source_name,
+        columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
+    )
+    sink = object.__new__(PsycopgSink)
+    observed: list[tuple[str, ...]] = []
+
+    def fetchall(query, params=None):
+        observed.append(tuple(params or ()))
+        return [(legacy_name,)]
+
+    sink._fetchall = fetchall
+
+    with pytest.raises(LoadError, match=r"legacy table.*explicit migration"):
+        sink._reject_legacy_table_split(schema)
+
+    assert legacy_name in observed[0]
+
+
+def test_live_sink_queries_numeric_legacy_table_candidate() -> None:
+    source_name = "1" + "x" * 62
+    legacy_name = f"col_{source_name}"[:63]
+    schema = TableSchema(
+        table_name=to_table_name(source_name),
+        source_table_name=source_name,
+        columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
+    )
+    sink = object.__new__(PsycopgSink)
+    sink._fetchall = lambda query, params=None: [(legacy_name,)]
+
+    with pytest.raises(LoadError, match=r"legacy table.*explicit migration"):
+        sink._reject_legacy_table_split(schema)
 
 
 def test_live_sink_allows_nonlegacy_or_already_migrated_table_names() -> None:
@@ -213,6 +258,15 @@ def test_live_sink_allows_nonlegacy_or_already_migrated_table_names() -> None:
         )
     )
 
+
+def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -> None:
+    """Catalog upgrades and application rollbacks must be symmetric and safe."""
+    assert "RENAME COLUMN status TO load_status_code" in CATALOG_STATUS_MIGRATION_DDL
+    assert "RENAME COLUMN load_status_code TO status" in CATALOG_STATUS_ROLLBACK_DDL
+    for ddl in (CATALOG_STATUS_MIGRATION_DDL, CATALOG_STATUS_ROLLBACK_DDL):
+        assert "RAISE EXCEPTION" in ddl
+        assert "column_name = 'status'" in ddl
+        assert "column_name = 'load_status_code'" in ddl
 
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
