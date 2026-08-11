@@ -6,10 +6,15 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Sequence
 
+from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres
 from mhtml_etl_gateway.postgres_loader import OnDuplicate, RowSink
 
 MHTML_SUFFIXES = {".mhtml", ".MHTML"}
+
+
+class BatchError(RuntimeError):
+    """Sanitized batch failure that never carries an operator input path."""
 
 
 @dataclass
@@ -87,6 +92,7 @@ def run_batch(
     dsn: str | None = None,
     sink: RowSink | None = None,
     table_name: str | None = None,
+    column_mapping: str | Path | None = None,
     on_duplicate: OnDuplicate = "skip",
     continue_on_error: bool = True,
     recursive: bool = True,
@@ -98,7 +104,8 @@ def run_batch(
     if limit is not None:
         files = files[: max(0, limit)]
 
-    report = BatchReport(source=str(source), files_discovered=len(files))
+    # Keep operator-provided directory names out of reports and JSON output.
+    report = BatchReport(source="operator-supplied-directory", files_discovered=len(files))
     shared_sink = sink
     own_pg = False
     if shared_sink is None and dsn:
@@ -108,19 +115,21 @@ def run_batch(
         own_pg = True
 
     try:
-        for path in files:
-            fr = FileResult(path=str(path), ok=False)
+        for index, path in enumerate(files, 1):
+            fr = FileResult(path=f"file-{index:04d}", ok=False)
             try:
                 result = convert_mhtml_to_postgres(
                     path,
                     dsn=None if shared_sink is not None else dsn,
                     sink=shared_sink,
                     table_name=table_name,
+                    column_mapping=column_mapping,
                     on_duplicate=on_duplicate,
                     required_headers=required_headers,
                 )
                 fr.ok = True
                 fr.sha256 = result["source_sha256"]
+                fr.path = artifact_reference(result["source_sha256"])
                 fr.rows = int(result["data_row_count"])
                 fr.inserted_rows = int(result["inserted_rows"])
                 fr.skipped = bool(result.get("skipped"))
@@ -132,7 +141,9 @@ def run_batch(
                 report.total_inserted_rows += fr.inserted_rows
             except Exception as exc:
                 fr.ok = False
-                fr.error = str(exc)
+                # Exception messages can contain the real input path. Preserve
+                # the failure class without leaking operator data.
+                fr.error = type(exc).__name__
                 report.failure_count += 1
                 # Reset aborted transaction so later files can continue.
                 rollback = getattr(shared_sink, "rollback", None)
@@ -141,10 +152,10 @@ def run_batch(
                         rollback()
                     except Exception as rb_exc:
                         # Best-effort: connection may already be closed mid-batch.
-                        fr.error = f"{fr.error}; rollback_failed={rb_exc}"
+                        fr.error = f"{fr.error}; rollback_failed={type(rb_exc).__name__}"
                 if not continue_on_error:
                     report.results.append(fr)
-                    raise
+                    raise BatchError("batch ingestion failed") from None
             report.results.append(fr)
     finally:
         if own_pg and shared_sink is not None:

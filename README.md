@@ -45,11 +45,56 @@ Idempotency:
 - `--on-duplicate skip` (default): second load of the same sha256 does **not** grow row count
 - `--on-duplicate replace`: delete rows for that sha256, then re-insert
 
-Dry-run (parse + validate + type map, in-memory sink):
+Dry-run (parse + validate + type map + comments, in-memory sink):
 
 ```bash
 mhtml-etl-gateway load path/to/export.MHTML --dry-run --ddl-out schema.sql
 ```
+
+## Column mapping references and comments
+
+Pass a column mapping reference with `--column-mapping` (also available as
+`--column-comments`) to attach PostgreSQL `COMMENT ON COLUMN` statements to the
+generated DDL and live load. JSON and CSV files support explicit descriptions;
+PPTX files extract qualified `TABLE.FIELD` values and the surrounding slide
+section from the text layer.
+
+JSON example:
+
+```json
+{
+  "columns": [
+    {
+      "source": "ZCRHT811.TITLE",
+      "target": "title",
+      "comment": "상담 제목"
+    },
+    {
+      "source": "ZCRHT810.ERDAT",
+      "comment": "VOC 작성일자"
+    }
+  ]
+}
+```
+
+Use it for a dry-run DDL export or a live load:
+
+```bash
+mhtml-etl-gateway load path/to/export.MHTML \
+  --column-mapping path/to/voc-column-mapping.json \
+  --ddl-out schema.sql \
+  --dry-run
+
+mhtml-etl-gateway load path/to/export.MHTML \
+  --column-mapping "/path/to/VOC 컬럼 매핑 참고 자료.pptx" \
+  --dsn "$MHTML_ETL_DSN"
+```
+
+Qualified source fields are matched to an MHTML header by exact name or field
+suffix (`ZCRHT810.ERDAT` → `erdat`). Unmatched reference fields are reported
+and skipped, while ambiguous or conflicting explicit mappings fail closed.
+PPTX screenshots are not OCR'd; use JSON/CSV when the human-readable label is
+inside an image and must become the exact comment text.
 
 ## Batch directory load
 
@@ -83,7 +128,10 @@ mhtml-etl-gateway load file.MHTML --required-headers none   # disable extra requ
 
 ## Ingest catalog
 
-Table `mhtml_ingest_artifact` records `(source_artifact_sha256, table_name)` with path, size, row_count, status, loaded_at.
+Table `mhtml_ingest_artifact` records `(source_artifact_sha256, table_name)` with
+an opaque artifact reference, size, row_count, status, and loaded_at. Operator
+filesystem paths and input filenames are not emitted in extraction, load, or
+batch results, and are never stored as lineage values.
 
 ## Docker (optional)
 

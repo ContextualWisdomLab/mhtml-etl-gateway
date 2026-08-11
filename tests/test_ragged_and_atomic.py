@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from mhtml_etl_gateway.html_table_extractor import extract_primary_table
+from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres
 from mhtml_etl_gateway.postgres_loader import InMemorySink, LoadError, load_table
 from mhtml_etl_gateway.schema_inference import infer_table_schema
@@ -106,7 +107,7 @@ def test_replace_is_atomic_on_insert_failure(sample_mhtml_path: Path) -> None:
             schema,
             [["603", "X"]],
             sink=sink,
-            source_artifact_path=str(sample_mhtml_path),
+            source_artifact_path=artifact_reference(sha),
             source_artifact_sha256=sha,
             on_duplicate="replace",
         )
