@@ -199,7 +199,7 @@ class WorkflowContractTests(unittest.TestCase):
             "unset NVIDIA_API_KEY NVIDIA_NIM_API_KEY",
             "unset GH_TOKEN GITHUB_TOKEN",
             "unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL",
-            "exec sudo -u cwl-untrusted -g cwl-workspace env -i",
+            "exec sudo /usr/bin/setpriv --reuid=cwl-untrusted",
         )
         for fragment in required_workflow_fragments:
             self.assertIn(fragment, self.hourly_flat)

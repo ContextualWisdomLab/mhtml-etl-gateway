@@ -71,10 +71,17 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         self.assertIn('chown -R "$(id -un):cwl-workspace"', self.workflow_text)
         self.assertEqual(
             self.workflow_text.count(
-                "exec sudo -u cwl-untrusted -g cwl-workspace env -i"
+                "exec sudo /usr/bin/setpriv --reuid=cwl-untrusted"
             ),
             2,
         )
+        for fragment in (
+            "--regid=cwl-workspace",
+            "--groups=cwl-workspace",
+            "--no-new-privs",
+        ):
+            self.assertIn(fragment, self.workflow_flat)
+        self.assertNotIn("sudo -u cwl-untrusted -g cwl-workspace", self.workflow_text)
         self.assertNotIn('runner_group="$(id -gn)"', self.workflow_text)
         self.assertNotIn('usermod -a -G "$runner_group"', self.workflow_text)
 
