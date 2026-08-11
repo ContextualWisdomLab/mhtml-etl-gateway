@@ -581,8 +581,8 @@ class PsycopgSink:
             try:
                 self._conn.rollback()
             except Exception:
-                # Preserve the original load error when rollback itself fails.
-                None
+                # Preserve the fixed load error when rollback itself fails.
+                raise LoadError("database load failed") from None
             raise LoadError("database load failed") from None
 
     def query_count(self, table_name: str) -> int:
