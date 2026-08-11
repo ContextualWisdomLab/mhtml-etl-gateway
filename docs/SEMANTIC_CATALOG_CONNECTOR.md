@@ -68,7 +68,11 @@ When an application is ready to publish an approved manifest, it can make the
 authority explicit without adding a network client to this package:
 
 ```python
-from mhtml_etl_gateway import build_semantic_catalog_submission_envelope
+from mhtml_etl_gateway import (
+    CatalogPublisherEvidence,
+    build_semantic_catalog_submission_envelope,
+    publish_catalog_submission,
+)
 
 envelope = build_semantic_catalog_submission_envelope(
     manifest,
@@ -76,8 +80,15 @@ envelope = build_semantic_catalog_submission_envelope(
     actor="svc_catalog_publisher",
     approval_reference="approval_2026_08_11_001",
 )
-for request in envelope.requests:
-    publisher.send(request.to_dict())
+
+evidence = CatalogPublisherEvidence(
+    actor_authenticated=True,
+    tenant_authorized=True,
+    approval_verified=True,
+    immutable_audit_reference="audit_2026_08_11_001",
+)
+
+receipt = publish_catalog_submission(envelope, publisher, evidence)
 ```
 
 The envelope records a deterministic handoff ID, the manifest ID, contract and
@@ -88,9 +99,20 @@ The tenant and approval references remain envelope-level governance metadata
 rather than graph-node properties. Envelope and request IDs are correlation and
 deduplication evidence only: `publisher` remains responsible for verifying actor
 authentication, authorizing the tenant, verifying the approval, binding
-credentials and TLS, retrying safely, recording remote acceptance, and writing
-immutable audit evidence. The envelope is not proof of authorization or
-publication.
+credentials and TLS, retrying safely, and writing immutable audit evidence. The
+publisher requires each adapter response to be an explicitly accepted 2xx
+response with an opaque remote request ID and returns a safe
+`CatalogPublicationReceipt`; it never stores request bodies or provider error
+text. A partial outcome is reported with a bounded accepted prefix so the caller
+can reconcile it using its own idempotency and audit policy. The envelope and
+receipt are not proof that the caller's identity or approval system is
+intrinsically trustworthy.
+
+`publisher` is a caller-owned implementation of the transport protocol. A
+minimal adapter returns an accepted `CatalogTransportResponse` after applying
+its own authentication, authorization, TLS, trace propagation, retry, and audit
+rules. The gateway performs no HTTP, authentication, retry, persistence, or
+network operation.
 
 ## Interoperability mapping
 
@@ -111,5 +133,6 @@ governed catalog publisher exists.
 - Upstream API alignment was checked against the Semantic Data Portal
   `GraphNodeRequest` and `GraphEdgeRequest` contracts on 2026-08-11.
 
-The governing decisions are [ADR-0014](adr/0014-semantic-catalog-connector.md)
-and [ADR-0015](adr/0015-governed-catalog-handoff.md).
+The governing decisions are [ADR-0014](adr/0014-semantic-catalog-connector.md),
+[ADR-0015](adr/0015-governed-catalog-handoff.md), and
+[ADR-0017](adr/0017-governed-catalog-publisher.md).

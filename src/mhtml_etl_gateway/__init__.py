@@ -16,6 +16,14 @@ from .semantic_catalog_handoff import (
     CatalogWriteRequest,
     build_semantic_catalog_submission_envelope,
 )
+from .semantic_catalog_publisher import (
+    CatalogPublicationReceipt,
+    CatalogPublisherError,
+    CatalogPublisherEvidence,
+    CatalogRequestReceipt,
+    CatalogTransportResponse,
+    publish_catalog_submission,
+)
 
 __version__ = "0.3.0"
 
@@ -37,4 +45,10 @@ __all__ = [
     "CatalogSubmissionEnvelope",
     "CatalogWriteRequest",
     "build_semantic_catalog_submission_envelope",
+    "CatalogPublicationReceipt",
+    "CatalogPublisherError",
+    "CatalogPublisherEvidence",
+    "CatalogRequestReceipt",
+    "CatalogTransportResponse",
+    "publish_catalog_submission",
 ]

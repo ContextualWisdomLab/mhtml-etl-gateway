@@ -99,6 +99,34 @@ authorize, send, retry, persist, or mutate the manifest; the caller-owned
 publisher must provide actor authentication, tenant authorization, approval
 verification, credentials, TLS, remote acceptance, and immutable audit.
 
+### `publish_catalog_submission`
+
+```python
+publish_catalog_submission(
+    envelope: CatalogSubmissionEnvelope,
+    transport: CatalogTransport,
+    evidence: CatalogPublisherEvidence,
+    *,
+    max_requests: int = 4096,
+) -> CatalogPublicationReceipt
+```
+
+This transport-neutral boundary publishes a previously validated envelope
+through a caller-owned adapter. The caller must prove actor authentication,
+tenant authorization, approval verification, and provide an opaque immutable
+audit reference. Each request must receive an explicit accepted `2xx` response
+and an opaque remote request ID before a value-free publication receipt is
+returned. The publisher sends each request once and owns no credentials,
+network, TLS, retry, persistence, or policy authority.
+
+The receipt contains the envelope ID, target, audit reference, accepted count,
+and safe request/remote IDs. It excludes request bodies, source headers, sample
+values, credentials, and provider error bodies. A provider exception, rejection,
+invalid response, or partial accepted prefix raises `CatalogPublisherError` with
+only a stable code, failing request index, and accepted prefix count. The
+transport may implement RFC 9110 status handling, RFC 9457 problem details, and
+W3C Trace Context independently at the application boundary.
+
 ## CLI
 
 ```text

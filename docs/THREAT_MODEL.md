@@ -26,6 +26,7 @@
 11. product repository to central organization governance.
 12. value-free catalog manifest to caller-owned Semantic Data Portal transport.
 13. governance-bound catalog handoff envelope to caller-owned authenticated publisher.
+14. caller-owned catalog publisher to remote response and acceptance evidence.
 
 ## Principal threats and mitigations
 
@@ -84,6 +85,10 @@
 | numeric input exceeds PostgreSQL BIGINT range | insert failure or unsafe type coercion | bound integer inference to signed BIGINT and infer `NUMERIC` for larger values; live schema evolution promotes incompatible existing columns to `TEXT` before writes |
 | arbitrary caller type reaches generated DDL | SQL injection or invalid schema mutation | enforce a fixed PostgreSQL type allow-list inside `TableSchema.create_ddl` before any SQL is sent |
 | database/identifier exception reflects secrets or schema details | DSN, PII, or database reconnaissance disclosure | convert connection, operation, load, and identifier failures to fixed messages; CLI also emits only approved safe summaries |
+| provider error or response body reflected by publisher | PII, credentials, or provider-internal disclosure | validate only status/acceptance/opaque remote ID, expose fixed publisher codes and request index, and keep provider bodies in the caller-owned adapter |
+| false remote acceptance | silent catalog divergence | require explicit 2xx success, `accepted=True`, and opaque remote request ID before each receipt entry is recorded |
+| partial remote outcome | incomplete graph or unsafe replay | report only the accepted prefix count, preserve idempotency keys, and require caller-owned reconciliation before retry or completion |
+| publisher acquires hidden authority | confused deputy or standalone behavior change | use a transport protocol with no credentials, network, retry, persistence, auth, or approval implementation in the gateway |
 
 ## Residual risks
 
