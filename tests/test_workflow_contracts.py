@@ -210,14 +210,29 @@ class WorkflowContractTests(unittest.TestCase):
             "--ambient-caps=-all",
             "--bounding-set=-all",
             "--no-new-privs",
-            "cwl-safe-exec /bin/sh -c",
+            "cwl-safe-exec /bin/bash -euo pipefail -c",
             "NoNewPrivs",
             "for capability in Inh Prm Eff Bnd Amb",
+            "source_file=\"$workspace/scripts/hourly_product_gap.py\"",
+            "stat -c \"%U:%G:%a\" \"$source_file\" >&2",
+            "namei -l \"$source_file\"",
+            "for readable_file in \"$source_file\" \"$workspace/.agent/evidence/open-pulls.json\" \"$workspace/.agent/evidence/agent-issues.json\"",
+            "test -r \"$readable_file\"",
+            "head -c 1 \"$readable_file\" >/dev/null",
         )
         for job in (self.select_job, self.write_job):
             job_flat = " ".join(job.split())
             for fragment in wrapper_fragments:
                 self.assertIn(fragment, job_flat)
+            self.assertIn("Collect live queue evidence", job)
+            self.assertIn(
+                'pulls?state=open&per_page=100',
+                job,
+            )
+            self.assertIn(
+                'issues?state=open&labels=agent-task&per_page=100',
+                job,
+            )
         self.assertIn(
             "Run repository-controlled code, tests, package managers, builds, and scripts only through cwl-safe-exec",
             self.maintenance_flat,
