@@ -203,6 +203,8 @@ def infer_pg_type(samples: Sequence[str]) -> str:
 
 @dataclass(frozen=True)
 class ColumnSpec:
+    """Source-to-database column mapping with an inferred PostgreSQL type."""
+
     source_name: str
     db_name: str
     pg_type: str
@@ -211,6 +213,8 @@ class ColumnSpec:
 
 @dataclass(frozen=True)
 class TableSchema:
+    """Validated table definition used for DDL, comments, and row coercion."""
+
     table_name: str
     columns: list[ColumnSpec]
 
@@ -285,6 +289,7 @@ class TableSchema:
         }
 
     def type_map(self) -> dict[str, str]:
+        """Return inferred PostgreSQL types keyed by original source header."""
         return {c.source_name: c.pg_type for c in self.columns}
 
 
@@ -372,23 +377,31 @@ def coerce_value(value: str, pg_type: str):
     return s
 
 
-def values_require_text(pg_type: str, values: Sequence[object]) -> bool:
+def values_require_text(pg_type: str, values: Iterable[object]) -> bool:
     """True when typed column cannot hold one of the prepared values."""
     if pg_type == PG_TEXT:
         return False
-    for v in values:
-        if v is None:
-            continue
-        if pg_type == PG_BIGINT and not isinstance(v, int):
-            return True
-        if pg_type == PG_NUMERIC and not isinstance(v, (int, Decimal, float)):
-            return True
-        if pg_type == PG_BOOLEAN and not isinstance(v, bool):
-            return True
-        if pg_type == PG_DATE and not isinstance(v, date):
-            return True
-        if pg_type == PG_TIME and not isinstance(v, time):
-            return True
-        if pg_type == PG_TIMESTAMP and not isinstance(v, datetime):
-            return True
+
+    # Hoist the type check setup outside the loop.
+    # Checking constant conditions inside the loop adds massive overhead
+    # for large data batch loads.
+    expected_type = None
+    if pg_type == PG_BIGINT:
+        expected_type = int
+    elif pg_type == PG_NUMERIC:
+        expected_type = (int, Decimal, float)
+    elif pg_type == PG_BOOLEAN:
+        expected_type = bool
+    elif pg_type == PG_DATE:
+        expected_type = date
+    elif pg_type == PG_TIME:
+        expected_type = time
+    elif pg_type == PG_TIMESTAMP:
+        expected_type = datetime
+
+    if expected_type is not None:
+        for v in values:
+            if v is not None and not isinstance(v, expected_type):
+                return True
+
     return False

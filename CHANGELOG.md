@@ -1,52 +1,61 @@
 # Changelog
 
+All notable changes follow Keep a Changelog, and versions follow Semantic Versioning.
+
 ## [Unreleased]
 
-### Added
+### Planned
 
-- Column mapping references from JSON, CSV, or PPTX text layers.
-- Safe `COMMENT ON COLUMN` generation and live PostgreSQL application, with
-  matched/unmatched mapping evidence in pipeline results.
-- Privacy boundary for runtime ingestion: opaque artifact references and a
-  filename-independent default table name in pipeline/batch reports and lineage.
+- Approved schema governance, streamed transactional loading, rejection quarantine,
+  reconciliation, replay, tenant-aware APIs, and governed CWL connectors.
 
-## [0.2.1] — Unresolved
-
-### Fixed
-
-- Validation: case-insensitive required headers; ZCRHT shape detection without circular MANDT/GUID dependency.
-- HTML extractor: honor `colspan`; replace `assert` with fail-closed errors.
-- Schema: collision-safe unique snake_case (including `A`/`A_2`/`A`); shared int/decimal parse helpers.
-- Batch: rollback shared Postgres sink on per-file failure; safer absolute globs.
-- Loader: type promote + insert in one transaction; public `rollback()` for batch recovery.
-- CI/Dockerfile: pin actions and base image digests; non-root already required.
-- Dockerfile: add HEALTHCHECK for CLI entrypoint (Strix medium finding).
-
-## [0.2.0] — Unresolved
+## [0.3.0] — 2026-08-11
 
 ### Added
 
-- Fail-closed **validation engine** (required headers incl. `MANDT`/`GUID` for ZCRHT811-shaped tables; row shape; non-empty data).
-- **Ingest catalog** table `mhtml_ingest_artifact` and loader integration.
-- **Idempotent load** via `--on-duplicate skip|replace` keyed by content sha256 + table name.
-- **Batch** CLI (`mhtml-etl-gateway batch`) with directory/glob discovery and summary report; `MHTML_ETL_SOURCE_DIR` env.
-- Memory-bounded file read + chunked HTML parser feed.
-- GitHub Actions CI (fixture pytest) and optional Dockerfile.
-- Tests: validation, idempotency, batch multi-file, memory path.
+- Bounded, non-rendering MHTML inspection with RFC 2387 root selection,
+  deterministic table extraction, resource budgets, and fixed error contracts.
+- PostgreSQL ETL with validation, idempotent artifact cataloging, opaque lineage,
+  schema inference, JSON/CSV/PPTX column mappings, and `COMMENT ON COLUMN` DDL.
+- Value-free schema proposal and approval-boundary documentation, PRD/TRD,
+  architecture/UML/ERD, threat model, operability, compliance mapping, test
+  strategy, ADR index, and APA 7th research traceability.
+- Python 3.11–3.14 quality matrix and privacy/security regression fixtures.
 
 ### Changed
 
-- CLI uses `load` / `batch` subcommands (bare path still works as `load`).
-- Package version 0.2.0.
+- CLI now exposes inspection, single-load, and batch commands through one
+  privacy-safe argument and output contract.
+- Public reports, errors, batch summaries, and lineage never echo source paths,
+  filenames, row values, or raw Content-Location values.
+- Schema evolution promotes incompatible live PostgreSQL columns transactionally;
+  mapping comments are applied with the table setup.
 
 ### Security
 
-- Real CRM absolute paths must not be committed; operator paths via env/CLI only.
-- Parser never executes scripts or fetches remote resources.
+- Active content, browser rendering, XML entity resolution, office execution,
+  and external resource retrieval remain structurally excluded.
+- Source, MIME, HTML, table, span, row, column, and cell budgets fail closed.
+- OpenCode/Strix workflows preserve exact-head, secret-isolation, least-privilege,
+  and central merge-governance boundaries.
 
-## [Unreleased] / 0.1.0 baseline
+## [0.2.1]
+
+### Fixed
+
+- Required-header validation, ZCRHT shape detection, span handling, batch
+  rollback, type promotion, action pinning, and Docker health checks.
+
+## [0.2.0]
 
 ### Added
 
-- Initial MHTML MIME parser, HTML table extractor, schema inference, PostgreSQL loader, lineage, CLI.
-- Architecture and agent development contracts.
+- Fail-closed validation, ingest catalog, idempotent loading, batch discovery,
+  memory-bounded parsing, and optional Docker execution.
+
+## [0.1.0]
+
+### Added
+
+- Initial MHTML parser, HTML table extractor, schema inference, PostgreSQL
+  loader, lineage model, CLI, and architecture contracts.

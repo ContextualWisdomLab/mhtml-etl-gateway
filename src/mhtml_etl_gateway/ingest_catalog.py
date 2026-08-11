@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS mhtml_ingest_artifact (
 
 @dataclass(frozen=True)
 class CatalogEntry:
+    """Immutable catalog record for one artifact-to-table load."""
+
     source_artifact_sha256: str
     table_name: str
     source_artifact_path: str
@@ -35,6 +37,7 @@ class CatalogEntry:
     loaded_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the catalog record in a JSON-serializable representation."""
         return {
             "source_artifact_sha256": self.source_artifact_sha256,
             "table_name": self.table_name,
@@ -55,6 +58,7 @@ def make_catalog_entry(
     row_count: int,
     status: str = "loaded",
 ) -> CatalogEntry:
+    """Create a catalog record with the current UTC load timestamp."""
     return CatalogEntry(
         source_artifact_sha256=sha256,
         table_name=table_name,

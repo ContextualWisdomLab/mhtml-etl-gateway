@@ -17,15 +17,19 @@ _FEED_CHUNK = 256 * 1024
 
 @dataclass(frozen=True)
 class ExtractedTable:
+    """Normalized top-level table with source headers and data rows."""
+
     headers: list[str]
     rows: list[list[str]]
 
     @property
     def column_count(self) -> int:
+        """Return the number of normalized header columns."""
         return len(self.headers)
 
     @property
     def row_count(self) -> int:
+        """Return the number of retained data rows."""
         return len(self.rows)
 
 
@@ -182,6 +186,7 @@ def rows_as_dicts(table: ExtractedTable) -> list[dict[str, str]]:
 
 
 def assert_headers_present(table: ExtractedTable, required: Sequence[str]) -> None:
+    """Raise when any required source header is absent from ``table``."""
     missing = [h for h in required if h not in table.headers]
     if missing:
         raise TableExtractError(f"missing required headers: {missing}")

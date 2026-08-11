@@ -1,7 +1,22 @@
-"""MHTML ETL Gateway — parse SAP ALV / Excel Web Archive MHTML into PostgreSQL."""
+"""Public package interface for safe MHTML inspection and PostgreSQL ETL."""
 
-from mhtml_etl_gateway.batch import run_batch
-from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres, extract_table
+from .batch import run_batch
+from .errors import ErrorCode, MhtmlGatewayError
+from .inspection import inspect_mhtml_bytes, inspect_mhtml_file
+from .models import InspectionReport, ParseLimits
+from .pipeline import convert_mhtml_to_postgres, extract_table
 
-__version__ = "0.2.0"
-__all__ = ["__version__", "convert_mhtml_to_postgres", "extract_table", "run_batch"]
+__version__ = "0.3.0"
+
+__all__ = [
+    "ErrorCode",
+    "InspectionReport",
+    "MhtmlGatewayError",
+    "ParseLimits",
+    "__version__",
+    "convert_mhtml_to_postgres",
+    "extract_table",
+    "inspect_mhtml_bytes",
+    "inspect_mhtml_file",
+    "run_batch",
+]

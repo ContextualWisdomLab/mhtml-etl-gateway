@@ -1,161 +1,156 @@
 # MHTML ETL Gateway
 
-Enterprise MHTML ingestion gateway that converts browser, SAP ALV, and Excel Web Archive exports into governed PostgreSQL data assets.
+MHTML ETL Gateway is a deterministic, privacy-preserving ingestion boundary for
+enterprise MHTML exports. It can inspect untrusted MIME/HTML structure without
+rendering active content, infer governed PostgreSQL schemas, apply column mapping
+references as `COMMENT ON COLUMN`, and load rows with opaque artifact lineage.
 
-## Product Principles
+## Capabilities
 
-- Immutable raw artifact preservation
-- Deterministic MIME/HTML parsing (no script execution, no external fetch)
-- Fail-closed validation before load
-- Schema inference with multiword `snake_case` DB names
-- Idempotent PostgreSQL loading (content sha256 + ingest catalog)
-- Full lineage on every row
-- Operator paths only via CLI/env — **never commit real CRM absolute paths**
+- RFC 2387 `multipart/related` root resolution and standalone HTML support.
+- Non-rendering, chunked table extraction with fail-closed MIME, HTML, span,
+  row, column, cell, nesting, and source-size budgets.
+- Validation of headers, row shapes, required business fields, and empty inputs.
+- PostgreSQL type inference with multiword `snake_case` identifiers, idempotent
+  artifact cataloging, transactional type promotion, and row-level lineage.
+- JSON, CSV, and PPTX text-layer column mapping references for `COMMENT ON COLUMN`.
+- Privacy-safe reports and errors that do not echo local paths, filenames, row
+  values, or raw Content-Location values.
 
 ## Install
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 
-Python 3.10+; PostgreSQL for live loads.
+Python 3.11–3.14 are supported. Live loads require PostgreSQL and either
+`MHTML_ETL_DSN` or `DATABASE_URL`; dry runs do not require a database.
 
-## Environment
+## Inspect an artifact
 
-| Variable | Purpose |
-|----------|---------|
-| `MHTML_ETL_DSN` | Preferred PostgreSQL URI |
-| `DATABASE_URL` | Fallback PostgreSQL URI |
-| `MHTML_ETL_SOURCE_DIR` | Directory of `.MHTML` files for `batch` (operator machine only) |
-| `MHTML_ETL_REAL_SAMPLE` | Optional single real file for local optional tests |
+```bash
+mhtml-etl-gateway inspect export.mhtml --pretty
+```
 
-## Single-file load
+Inspection output is metadata-only: source identity, size, table dimensions,
+fixed diagnostics, and non-reflecting error codes. Cell and header values are
+not emitted by the public inspection API.
+
+## Load one artifact
 
 ```bash
 export MHTML_ETL_DSN="postgresql://user:pass@localhost:5432/dbname"
-
-mhtml-etl-gateway load path/to/export.MHTML \
+mhtml-etl-gateway load export.MHTML \
   --table-name zcrht811_export_rows \
   --on-duplicate skip \
   --json
 ```
 
-Idempotency:
+Use `--dry-run` for parse, validation, type inference, and DDL generation without
+writing to PostgreSQL. `--on-duplicate replace` replaces rows for an already
+cataloged artifact; the default `skip` is idempotent.
 
-- `--on-duplicate skip` (default): second load of the same sha256 does **not** grow row count
-- `--on-duplicate replace`: delete rows for that sha256, then re-insert
+## Column mappings and comments
 
-Dry-run (parse + validate + type map + comments, in-memory sink):
+Pass a JSON, CSV, or PPTX reference with `--column-mapping` (also accepted as
+`--column-comments`):
 
 ```bash
-mhtml-etl-gateway load path/to/export.MHTML --dry-run --ddl-out schema.sql
+mhtml-etl-gateway load export.MHTML \
+  --column-mapping column-mapping.json \
+  --ddl-out schema.sql \
+  --dry-run
 ```
 
-## Column mapping references and comments
-
-Pass a column mapping reference with `--column-mapping` (also available as
-`--column-comments`) to attach PostgreSQL `COMMENT ON COLUMN` statements to the
-generated DDL and live load. JSON and CSV files support explicit descriptions;
-PPTX files extract qualified `TABLE.FIELD` values and the surrounding slide
-section from the text layer.
-
-JSON example:
+JSON records may use `source`, optional `target`, and `comment` (or
+`description`/`label`):
 
 ```json
 {
   "columns": [
-    {
-      "source": "ZCRHT811.TITLE",
-      "target": "title",
-      "comment": "상담 제목"
-    },
-    {
-      "source": "ZCRHT810.ERDAT",
-      "comment": "VOC 작성일자"
-    }
+    {"source": "ZCRHT811.TITLE", "target": "title", "comment": "상담 제목"},
+    {"source": "ZCRHT810.ERDAT", "comment": "VOC 작성일자"}
   ]
 }
 ```
 
-Use it for a dry-run DDL export or a live load:
+Qualified source names match an extracted header by exact name or field suffix.
+Ambiguous or conflicting mappings fail closed. PPTX support reads text-layer
+tokens and slide sections; text embedded only in screenshots requires a JSON or
+CSV mapping instead of implicit OCR.
+
+## Batch loading
 
 ```bash
-mhtml-etl-gateway load path/to/export.MHTML \
-  --column-mapping path/to/voc-column-mapping.json \
-  --ddl-out schema.sql \
-  --dry-run
-
-mhtml-etl-gateway load path/to/export.MHTML \
-  --column-mapping "/path/to/VOC 컬럼 매핑 참고 자료.pptx" \
-  --dsn "$MHTML_ETL_DSN"
-```
-
-Qualified source fields are matched to an MHTML header by exact name or field
-suffix (`ZCRHT810.ERDAT` → `erdat`). Unmatched reference fields are reported
-and skipped, while ambiguous or conflicting explicit mappings fail closed.
-PPTX screenshots are not OCR'd; use JSON/CSV when the human-readable label is
-inside an image and must become the exact comment text.
-
-## Batch directory load
-
-```bash
-export MHTML_ETL_DSN="postgresql:///mhtml_etl"
-export MHTML_ETL_SOURCE_DIR="/path/on/your/machine/to/crm-mhtml"   # local only
-
+export MHTML_ETL_SOURCE_DIR="/operator/local/source-directory"
 mhtml-etl-gateway batch \
-  --table-name zcrht811_export_rows \
+  --table-name mhtml_extracted_rows \
   --on-duplicate skip \
-  --limit 3 \
   --json
 ```
 
-Or pass the directory as a positional argument (still not committed to git):
+The batch output contains aggregate counts and opaque artifact references only.
+The input directory is an operator-local runtime value and must never be
+committed or embedded in documentation, tests, logs, or database lineage.
+
+## Database contract
+
+Business tables use at least two-word `snake_case` names. Lineage columns are:
+
+- `source_artifact_path TEXT`: `artifact:<sha-prefix>`, never a filesystem path;
+- `source_artifact_sha256 TEXT`;
+- `source_row_number BIGINT`;
+- `loaded_at TIMESTAMP`.
+
+The `mhtml_ingest_artifact` catalog is keyed by
+`(source_artifact_sha256, table_name)`. Mapping comments are applied in the same
+setup transaction as the table DDL and are never inferred from raw cell values.
+
+## Verification
 
 ```bash
-mhtml-etl-gateway batch "$MHTML_ETL_SOURCE_DIR" --dsn "$MHTML_ETL_DSN" --json
+python -m pytest -q
+python -m compileall -q src tests scripts
+PYTHONPATH=src python scripts/validate_repository.py
 ```
 
-## Validation
+The repository quality workflow exercises Python 3.11–3.14, exact pull-request
+heads, dependency/security checks, static analysis, coverage, and package build
+contracts. The quality gate is evidence for this repository; it is not a claim
+of certification.
 
-Before load, the gateway requires non-empty headers, consistent row widths, and ≥1 data row.
-ZCRHT811-shaped tables (headers include `MANDT` + `GUID`, or table name contains `zcrht811`)
-require **`MANDT`** and **`GUID`**. Override with:
+## Documentation and standards
 
-```bash
-mhtml-etl-gateway load file.MHTML --required-headers MANDT,GUID
-mhtml-etl-gateway load file.MHTML --required-headers none   # disable extra requirements
-```
+Start with [PRD](docs/PRD.md), [TRD](docs/TRD.md),
+[ARCHITECTURE](docs/ARCHITECTURE.md), [UML](docs/UML.md),
+[DATA_MODEL](docs/DATA_MODEL.md), and [ERD](docs/ERD.md). Operational and
+assurance material is in [OPERABILITY](docs/OPERABILITY.md),
+[THREAT_MODEL](docs/THREAT_MODEL.md), [TEST_STRATEGY](docs/TEST_STRATEGY.md),
+[COMPLIANCE_CONTROL_MAP](docs/COMPLIANCE_CONTROL_MAP.md), and
+[VALIDATION_REPORT](docs/VALIDATION_REPORT.md). Decisions are indexed in
+[docs/adr](docs/adr/README.md), and standards/papers are recorded in
+[docs/doctoring/REFERENCES.md](docs/doctoring/REFERENCES.md) using APA 7th style.
 
-## Ingest catalog
+The design considers NIST SSDF, OWASP ASVS, ISO/IEC 27001, CSAP readiness, SOC 2
+Trust Services Criteria, RFC 2387/RFC 2557, OpenAPI, OpenTelemetry, SPDX, and
+SLSA. The project does not claim those certifications.
 
-Table `mhtml_ingest_artifact` records `(source_artifact_sha256, table_name)` with
-an opaque artifact reference, size, row_count, status, and loaded_at. Operator
-filesystem paths and input filenames are not emitted in extraction, load, or
-batch results, and are never stored as lineage values.
+## Modular deployment
 
-## Docker (optional)
+The parser/inspection boundary is usable as a standalone library or service.
+Future MSA boundaries separate source custody, deterministic parsing, schema
+governance, PostgreSQL loading, audit/observability, and CWL connectors. A
+connector may consume approved opaque artifacts but cannot bypass source
+validation, authorization, or lineage controls. Candidate integrations include
+the central `.github` workflows, `naruon`, `contextual-orchestrator`, and
+governed PostgreSQL/lineage products.
 
-```bash
-docker build -t mhtml-etl-gateway .
-docker run --rm -e MHTML_ETL_DSN -v "$PWD/data:/data:ro" mhtml-etl-gateway \
-  load /data/export.MHTML --json
-```
+## Safety
 
-## Architecture
+MHTML is untrusted input. The project never executes scripts, renders browsers,
+resolves XML entities, fetches external resources, or follows active references.
+Customer artifacts and real operator paths must never enter the repository.
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+## License
 
-## Tests
-
-```bash
-pytest -v
-# optional live PG:
-export MHTML_ETL_DSN="postgresql:///mhtml_etl"
-pytest -v
-```
-
-Fixture: `tests/fixtures/zcrht811_sample.MHTML`.
-
-## Version
-
-0.2.0 — production-capable validation, batch, idempotent catalog load, CI.
+Apache License 2.0. See [LICENSE](LICENSE).
