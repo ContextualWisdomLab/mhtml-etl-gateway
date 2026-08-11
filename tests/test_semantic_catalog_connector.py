@@ -174,6 +174,12 @@ def test_submission_envelope_identity_changes_with_governance_context() -> None:
         actor="actor_a",
         approval_reference="approval_a",
     )
+    changed_approval = build_semantic_catalog_submission_envelope(
+        manifest,
+        tenant_id="tenant_a",
+        actor="actor_a",
+        approval_reference="approval_b",
+    )
     changed_actor = build_semantic_catalog_submission_envelope(
         manifest,
         tenant_id="tenant_a",
@@ -188,7 +194,10 @@ def test_submission_envelope_identity_changes_with_governance_context() -> None:
         approval_reference="approval_a",
     ).to_dict()
     assert first.envelope_id != second.envelope_id
+    assert first.envelope_id != changed_approval.envelope_id
     assert first.envelope_id != changed_actor.envelope_id
+    assert first.requests[0].idempotency_key != second.requests[0].idempotency_key
+    assert first.requests[0].idempotency_key != changed_approval.requests[0].idempotency_key
     assert first.requests[0].idempotency_key != changed_actor.requests[0].idempotency_key
 
 
@@ -218,12 +227,18 @@ def test_manifest_rejects_missing_or_non_text_catalog_name(catalog_name: object)
     ("field", "value"),
     [
         ("tenant_id", ""),
+        ("tenant_id", " tenant_cwl"),
+        ("tenant_id", "tenant_cwl "),
         ("tenant_id", "tenant with spaces"),
         ("tenant_id", 42),
         ("actor", ""),
+        ("actor", " svc_catalog_publisher"),
+        ("actor", "svc_catalog_publisher "),
         ("actor", "actor\nforbidden"),
         ("actor", 42),
         ("approval_reference", ""),
+        ("approval_reference", " approval_001"),
+        ("approval_reference", "approval_001 "),
         ("approval_reference", "approval with spaces"),
         ("approval_reference", "a" * 129),
     ],

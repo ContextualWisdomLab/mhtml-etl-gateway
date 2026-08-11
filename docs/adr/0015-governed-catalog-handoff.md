@@ -22,7 +22,7 @@ Add `semantic_catalog_handoff` with a
 2. emit ordered portal-compatible node and edge `POST` plans with explicit
    actor fields;
 3. derive stable per-request idempotency keys and an envelope ID from the
-   manifest plus governance context;
+   manifest plus tenant- and approval-scoped governance context;
 4. keep tenant and approval references at the handoff boundary rather than
    persisting them in graph-node properties;
 5. perform no authentication, authorization, HTTP, retry, database, file, or
@@ -33,8 +33,11 @@ Add `semantic_catalog_handoff` with a
 
 Positive consequences:
 
-- A caller can prove which tenant, actor, and approval context authorized a
-  proposed catalog write before it crosses the network boundary.
+- A caller can carry the claimed tenant, actor, and approval context alongside
+  a proposed catalog write before it crosses the network boundary. The envelope
+  itself is not proof of actor authentication, tenant authorization, approval
+  verification, or remote acceptance; the publisher must verify and audit each
+  condition separately.
 - Retries are safe to coordinate per node/edge request without treating an
   envelope construction as proof of remote acceptance.
 - The parser remains value-free and standalone; exact business values are not
@@ -50,14 +53,16 @@ Trade-offs:
 ## Verification
 
 `tests/test_semantic_catalog_connector.py` covers deterministic envelope
-identity, actor-bearing request bodies, unique idempotency keys, raw-value
-absence, direct request serialization, and invalid governance context. The
-repository quality gate verifies Python 3.11–3.14 compatibility and exact 100%
-statement/branch coverage.
+identity, actor-bearing request bodies, tenant- and approval-scoped idempotency
+keys, raw-value absence, direct request serialization, whitespace rejection,
+and invalid governance context. The repository quality gate verifies Python
+3.11–3.14 compatibility and exact 100% statement/branch coverage.
 
 ## References
 
 - World Wide Web Consortium. (2024). *Data Catalog Vocabulary (DCAT)—Version 3*.
   https://www.w3.org/TR/vocab-dcat-3/
 - ContextualWisdomLab. (2026). *Semantic Data Portal graph node and edge request
-  contracts* [Source code]. GitHub.
+  contracts* [Source code, commit e48aa13c4af7a4875d4b53e6a60b50405c265a2f;
+  `src/sdp/api.py`, `src/sdp/graph_models.py`]. GitHub.
+  https://github.com/ContextualWisdomLab/semantic-data-portal/tree/e48aa13c4af7a4875d4b53e6a60b50405c265a2f/src/sdp

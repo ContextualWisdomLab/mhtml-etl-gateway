@@ -89,12 +89,15 @@ build_semantic_catalog_submission_envelope(
 ```
 
 This function binds a value-free manifest to an opaque tenant reference, an
-explicit actor, and an approval reference. It produces ordered `POST` request
-plans for `/graph/nodes` and `/graph/edges`, each with a deterministic
-`idempotency_key` and an actor-bearing request body. The envelope ID changes
-when governance context changes. The function does not authenticate, authorize,
-send, retry, persist, or mutate the manifest; the caller-owned publisher binds
-credentials, TLS, tenant routing, approval verification, and remote audit.
+explicit actor, and an approval reference. It produces an envelope containing
+`envelope_id`, `contract_version`, `target_system`, `manifest_id`, the claimed
+governance context, and ordered `POST` request plans for `/graph/nodes` and
+`/graph/edges`. Each request has a deterministic `idempotency_key` scoped by
+tenant and approval reference plus an actor-bearing request body. The envelope
+ID changes when governance context changes. The function does not authenticate,
+authorize, send, retry, persist, or mutate the manifest; the caller-owned
+publisher must provide actor authentication, tenant authorization, approval
+verification, credentials, TLS, remote acceptance, and immutable audit.
 
 ## CLI
 

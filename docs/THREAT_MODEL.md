@@ -79,7 +79,7 @@
 | false remediation activity | no blocker change despite cost | mandatory permission/API/effect feasibility proof |
 | compromised dependency/action | supply-chain compromise | dependency minimization, hash locks, full-SHA pins, verified agent binary, future SBOM/provenance |
 | catalog connector receives or emits protected values | semantic-catalog disclosure | accept only value-free `SchemaProposal` output, serialize hashes/aggregates/review reasons only, test raw-value absence, and leave transport/approval outside the library |
-| anonymous or cross-tenant catalog replay | unauthorized graph write or confused-deputy disclosure | require explicit actor, bounded tenant/approval references, deterministic envelope/request IDs, and caller-owned approval verification and authorization |
+| anonymous or cross-tenant catalog replay | unauthorized graph write or confused-deputy disclosure | require explicit actor, bounded tenant/approval references, tenant- and approval-scoped deterministic envelope/request IDs, reject surrounding whitespace, and require caller-owned actor authentication, tenant authorization, approval verification, remote acceptance, and immutable audit evidence |
 
 ## Residual risks
 

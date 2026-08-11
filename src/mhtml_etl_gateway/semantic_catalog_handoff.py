@@ -42,13 +42,15 @@ def _require_context_text(value: str, *, label: str, maximum: int = 256) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{label} must be a string")
     normalized = value.strip()
+    if value != normalized:
+        raise ValueError(f"{label} must not have leading or trailing whitespace")
     if not normalized:
         raise ValueError(f"{label} must be non-empty")
-    if len(normalized) > maximum:
+    if len(value) > maximum:
         raise ValueError(f"{label} is too long")
-    if any(ord(character) < 0x20 or character == "\x7f" for character in normalized):
+    if any(ord(character) < 0x20 or character == "\x7f" for character in value):
         raise ValueError(f"{label} contains a control character")
-    return normalized
+    return value
 
 
 def _require_opaque_reference(value: str, *, label: str) -> str:
@@ -110,12 +112,16 @@ class CatalogSubmissionEnvelope:
 def _request_idempotency_key(
     *,
     manifest_id: str,
+    tenant_id: str,
+    approval_reference: str,
     path: str,
     body: dict[str, Any],
 ) -> str:
-    """Build a stable write key for one manifest request."""
+    """Build a stable, tenant- and approval-scoped write key."""
     identity = {
         "manifest_id": manifest_id,
+        "tenant_id": tenant_id,
+        "approval_reference": approval_reference,
         "path": path,
         "body": body,
     }
@@ -128,6 +134,8 @@ def _node_request(
     *,
     actor: str,
     manifest_id: str,
+    tenant_id: str,
+    approval_reference: str,
 ) -> CatalogWriteRequest:
     """Create the actor-bound request for one catalog node."""
     body = node.to_dict()
@@ -137,6 +145,8 @@ def _node_request(
         path=NODE_ENDPOINT,
         idempotency_key=_request_idempotency_key(
             manifest_id=manifest_id,
+            tenant_id=tenant_id,
+            approval_reference=approval_reference,
             path=NODE_ENDPOINT,
             body=body,
         ),
@@ -149,6 +159,8 @@ def _edge_request(
     *,
     actor: str,
     manifest_id: str,
+    tenant_id: str,
+    approval_reference: str,
 ) -> CatalogWriteRequest:
     """Create the actor-bound request for one catalog edge."""
     body = edge.to_dict()
@@ -158,6 +170,8 @@ def _edge_request(
         path=EDGE_ENDPOINT,
         idempotency_key=_request_idempotency_key(
             manifest_id=manifest_id,
+            tenant_id=tenant_id,
+            approval_reference=approval_reference,
             path=EDGE_ENDPOINT,
             body=body,
         ),
@@ -194,6 +208,8 @@ def build_semantic_catalog_submission_envelope(
                     node,
                     actor=normalized_actor,
                     manifest_id=manifest.manifest_id,
+                    tenant_id=normalized_tenant,
+                    approval_reference=normalized_approval,
                 )
                 for node in manifest.nodes
             ),
@@ -202,6 +218,8 @@ def build_semantic_catalog_submission_envelope(
                     edge,
                     actor=normalized_actor,
                     manifest_id=manifest.manifest_id,
+                    tenant_id=normalized_tenant,
+                    approval_reference=normalized_approval,
                 )
                 for edge in manifest.edges
             ),

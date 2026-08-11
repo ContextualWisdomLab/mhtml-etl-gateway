@@ -13,11 +13,11 @@ Semantic Data Portal connector boundary. In the current integration worktree on
 2026-08-11, Python 3.14 evidence for the governed catalog handoff candidate is:
 
 ```text
-304 tests passed
+310 tests passed
 3 tests skipped
 30 subtests passed
-2,647 production statements: 100%
-930 production branches: 100%
+2,649 production statements: 100%
+932 production branches: 100%
 ```
 
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
@@ -25,9 +25,11 @@ graph manifests, endpoint-compatible node/edge shapes, order-sensitive identity,
 raw-value absence, and caller-owned transport boundaries. The connector creates
 no network, database, LLM, or file side effect. The handoff tests also prove
 actor-, tenant-, and approval-bound envelope identity, explicit actor request
-bodies, unique idempotency keys, and invalid-context rejection. The candidate
-passes repository validation, compileall, and full-repository Ruff checks. Its
-merge and release claims remain subject to fresh exact-head GitHub evidence.
+bodies, tenant- and approval-scoped idempotency keys, strict surrounding-
+whitespace rejection, and invalid-context rejection. The candidate passes
+repository validation, compileall, full-repository Ruff checks, and wheel
+build. Its merge and release claims remain subject to fresh exact-head GitHub
+evidence.
 
 ## Evidence semantics
 

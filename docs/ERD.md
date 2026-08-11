@@ -80,6 +80,8 @@ classDiagram
     }
     class CatalogSubmissionEnvelope {
       +envelope_id
+      +contract_version
+      +target_system
       +manifest_id
       +tenant_id
       +actor

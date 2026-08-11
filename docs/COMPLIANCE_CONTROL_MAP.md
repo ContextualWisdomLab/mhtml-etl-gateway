@@ -9,7 +9,7 @@ This map is engineering evidence, not certification or legal advice. An assessor
 | encryption and scoped keys | cryptographic controls | confidentiality, security | data protection | KMS config and rotation evidence |
 | metadata-only logs/reports | data minimization | confidentiality, privacy | personal-data protection | nonreflection tests |
 | approved schema artifact | change management | processing integrity | change control | ADR, approval record, hash |
-| actor/tenant/approval-bound catalog handoff | access/change accountability | security, confidentiality, processing integrity | access/audit | envelope ID, request keys, publisher verification |
+| actor/tenant/approval-bound catalog handoff | access/change accountability | security, confidentiality, processing integrity | access/audit | envelope ID and request keys are correlation/deduplication evidence only; caller-owned actor authentication, tenant authorization, approval verification, remote acceptance, and immutable audit records are recorded separately |
 | reconciliation and rollback | operations/integrity | availability, processing integrity | continuity/integrity | loader tests and run evidence |
 | full-SHA actions, SBOM, provenance | supplier/software security | security | supply-chain controls | CI, SPDX, SLSA attestation |
 | vulnerability and private reporting | incident/vulnerability management | security | vulnerability response | SECURITY.md, advisories, SLA |

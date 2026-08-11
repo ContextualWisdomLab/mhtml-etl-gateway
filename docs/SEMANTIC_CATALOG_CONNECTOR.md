@@ -80,13 +80,17 @@ for request in envelope.requests:
     publisher.send(request.to_dict())
 ```
 
-The envelope records a deterministic handoff ID, the manifest ID, tenant and
-approval context, and ordered node/edge `POST` plans. Each plan has a stable
-idempotency key and adds the explicit `actor` field expected by the portal. The
-tenant and approval references remain envelope-level governance metadata rather
-than graph-node properties. `publisher` remains responsible for verifying the
-approval, authorizing the tenant, binding credentials and TLS, retrying safely,
-and recording remote acceptance. The envelope is not proof of publication.
+The envelope records a deterministic handoff ID, the manifest ID, contract and
+target metadata, claimed tenant and approval context, and ordered node/edge
+`POST` plans. Each plan has a stable idempotency key scoped by tenant and
+approval reference and adds the explicit `actor` field expected by the portal.
+The tenant and approval references remain envelope-level governance metadata
+rather than graph-node properties. Envelope and request IDs are correlation and
+deduplication evidence only: `publisher` remains responsible for verifying actor
+authentication, authorizing the tenant, verifying the approval, binding
+credentials and TLS, retrying safely, recording remote acceptance, and writing
+immutable audit evidence. The envelope is not proof of authorization or
+publication.
 
 ## Interoperability mapping
 
