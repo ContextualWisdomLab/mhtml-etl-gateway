@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime, time
+
 from mhtml_etl_gateway.pipeline import extract_table, infer_schema_for_extract
 from mhtml_etl_gateway.schema_inference import (
     PG_BIGINT,
@@ -8,6 +10,8 @@ from mhtml_etl_gateway.schema_inference import (
     PG_NUMERIC,
     PG_TEXT,
     PG_TIME,
+    PG_TIMESTAMP,
+    coerce_value,
     infer_pg_type,
     infer_table_schema,
     to_snake_case,
@@ -29,6 +33,22 @@ def test_infer_pg_types_unit() -> None:
     assert infer_pg_type(["09:48:09", "11:17:26"]) == PG_TIME
     assert infer_pg_type(["hello", "world"]) == PG_TEXT
     assert infer_pg_type(["", ""]) == PG_TEXT
+
+
+def test_iso_coercion_and_timezone_preservation() -> None:
+    timestamp = coerce_value("2026-02-20T12:00:00", PG_TIMESTAMP)
+    assert isinstance(timestamp, datetime)
+    assert timestamp == datetime(2026, 2, 20, 12, 0, 0)
+    assert coerce_value("2026-02-20", PG_DATE) == date(2026, 2, 20)
+    assert coerce_value("09:48:09", PG_TIME) == time(9, 48, 9)
+    assert coerce_value("20-02-2026", PG_DATE) == "20-02-2026"
+
+    legacy_timestamp = coerce_value("2026/02/20 12:00:00", PG_TIMESTAMP)
+    assert legacy_timestamp == datetime(2026, 2, 20, 12, 0, 0)
+
+    offset_timestamp = "2026-02-20T12:00:00+09:00"
+    assert infer_pg_type([offset_timestamp]) == PG_TEXT
+    assert coerce_value(offset_timestamp, PG_TIMESTAMP) == offset_timestamp
 
 
 def test_schema_from_fixture_pipeline(sample_mhtml_path) -> None:

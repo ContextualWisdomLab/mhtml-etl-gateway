@@ -156,9 +156,13 @@ def _is_timestamp(v: str) -> bool:
         # But for _is_timestamp, we specifically want to require a time part if relying on fromisoformat,
         # or we check if there's a space or 'T' indicating time.
         if " " in s or "T" in s or "t" in s:
-            datetime.fromisoformat(s)
+            parsed = datetime.fromisoformat(s)
+            # TIMESTAMP is without time zone; preserve offset-bearing values as TEXT.
+            if parsed.tzinfo is not None:
+                return False
             return True
     except ValueError:
+        # ISO-like inputs can still match one of the legacy formats below.
         pass
     for fmt in (
         "%Y-%m-%d %H:%M:%S",
@@ -307,8 +311,11 @@ def coerce_value(value: str, pg_type: str):
         try:
             # We know it's supposed to be a timestamp, so we can try fromisoformat
             if " " in s or "T" in s or "t" in s:
-                return datetime.fromisoformat(s)
+                parsed = datetime.fromisoformat(s)
+                # Do not silently discard an explicit offset in TIMESTAMP columns.
+                return parsed if parsed.tzinfo is None else s
         except ValueError:
+            # Parse failures fall through to the supported legacy timestamp formats.
             pass
         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d %H:%M:%S"):
             try:
