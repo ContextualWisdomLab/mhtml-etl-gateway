@@ -90,12 +90,15 @@ class AutonomousContinuationContractTests(unittest.TestCase):
                 "--ambient-caps=-all",
                 "--bounding-set=-all",
                 "--no-new-privs",
-                "cwl-safe-exec /bin/sh -c",
+                "cwl-safe-exec /bin/bash -euo pipefail -c",
                 "NoNewPrivs",
                 "for capability in Inh Prm Eff Bnd Amb",
                 "source_file=\"$workspace/scripts/hourly_product_gap.py\"",
+                "stat -c \"%U:%G:%a\" \"$source_file\" >&2",
                 "namei -l \"$source_file\"",
-                "for readable_file in",
+                "for readable_file in \"$source_file\" \"$workspace/.agent/evidence/open-pulls.json\" \"$workspace/.agent/evidence/agent-issues.json\"",
+                "test -r \"$readable_file\"",
+                "head -c 1 \"$readable_file\" >/dev/null",
             ):
                 self.assertIn(fragment, wrapper_flat)
         self.assertNotIn("sudo -u cwl-untrusted -g cwl-workspace", self.workflow_text)
