@@ -10,7 +10,17 @@ from mhtml_etl_gateway.html_table_extractor import (
     ExtractedTable,
     extract_primary_table,
 )
-from mhtml_etl_gateway.lineage import build_lineage, sha256_bytes, write_lineage_json
+from mhtml_etl_gateway.column_mapping import (
+    ColumnMappingReport,
+    attach_column_comments,
+    load_column_mapping,
+)
+from mhtml_etl_gateway.lineage import (
+    artifact_reference,
+    build_lineage,
+    sha256_bytes,
+    write_lineage_json,
+)
 from mhtml_etl_gateway.mhtml_parser import extract_html_bytes, read_mhtml_file
 from mhtml_etl_gateway.postgres_loader import (
     InMemorySink,
@@ -20,7 +30,7 @@ from mhtml_etl_gateway.postgres_loader import (
     RowSink,
     load_table,
 )
-from mhtml_etl_gateway.schema_inference import TableSchema, infer_table_schema, to_snake_case
+from mhtml_etl_gateway.schema_inference import TableSchema, infer_table_schema
 from mhtml_etl_gateway.validation_engine import validate_extracted_table
 
 
@@ -35,13 +45,10 @@ class ExtractResult:
 
 
 def _default_table_name(path: Path) -> str:
-    stem = path.stem
-    parts = stem.split("_")
-    if parts:
-        base = parts[0]
-        if base.upper().startswith("Z") or base.isalnum():
-            return to_snake_case(f"{base}_export_rows")
-    return to_snake_case(f"{stem}_rows")
+    # Never derive a database object name from an operator-provided filename.
+    # Callers can still provide an explicit, safe --table-name.
+    del path
+    return "mhtml_extracted_rows"
 
 
 def extract_table(path: str | Path, *, data: bytes | None = None) -> ExtractResult:
@@ -82,6 +89,7 @@ def convert_mhtml_to_postgres(
     sink: RowSink | None = None,
     table_name: str | None = None,
     lineage_json: str | Path | None = None,
+    column_mapping: str | Path | None = None,
     data: bytes | None = None,
     on_duplicate: OnDuplicate = "skip",
     required_headers: Sequence[str] | None = None,
@@ -97,6 +105,11 @@ def convert_mhtml_to_postgres(
         data = read_mhtml_file(p)
     extracted = extract_table(p, data=data)
     schema = infer_schema_for_extract(extracted, table_name=table_name)
+    artifact_ref = artifact_reference(extracted.source_sha256)
+    mapping_report: ColumnMappingReport | None = None
+    if column_mapping is not None:
+        mapping_document = load_column_mapping(column_mapping)
+        schema, mapping_report = attach_column_comments(schema, mapping_document)
 
     # Fail closed before any business-row write.
     validate_extracted_table(
@@ -122,7 +135,7 @@ def convert_mhtml_to_postgres(
             schema,
             extracted.rows,
             sink=active,
-            source_artifact_path=extracted.source_path,
+            source_artifact_path=artifact_ref,
             source_artifact_sha256=extracted.source_sha256,
             source_artifact_size=extracted.source_size,
             on_duplicate=on_duplicate,
@@ -137,6 +150,7 @@ def convert_mhtml_to_postgres(
             data=data,
             row_count=row_count_for_lineage,
             table_name=result.table_name,
+            source_artifact_path=artifact_ref,
         )
         lineage_dict = lineage.to_dict()
         if result.skipped:
@@ -167,6 +181,8 @@ def convert_mhtml_to_postgres(
             "replaced": result.replaced,
             "table_name": result.table_name,
             "schema": schema.type_map(),
+            "column_comments": schema.comment_map(),
+            "column_mapping": mapping_report.to_dict() if mapping_report else None,
             "ddl": result.ddl,
             "catalog": result.catalog_entry,
             "lineage": lineage_dict,

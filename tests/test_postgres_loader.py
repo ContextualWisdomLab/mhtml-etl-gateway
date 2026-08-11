@@ -6,6 +6,7 @@ import pytest
 
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres, extract_table, infer_schema_for_extract
 from mhtml_etl_gateway.postgres_loader import InMemorySink, LoadError, PsycopgSink, load_table
+from mhtml_etl_gateway.schema_inference import ColumnSpec, PG_BIGINT, PG_DATE, PG_TEXT, TableSchema
 
 
 def test_inmemory_loader_with_lineage(sample_mhtml_path) -> None:
@@ -60,6 +61,28 @@ def test_pipeline_dry_run_end_to_end(sample_mhtml_path, tmp_path) -> None:
     assert lineage.is_file()
     text = lineage.read_text(encoding="utf-8")
     assert result["source_sha256"] in text
+
+
+def test_live_type_promotion_checks_existing_relation_type() -> None:
+    sink = object.__new__(PsycopgSink)
+    sink._fetchall = lambda query, params=None: [
+        ("mixed_value", "bigint"),
+        ("already_text", "text"),
+        ("typed_mismatch", "bigint"),
+    ]
+    schema = TableSchema(
+        table_name="mhtml_rows",
+        columns=[
+            ColumnSpec("MIXED_VALUE", "mixed_value", PG_TEXT),
+            ColumnSpec("ALREADY_TEXT", "already_text", PG_BIGINT),
+            ColumnSpec("TYPED_MISMATCH", "typed_mismatch", PG_DATE),
+        ],
+    )
+
+    assert sink._columns_to_promote(schema, [["sample-text", "12", "2024-01-01"]]) == [
+        "mixed_value",
+        "typed_mismatch",
+    ]
 
 
 @pytest.mark.skipif(

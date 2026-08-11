@@ -15,7 +15,13 @@ from mhtml_etl_gateway.ingest_catalog import (
 )
 from mhtml_etl_gateway.sql_ident import require_safe_ident
 from mhtml_etl_gateway.schema_inference import (
+    PG_BIGINT,
+    PG_BOOLEAN,
+    PG_DATE,
+    PG_NUMERIC,
     PG_TEXT,
+    PG_TIME,
+    PG_TIMESTAMP,
     TableSchema,
     coerce_value,
     values_require_text,
@@ -232,9 +238,12 @@ class PsycopgSink:
             return list(cur.fetchall())
 
     def ensure_table(self, schema: TableSchema) -> None:
-        # DDL identifiers validated inside TableSchema.ddl()
-        ddl = schema.ddl(include_lineage=True)
-        self._execute(ddl)
+        # DDL identifiers validated inside TableSchema.ddl().  Keep CREATE and
+        # COMMENT statements separate so psycopg never has to prepare a
+        # multi-command statement, while committing them together.
+        self._execute(schema.create_ddl(include_lineage=True))
+        for statement in schema.comment_ddl():
+            self._execute(statement)
         self._conn.commit()
 
     def ensure_catalog(self) -> None:
@@ -273,13 +282,50 @@ class PsycopgSink:
     def _columns_to_promote(
         self, schema: TableSchema, rows: Sequence[Sequence[Any]]
     ) -> list[str]:
-        """Return db column names that must widen to TEXT for these values."""
+        """Return db column names that must widen to TEXT for these values.
+
+        A later artifact may infer TEXT because it contains a value outside the
+        first artifact's type sample, while the already-created table still has
+        BIGINT/DATE/etc. Inspect the live relation as well as the current
+        inferred schema so that schema evolution cannot fail at INSERT time.
+        """
+        existing_types = {
+            str(name): str(data_type).lower()
+            for name, data_type in self._fetchall(
+                "SELECT column_name, data_type "
+                "FROM information_schema.columns "
+                "WHERE table_schema = current_schema() AND table_name = %s",
+                (schema.table_name,),
+            )
+        }
         to_promote: list[str] = []
         for i, col in enumerate(schema.columns):
-            if col.pg_type == PG_TEXT:
+            prepared = []
+            for row in rows:
+                raw = row[i] if i < len(row) else None
+                prepared.append(
+                    coerce_value(str(raw), col.pg_type) if raw is not None else None
+                )
+            existing_type = existing_types.get(col.db_name)
+            if existing_type in {"text", "character varying"}:
                 continue
-            prepared = [row[i] if i < len(row) else None for row in rows]
-            if values_require_text(col.pg_type, prepared):
+            if existing_type:
+                compatible_types = {
+                    PG_TEXT: {"text", "character varying"},
+                    PG_BIGINT: {"bigint"},
+                    PG_NUMERIC: {"numeric", "decimal"},
+                    PG_BOOLEAN: {"boolean"},
+                    PG_DATE: {"date"},
+                    PG_TIME: {"time without time zone"},
+                    PG_TIMESTAMP: {"timestamp without time zone"},
+                }.get(col.pg_type, {col.pg_type.lower()})
+                if (
+                    existing_type not in compatible_types
+                    or values_require_text(col.pg_type, prepared)
+                ):
+                    to_promote.append(col.db_name)
+                continue
+            if col.pg_type != PG_TEXT and values_require_text(col.pg_type, prepared):
                 to_promote.append(col.db_name)
         return to_promote
 

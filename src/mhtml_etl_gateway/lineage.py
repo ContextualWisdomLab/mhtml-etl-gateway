@@ -28,6 +28,13 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def artifact_reference(sha256: str) -> str:
+    """Return a stable, opaque lineage reference without a filesystem path."""
+    if len(sha256) != 64 or any(char not in "0123456789abcdef" for char in sha256.lower()):
+        raise ValueError("artifact sha256 must be a 64-character hexadecimal digest")
+    return f"artifact:{sha256[:16].lower()}"
+
+
 def sha256_file(path: Path, *, chunk_size: int = 1024 * 1024) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -45,6 +52,7 @@ def build_lineage(
     data: bytes | None = None,
     row_count: int,
     table_name: str,
+    source_artifact_path: str | None = None,
     loaded_at: datetime | None = None,
 ) -> ArtifactLineage:
     p = Path(path)
@@ -58,7 +66,7 @@ def build_lineage(
         mtime_ns = p.stat().st_mtime_ns if p.is_file() else None
     ts = loaded_at or datetime.now(timezone.utc)
     return ArtifactLineage(
-        source_artifact_path=str(p),
+        source_artifact_path=source_artifact_path or str(p),
         source_artifact_sha256=digest,
         source_artifact_size=size,
         source_artifact_mtime_ns=mtime_ns,

@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Column mapping references from JSON, CSV, or PPTX text layers.
+- Safe `COMMENT ON COLUMN` generation and live PostgreSQL application, with
+  matched/unmatched mapping evidence in pipeline results.
+- Privacy boundary for runtime ingestion: opaque artifact references and a
+  filename-independent default table name in pipeline/batch reports and lineage.
+
 ## [0.2.1] — Unresolved
 
 ### Fixed
