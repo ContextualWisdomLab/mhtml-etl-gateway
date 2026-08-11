@@ -43,6 +43,12 @@ Applications may log stable error and diagnostic codes, source SHA-256, source b
 - MIME boundary values;
 - exception chains containing source-controlled detail.
 
+Database adapters must preserve this boundary: connection, SQL-operation,
+transaction, and type-conversion failures are surfaced as fixed load errors.
+Operational systems may correlate the error code with protected server-side
+diagnostics, but must not copy DSNs, SQL text, identifiers, row values, or
+provider exception bodies into logs or metrics.
+
 The public package emits no operational logs by itself. The CLI writes one success JSON object to stdout or one fixed-message error JSON object to stderr.
 
 ## Current health and capacity model

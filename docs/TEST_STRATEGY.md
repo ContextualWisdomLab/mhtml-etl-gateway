@@ -76,6 +76,11 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
   `COMMENT ON COLUMN` in the same setup transaction;
 - the fixed catalog uses `load_status_code` and its replay-safe legacy rename
   migration is emitted without caller-controlled SQL text.
+- integer inference keeps signed BIGINT bounds and classifies larger realistic
+  values as `NUMERIC`;
+- arbitrary `TableSchema` PostgreSQL types fail before DDL generation;
+- live connection, SQL operation, load, and unsafe-identifier failures expose
+  fixed messages without DSNs, SQL, identifiers, or provider detail.
 
 ### Repository and CI
 

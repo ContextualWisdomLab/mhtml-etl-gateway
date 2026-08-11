@@ -39,6 +39,10 @@ single-token name is shortened.
    predecessor, it must fail closed before creating a parallel suffixed object
    and require an explicit migration with collision, rollback, and recovery
    evidence.
+7. Schema DDL accepts only the fixed PostgreSQL type allow-list, integer
+   inference treats values outside signed BIGINT range as `NUMERIC`, and live
+   database/identifier failures use fixed messages without reflecting DSNs,
+   identifiers, SQL, or provider details.
 
 ## Consequences
 
@@ -56,6 +60,9 @@ single-token name is shortened.
 - The policy is deliberately narrower than PostgreSQL's full identifier
   grammar. It avoids quoted, case-sensitive, dollar-sign, and one-word names
   to keep generated SQL portable and reviewable.
+- Numeric overflow becomes an explicit type decision rather than an avoidable
+  BIGINT insert failure, and direct callers cannot inject an arbitrary type into
+  generated DDL.
 
 ## Verification
 
@@ -63,10 +70,12 @@ single-token name is shortened.
 `tests/test_postgres_loader.py`, and `tests/test_legacy_etl_quality.py` cover
 single-token canonicalization, 63-byte suffix preservation, direct unsafe
 identifier rejection, mapping compatibility, realistic `COMMENT ON COLUMN`
-DDL, catalog-column migration SQL, and in-memory/live-sink write boundaries.
-The persisted-upgrade regressions additionally prove that a legacy table or
-column blocks parallel object creation and reports the explicit migration
-requirement without interpolating the legacy identifier into SQL.
+DDL, catalog-column migration SQL, bigint overflow promotion, fixed database
+failure messages, type allow-list rejection, and in-memory/live-sink write
+boundaries. The persisted-upgrade regressions additionally prove that a
+legacy table or column blocks parallel object creation and reports the
+explicit migration requirement without interpolating the legacy identifier
+into SQL.
 
 ## References
 

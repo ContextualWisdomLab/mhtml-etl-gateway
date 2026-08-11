@@ -17,6 +17,11 @@ PG_NUMERIC = "NUMERIC"
 PG_DATE = "DATE"
 PG_TIME = "TIME"
 PG_TIMESTAMP = "TIMESTAMP"
+SUPPORTED_PG_TYPES = frozenset(
+    {PG_TEXT, PG_BOOLEAN, PG_BIGINT, PG_NUMERIC, PG_DATE, PG_TIME, PG_TIMESTAMP}
+)
+PG_BIGINT_MIN = -(2**63)
+PG_BIGINT_MAX = 2**63 - 1
 
 
 class SchemaInferenceError(ValueError):
@@ -29,16 +34,16 @@ _CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
 
 def _to_multiword_snake_case(name: str, *, suffix: str, label: str) -> str:
     """Normalize an application identifier and preserve a second word."""
-    if name is None:
-        raise SchemaInferenceError(f"{label} is None")
-    s = str(name).strip()
+    if not isinstance(name, str):
+        raise SchemaInferenceError(f"invalid {label}")
+    s = name.strip()
     if not s:
-        raise SchemaInferenceError(f"empty {label}")
+        raise SchemaInferenceError(f"invalid {label}")
     s = _CAMEL_BOUNDARY.sub(r"\1_\2", s)
     s = _NON_ALNUM.sub("_", s)
     s = re.sub(r"_+", "_", s).strip("_").lower()
     if not s:
-        raise SchemaInferenceError(f"{label} collapses to empty: {name!r}")
+        raise SchemaInferenceError(f"invalid {label}")
     single_token = "_" not in s
     if s[0].isdigit():
         s = f"col_{s}"
@@ -118,9 +123,10 @@ def _parse_int(v: str) -> int | None:
     if not body.isdigit():
         return None
     try:
-        return int(s)
+        parsed = int(s)
     except ValueError:
         return None
+    return parsed if PG_BIGINT_MIN <= parsed <= PG_BIGINT_MAX else None
 
 
 def _parse_decimal(v: str) -> Decimal | None:
@@ -260,7 +266,8 @@ class TableSchema:
         cols: list[str] = []
         for c in self.columns:
             col = require_safe_ident(c.db_name)
-            # pg_type is from a fixed allow-list in this package.
+            if c.pg_type not in SUPPORTED_PG_TYPES:
+                raise SchemaInferenceError("unsupported PostgreSQL column type")
             cols.append(f"    {col} {c.pg_type}")
         if include_lineage:
             cols.extend(

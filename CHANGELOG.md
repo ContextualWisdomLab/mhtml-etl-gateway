@@ -24,6 +24,9 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
   implemented.
 - Add an explicit catalog status-column down migration and reject ambiguous
   dual-column states in both migration directions.
+- Bound signed BIGINT inference, reject arbitrary PostgreSQL DDL types, and
+  normalize database/identifier failures without reflecting secrets or provider
+  details.
 
 ### Planned
 

@@ -459,6 +459,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             self.fetchall_result: list[tuple[object, ...]] = []
             self.fail_execute = False
             self.fail_executemany = False
+            self.fail_rollback = False
 
         def cursor(self):
             return Cursor(self)
@@ -468,6 +469,8 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
 
         def rollback(self) -> None:
             self.rollbacks += 1
+            if self.fail_rollback:
+                raise RuntimeError("rollback failed")
 
         def close(self) -> None:
             self.closed = True
@@ -485,11 +488,30 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     connection.fetchall_result = [("a",), ("b",)]
     assert sink._fetchall("SELECT") == [("a",), ("b",)]
     assert sink._fetchall("SELECT %s", (1,)) == [("a",), ("b",)]
+
+    connection.fail_execute = True
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._execute("SELECT secret")
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._fetchone("SELECT secret")
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._fetchall("SELECT secret")
+    connection.fail_execute = False
+    connection.fail_executemany = True
+    with pytest.raises(LoadError, match="database operation failed"):
+        sink._executemany("INSERT", [("secret",)])
+    connection.fail_executemany = False
+
     sink.rollback()
     assert connection.rollbacks == 1
     assert sink.__enter__() is sink
     sink.__exit__(None, None, None)
     assert connection.closed
+
+    with patch("psycopg.connect", side_effect=RuntimeError("secret DSN details")):
+        with pytest.raises(LoadError, match="database connection failed") as error:
+            PsycopgSink("postgresql://secret")
+    assert "secret DSN details" not in str(error.value)
 
     connection = Connection()
     sink = object.__new__(PsycopgSink)
@@ -594,7 +616,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     failing_sink = object.__new__(PsycopgSink)
     failing_sink._conn = failing_connection
     failing_sink._columns_to_promote = lambda schema, rows: []
-    with pytest.raises(RuntimeError, match="executemany failed"):
+    with pytest.raises(LoadError, match="database load failed") as error:
         failing_sink.write_artifact_rows(
             schema,
             [["x"]],
@@ -603,7 +625,24 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             catalog_entry=catalog_entry,
             replace_existing=False,
         )
+    assert "executemany failed" not in str(error.value)
     assert failing_connection.rollbacks == 1
+
+    rollback_failure_connection = Connection()
+    rollback_failure_connection.fail_executemany = True
+    rollback_failure_connection.fail_rollback = True
+    rollback_failure_sink = object.__new__(PsycopgSink)
+    rollback_failure_sink._conn = rollback_failure_connection
+    rollback_failure_sink._columns_to_promote = lambda schema, rows: []
+    with pytest.raises(LoadError, match="database load failed"):
+        rollback_failure_sink.write_artifact_rows(
+            schema,
+            [["x"]],
+            source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
+            source_artifact_sha256="a" * 64,
+            catalog_entry=catalog_entry,
+            replace_existing=False,
+        )
 
 
 def test_inmemory_sink_and_load_edge_contracts() -> None:
@@ -811,6 +850,14 @@ def test_validation_and_identifier_contracts() -> None:
         require_safe_ident("A")
     with pytest.raises(UnsafeIdentifierError):
         require_safe_ident("a" * 64)
+    with pytest.raises(UnsafeIdentifierError) as unsafe_error:
+        require_safe_ident("secret_customer_identifier-unsafe")
+    assert "secret_customer_identifier-unsafe" not in str(unsafe_error.value)
+    with pytest.raises(SchemaInferenceError, match="unsupported PostgreSQL"):
+        TableSchema(
+            table_name="safe_table",
+            columns=[ColumnSpec("VALUE", "value_field", "DROP TABLE")],
+        ).ddl()
     assert quote_sql_literal("a\\b'c\n") == "E'a\\\\b''c\\n'"
     with pytest.raises(TypeError):
         quote_sql_literal(1)  # type: ignore[arg-type]

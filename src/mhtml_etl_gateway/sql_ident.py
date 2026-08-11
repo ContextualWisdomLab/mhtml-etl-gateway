@@ -22,7 +22,7 @@ def require_safe_ident(name: str) -> str:
         or len(name.encode("utf-8")) > 63
         or _SAFE_IDENT.fullmatch(name) is None
     ):
-        raise UnsafeIdentifierError(f"unsafe SQL identifier: {name!r}")
+        raise UnsafeIdentifierError("unsafe SQL identifier")
     return name
 
 

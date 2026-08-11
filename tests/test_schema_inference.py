@@ -8,6 +8,7 @@ import pytest
 from mhtml_etl_gateway.pipeline import extract_table, infer_schema_for_extract
 from mhtml_etl_gateway.schema_inference import (
     PG_BIGINT,
+    PG_BIGINT_MAX,
     PG_BOOLEAN,
     PG_DATE,
     PG_NUMERIC,
@@ -71,6 +72,7 @@ def test_infer_pg_types_unit() -> None:
     assert infer_pg_type(["09:48:09", "11:17:26"]) == PG_TIME
     assert infer_pg_type(["hello", "world"]) == PG_TEXT
     assert infer_pg_type(["", ""]) == PG_TEXT
+    assert infer_pg_type([str(PG_BIGINT_MAX + 1)]) == PG_NUMERIC
     assert _is_time("9:48:09") is True
 
 

@@ -242,7 +242,10 @@ class PsycopgSink:
             raise LoadError("psycopg is required for PostgreSQL loading") from exc
         self._psycopg = psycopg
         self._conninfo = conninfo
-        self._conn = psycopg.connect(conninfo)
+        try:
+            self._conn = psycopg.connect(conninfo)
+        except Exception:
+            raise LoadError("database connection failed") from None
         self._conn.autocommit = False
 
     def close(self) -> None:
@@ -265,38 +268,50 @@ class PsycopgSink:
         Dynamic relation names are unavoidable for multi-table ETL; values always
         use bind parameters. Semgrep cannot prove Identifier safety statically.
         """
-        with self._conn.cursor() as cur:
-            if params is None:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query)
-            else:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query, params)
+        try:
+            with self._conn.cursor() as cur:
+                if params is None:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query)
+                else:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query, params)
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _executemany(self, query, params_seq: Sequence[Sequence[Any]]) -> None:
-        with self._conn.cursor() as cur:
-            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            cur.executemany(query, params_seq)
+        try:
+            with self._conn.cursor() as cur:
+                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                cur.executemany(query, params_seq)
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _fetchone(self, query, params: Sequence[Any] | None = None):
-        with self._conn.cursor() as cur:
-            if params is None:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query)
-            else:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query, params)
-            return cur.fetchone()
+        try:
+            with self._conn.cursor() as cur:
+                if params is None:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query)
+                else:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query, params)
+                return cur.fetchone()
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _fetchall(self, query, params: Sequence[Any] | None = None) -> list:
-        with self._conn.cursor() as cur:
-            if params is None:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query)
-            else:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.execute(query, params)
-            return list(cur.fetchall())
+        try:
+            with self._conn.cursor() as cur:
+                if params is None:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query)
+                else:
+                    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    cur.execute(query, params)
+                return list(cur.fetchall())
+        except Exception:
+            raise LoadError("database operation failed") from None
 
     def _ensure_missing_columns(self, schema: TableSchema) -> None:
         """Add schema columns missing from an already-existing relation."""
@@ -571,8 +586,11 @@ class PsycopgSink:
             self._conn.commit()
             return len(payloads)
         except Exception:
-            self._conn.rollback()
-            raise
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
+            raise LoadError("database load failed") from None
 
     def query_count(self, table_name: str) -> int:
         """Return a queryable row count through the same identifier contract."""
