@@ -59,6 +59,43 @@ jobs:
           gh api --paginate --slurp \
             "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=agent-task&per_page=100" \
             > "$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json"
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          evidence_dir = Path(os.environ["GITHUB_WORKSPACE"]) / ".agent" / "evidence"
+          repository = os.environ["GITHUB_REPOSITORY"]
+          collected_at = datetime.now(timezone.utc).isoformat()
+          sources = (
+              (
+                  "open-pulls.json",
+                  "open-pulls.manifest.json",
+                  f"repos/{repository}/pulls",
+                  {"state": "open", "per_page": "100"},
+              ),
+              (
+                  "agent-issues.json",
+                  "agent-issues.manifest.json",
+                  f"repos/{repository}/issues",
+                  {"state": "open", "labels": "agent-task", "per_page": "100"},
+              ),
+          )
+          for source_file, manifest_file, endpoint, query in sources:
+              manifest = {
+                  "source_file": source_file,
+                  "repository": repository,
+                  "endpoint": endpoint,
+                  "query": query,
+                  "collected_at": collected_at,
+                  "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              }
+              (evidence_dir / manifest_file).write_text(
+                  json.dumps(manifest, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+          PY
 
       - name: Install secret-stripping execution wrapper
         run: |
@@ -330,6 +367,43 @@ jobs:
           gh api --paginate --slurp \
             "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=agent-task&per_page=100" \
             > "$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json"
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          evidence_dir = Path(os.environ["GITHUB_WORKSPACE"]) / ".agent" / "evidence"
+          repository = os.environ["GITHUB_REPOSITORY"]
+          collected_at = datetime.now(timezone.utc).isoformat()
+          sources = (
+              (
+                  "open-pulls.json",
+                  "open-pulls.manifest.json",
+                  f"repos/{repository}/pulls",
+                  {"state": "open", "per_page": "100"},
+              ),
+              (
+                  "agent-issues.json",
+                  "agent-issues.manifest.json",
+                  f"repos/{repository}/issues",
+                  {"state": "open", "labels": "agent-task", "per_page": "100"},
+              ),
+          )
+          for source_file, manifest_file, endpoint, query in sources:
+              manifest = {
+                  "source_file": source_file,
+                  "repository": repository,
+                  "endpoint": endpoint,
+                  "query": query,
+                  "collected_at": collected_at,
+                  "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              }
+              (evidence_dir / manifest_file).write_text(
+                  json.dumps(manifest, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+          PY
 
       - name: Ensure one durable agent task
         id: ensure_task
