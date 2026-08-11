@@ -42,6 +42,8 @@ Python Packaging Authority. (2026). *Secure installs*. pip documentation (Versio
 
 Python Software Foundation. (2026, February 3). *coverage 7.13.3* [Software distribution metadata]. Python Package Index. https://pypi.org/project/coverage/7.13.3/
 
+World Wide Web Consortium. (2024). *Data Catalog Vocabulary (DCAT)—Version 3*. https://www.w3.org/TR/vocab-dcat-3/
+
 SLSA Community. (2026). *Supply-chain levels for software artifacts specification, version 1.2*. https://slsa.dev/spec/v1.2/
 
 SPDX Workgroup. (n.d.). *SPDX specification 3.0.1*. Retrieved August 7, 2026, from https://spdx.github.io/spdx-spec/v3.0.1/

@@ -4,6 +4,28 @@
 **Product version:** 0.1.0  
 **Scope:** deterministic value-free MHTML inspection, work-conserving autonomous maintenance, and verified OpenCode runner delivery
 
+## Current 0.3.0 implementation addendum
+
+The historical evidence below remains preserved for the original inspection
+baseline. The current merged main implementation also includes versioned
+value-free schema proposals, `COMMENT ON COLUMN` mapping support, and the
+Semantic Data Portal connector boundary. In the current integration worktree on
+2026-08-11, Python 3.14 evidence is:
+
+```text
+291 tests passed
+3 tests skipped
+30 subtests passed
+2,359 production statements: 100%
+830 production branches: 100%
+```
+
+`tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
+graph manifests, endpoint-compatible node/edge shapes, order-sensitive identity,
+raw-value absence, and caller-owned transport boundaries. The connector creates
+no network, database, LLM, or file side effect. Its merge and release claims
+remain subject to fresh exact-head GitHub evidence.
+
 ## Evidence semantics
 
 This report records reproducible repository evidence. It does not replace the live exact-head GitHub gate. Every commit, including documentation-only changes, must receive current-head quality, security, SAST, independent-review, and unresolved-thread evidence before merge or release.

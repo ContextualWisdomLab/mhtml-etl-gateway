@@ -46,6 +46,20 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - argument-construction errors isolated from inspection-layer domain errors;
 - module and console entry points.
 
+### Schema proposals and semantic catalog handoff
+
+- realistic SAP-shaped protected columns become normalized multiword names and
+  value-free proposal evidence;
+- identical proposals produce identical catalog manifest IDs;
+- reordering protected columns changes the manifest identity and preserves
+  ordered graph mapping;
+- dataset/column nodes and `contains_column` edges match the Semantic Data
+  Portal request shapes;
+- raw source headers and representative values are absent from serialized
+  manifests;
+- empty-schema and invalid steward display-name boundaries fail closed;
+- connector generation performs no HTTP, database, LLM, or file operation.
+
 ### Repository and CI
 
 - complete required documentation;
