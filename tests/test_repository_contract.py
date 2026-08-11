@@ -12,12 +12,6 @@ import unittest
 from unittest.mock import patch
 
 import scripts.validate_repository as repository_validator
-from scripts.validate_repository import (
-    REQUIRED_DOCUMENTS,
-    find_mutable_action_references,
-    main,
-    missing_public_docstrings,
-)
 
 
 @contextmanager
@@ -39,7 +33,7 @@ def _run_validator(root: Path, required_documents: tuple[Path, ...] = ()):
         "REQUIRED_DOCUMENTS",
         required_documents,
     ), redirect_stdout(stdout):
-        return_code = main([])
+        return_code = repository_validator.main([])
     return return_code, json.loads(stdout.getvalue())
 
 
@@ -49,14 +43,20 @@ class RepositoryContractTests(unittest.TestCase):
     def test_required_document_inventory_is_present(self) -> None:
         """The design, security, test, and operating baseline is complete."""
         self.assertEqual(
-            [path for path in REQUIRED_DOCUMENTS if not path.is_file()],
+            [
+                path
+                for path in repository_validator.REQUIRED_DOCUMENTS
+                if not path.is_file()
+            ],
             [],
         )
 
     def test_public_python_docstrings_include_scripts(self) -> None:
         """Production helper scripts meet the package documentation contract."""
         self.assertEqual(
-            missing_public_docstrings((Path("src"), Path("scripts"))),
+            repository_validator.missing_public_docstrings(
+                (Path("src"), Path("scripts"))
+            ),
             [],
         )
 
@@ -70,7 +70,7 @@ class RepositoryContractTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(
-                missing_public_docstrings((root,)),
+                repository_validator.missing_public_docstrings((root,)),
                 [str(source), f"{source}:public_function"],
             )
 
@@ -158,7 +158,7 @@ class RepositoryContractTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(
-                find_mutable_action_references((path,)),
+                repository_validator.find_mutable_action_references((path,)),
                 [(path, "actions/checkout@v7")],
             )
 
@@ -166,7 +166,7 @@ class RepositoryContractTests(unittest.TestCase):
         """The complete checked-in tree passes the deterministic validator."""
         stdout = StringIO()
         with redirect_stdout(stdout):
-            return_code = main([])
+            return_code = repository_validator.main([])
         self.assertEqual(return_code, 0)
         self.assertEqual(json.loads(stdout.getvalue())["status"], "passed")
 
