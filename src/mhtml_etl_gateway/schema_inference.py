@@ -136,8 +136,9 @@ def _is_date(v: str) -> bool:
 def _is_time(v: str) -> bool:
     s = v.strip()
     try:
-        time.fromisoformat(s)
-        return True
+        parsed = time.fromisoformat(s)
+        # PostgreSQL TIME is without time zone; retain offset-bearing inputs as text.
+        return parsed.tzinfo is None
     except ValueError:
         pass
     for fmt in ("%H:%M:%S", "%H:%M", "%H%M%S"):
@@ -349,7 +350,9 @@ def coerce_value(value: str, pg_type: str):
         return s
     if pg_type == PG_TIME:
         try:
-            return time.fromisoformat(s)
+            parsed = time.fromisoformat(s)
+            # Do not silently discard an explicit offset in TIME columns.
+            return parsed if parsed.tzinfo is None else s
         except ValueError:
             pass
         for fmt in ("%H:%M:%S", "%H:%M", "%H%M%S"):
