@@ -80,6 +80,10 @@
 | compromised dependency/action | supply-chain compromise | dependency minimization, hash locks, full-SHA pins, verified agent binary, future SBOM/provenance |
 | catalog connector receives or emits protected values | semantic-catalog disclosure | accept only value-free `SchemaProposal` output, serialize hashes/aggregates/review reasons only, test raw-value absence, and leave transport/approval outside the library |
 | anonymous or cross-tenant catalog replay | unauthorized graph write or confused-deputy disclosure | require explicit actor, bounded tenant/approval references, tenant- and approval-scoped deterministic envelope/request IDs, reject surrounding whitespace, and require caller-owned actor authentication, tenant authorization, approval verification, remote acceptance, and immutable audit evidence |
+| one-word or attacker-shaped database identifier | inconsistent schema, SQL injection, or migration drift | canonicalize generated names to multiword `snake_case`, reserve suffixes within 63 bytes, reject unsafe direct identifiers before DDL, and run only constant catalog migration SQL |
+| numeric input exceeds PostgreSQL BIGINT range | insert failure or unsafe type coercion | bound integer inference to signed BIGINT and infer `NUMERIC` for larger values; live schema evolution promotes incompatible existing columns to `TEXT` before writes |
+| arbitrary caller type reaches generated DDL | SQL injection or invalid schema mutation | enforce a fixed PostgreSQL type allow-list inside `TableSchema.create_ddl` before any SQL is sent |
+| database/identifier exception reflects secrets or schema details | DSN, PII, or database reconnaissance disclosure | convert connection, operation, load, and identifier failures to fixed messages; CLI also emits only approved safe summaries |
 
 ## Residual risks
 

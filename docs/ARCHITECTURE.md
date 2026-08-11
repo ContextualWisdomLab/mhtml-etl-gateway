@@ -79,12 +79,17 @@ than destructive default masking.
 
 ## Database and schema governance
 
-All database objects use at least two-word `snake_case` names. The loader creates
-lineage columns alongside business columns and applies `COMMENT ON COLUMN` from
-an explicit mapping reference in the same setup transaction. A later artifact
-can trigger safe type promotion to `TEXT`; incompatible live types are detected
-before insertion. Schema proposals are versioned and must be approved before a
-future service exposes them outside the source-custody boundary.
+All database objects use at least two-word lowercase `snake_case` names. The
+inference layer adds `_field` or `_table` to single-token inputs, reserves the
+suffix within PostgreSQL's 63-byte limit, and the SQL boundary rejects unsafe
+direct names. The loader creates lineage columns alongside business columns
+and applies `COMMENT ON COLUMN` from an explicit mapping reference in the same
+setup transaction. A constant compatibility migration renames the legacy
+catalog `status` column to `load_status_code`; no caller value is interpolated.
+A later artifact can trigger safe type promotion to `TEXT`; incompatible live
+types are detected before insertion. Schema proposals are versioned and must
+be approved before a future service exposes them outside the source-custody
+boundary.
 
 ## Resource and failure model
 

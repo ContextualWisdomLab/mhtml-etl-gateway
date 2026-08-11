@@ -126,7 +126,10 @@ committed or embedded in documentation, tests, logs, or database lineage.
 
 ## Database contract
 
-Business tables use at least two-word `snake_case` names. Lineage columns are:
+Every generated table and column uses at least two-word lowercase `snake_case`.
+Single-token column headers receive a `_field` suffix and single-token table
+inputs receive a `_table` suffix before PostgreSQL's 63-byte limit is applied.
+Direct unsafe identifiers fail closed at the SQL boundary. Lineage columns are:
 
 - `source_artifact_path TEXT`: `artifact:<sha-prefix>`, never a filesystem path;
 - `source_artifact_sha256 TEXT`;
@@ -134,8 +137,10 @@ Business tables use at least two-word `snake_case` names. Lineage columns are:
 - `loaded_at TIMESTAMP`.
 
 The `mhtml_ingest_artifact` catalog is keyed by
-`(source_artifact_sha256, table_name)`. Mapping comments are applied in the same
-setup transaction as the table DDL and are never inferred from raw cell values.
+`(source_artifact_sha256, table_name)` and uses `load_status_code` for its
+status column. An upgrade-safe constant migration renames the legacy `status`
+column when needed. Mapping comments are applied in the same setup transaction
+as the table DDL and are never inferred from raw cell values.
 
 ## Verification
 

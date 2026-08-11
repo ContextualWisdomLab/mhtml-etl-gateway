@@ -17,6 +17,11 @@ PG_NUMERIC = "NUMERIC"
 PG_DATE = "DATE"
 PG_TIME = "TIME"
 PG_TIMESTAMP = "TIMESTAMP"
+SUPPORTED_PG_TYPES = frozenset(
+    {PG_TEXT, PG_BOOLEAN, PG_BIGINT, PG_NUMERIC, PG_DATE, PG_TIME, PG_TIMESTAMP}
+)
+PG_BIGINT_MIN = -(2**63)
+PG_BIGINT_MAX = 2**63 - 1
 
 
 class SchemaInferenceError(ValueError):
@@ -27,22 +32,57 @@ _NON_ALNUM = re.compile(r"[^0-9a-zA-Z]+")
 _CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
 
 
-def to_snake_case(name: str) -> str:
-    """Convert a header/identifier to multiword snake_case for PostgreSQL."""
-    if name is None:
-        raise SchemaInferenceError("column name is None")
-    s = str(name).strip()
+def _to_multiword_snake_case(name: str, *, suffix: str, label: str) -> str:
+    """Normalize an application identifier and preserve a second word."""
+    if not isinstance(name, str):
+        raise SchemaInferenceError(f"invalid {label}")
+    s = name.strip()
     if not s:
-        raise SchemaInferenceError("empty column name")
+        raise SchemaInferenceError(f"invalid {label}")
     s = _CAMEL_BOUNDARY.sub(r"\1_\2", s)
     s = _NON_ALNUM.sub("_", s)
     s = re.sub(r"_+", "_", s).strip("_").lower()
     if not s:
-        raise SchemaInferenceError(f"column name collapses to empty: {name!r}")
+        raise SchemaInferenceError(f"invalid {label}")
+    single_token = "_" not in s
     if s[0].isdigit():
         s = f"col_{s}"
-    # PostgreSQL identifier length safety.
-    return s[:63]
+    # PostgreSQL keeps at most 63 bytes for an unquoted identifier. The
+    # supported naming policy also requires at least two words, so reserve the
+    # suffix before truncating a single-token input.
+    if single_token:
+        return f"{s[: 63 - len(suffix)]}{suffix}"
+    if len(s) <= 63:
+        return s
+
+    # Prefer complete leading tokens. If the next token crosses the boundary,
+    # retain its bounded prefix so the result remains multiword and safe.
+    tokens = s.split("_")
+    prefix = tokens[0]
+    if len(prefix) >= 62:
+        return f"{prefix[:61]}_{tokens[1][0]}"
+    complete_count = 1
+    for token in tokens[1:]:  # pragma: no branch - over-limit input has a token
+        candidate = f"{prefix}_{token}"
+        if len(candidate) <= 63:
+            prefix = candidate
+            complete_count += 1
+            continue
+        if complete_count >= 2:
+            return prefix
+        remaining = 63 - len(prefix) - 1
+        return f"{prefix}_{token[:remaining]}"
+    return prefix  # pragma: no cover - an over-limit name must overflow a token
+
+
+def to_snake_case(name: str) -> str:
+    """Convert a column header to bounded, multiword ``snake_case``."""
+    return _to_multiword_snake_case(name, suffix="_field", label="column name")
+
+
+def to_table_name(name: str) -> str:
+    """Convert a table name to bounded, multiword ``snake_case``."""
+    return _to_multiword_snake_case(name, suffix="_table", label="table name")
 
 
 def unique_snake_names(headers: Sequence[str]) -> list[str]:
@@ -54,12 +94,17 @@ def unique_snake_names(headers: Sequence[str]) -> list[str]:
     out: list[str] = []
     for h in headers:
         base = to_snake_case(h)
-        candidate = base[:63]
+        candidate = base
         n = 1
         while candidate in used:
             n += 1
             suffix = f"_{n}"
-            candidate = f"{base[: 63 - len(suffix)]}{suffix}"
+            if base.endswith("_field"):
+                stem = base[: -len("_field")]
+                suffix = f"_field_{n}"
+            else:
+                stem = base
+            candidate = f"{stem[: 63 - len(suffix)].rstrip('_')}{suffix}"
         used.add(candidate)
         out.append(candidate)
     return out
@@ -89,9 +134,10 @@ def _parse_int(v: str) -> int | None:
     if not body.isdigit():
         return None
     try:
-        return int(s)
+        parsed = int(s)
     except ValueError:
         return None
+    return parsed if PG_BIGINT_MIN <= parsed <= PG_BIGINT_MAX else None
 
 
 def _parse_decimal(v: str) -> Decimal | None:
@@ -218,6 +264,7 @@ class TableSchema:
 
     table_name: str
     columns: list[ColumnSpec]
+    source_table_name: str | None = None
 
     def create_ddl(self, *, include_lineage: bool = True) -> str:
         """Emit CREATE TABLE DDL with optional lineage columns.
@@ -230,7 +277,8 @@ class TableSchema:
         cols: list[str] = []
         for c in self.columns:
             col = require_safe_ident(c.db_name)
-            # pg_type is from a fixed allow-list in this package.
+            if c.pg_type not in SUPPORTED_PG_TYPES:
+                raise SchemaInferenceError("unsupported PostgreSQL column type")
             cols.append(f"    {col} {c.pg_type}")
         if include_lineage:
             cols.extend(
@@ -305,14 +353,18 @@ def infer_table_schema(
     if not headers:
         raise SchemaInferenceError("no headers for schema inference")
     db_names = unique_snake_names(list(headers))
-    table = to_snake_case(table_name)
+    table = to_table_name(table_name)
     columns: list[ColumnSpec] = []
     sample_rows = list(rows[:sample_limit])
     for i, src in enumerate(headers):
         samples = [str(r[i]) if i < len(r) else "" for r in sample_rows]
         pg_type = infer_pg_type(samples)
         columns.append(ColumnSpec(source_name=str(src), db_name=db_names[i], pg_type=pg_type))
-    return TableSchema(table_name=table, columns=columns)
+    return TableSchema(
+        table_name=table,
+        columns=columns,
+        source_table_name=str(table_name),
+    )
 
 
 def coerce_value(value: str, pg_type: str):

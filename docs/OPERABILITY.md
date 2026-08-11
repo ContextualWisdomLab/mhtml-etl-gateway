@@ -9,6 +9,27 @@ the catalog connector.
 
 Operators control resource budgets through `ParseLimits` and the CLI source-byte limit. Programmatic budgets cover source bytes, all descendant MIME entities, MIME depth, decoded HTML, tables, rows, columns, raw cells, projected and realized normalized cells, and cell text. Every budget is a positive non-boolean integer.
 
+Database object names are canonicalized to multiword `snake_case` before DDL.
+Operators upgrading an ingest catalog may rerun setup safely: the constant
+compatibility migration renames legacy `status` to `load_status_code` only when
+the new column is absent. A migration failure must roll back the transaction
+and block the load; it must never silently create a second status column.
+
+Before reverting to an application version that still reads `status`, stop
+writers, back up the catalog, and run `CATALOG_STATUS_ROLLBACK_DDL` in one
+transaction. Verify that exactly `status` exists, then deploy the predecessor.
+If both `status` and `load_status_code` exist, both up and down migrations raise
+an exception; operators must reconcile the duplicate state before any load or
+rollback proceeds.
+
+Dynamic business tables and columns have a separate upgrade boundary. If a
+legacy one-word predecessor exists, setup must fail closed before creating a
+parallel `_table` or `_field` object. Operators must preserve the transaction,
+take a schema/data backup, inventory name collisions and dependent views or
+queries, and apply an explicit migration with a tested rollback. Automatic
+dynamic-object migration is not yet implemented; retrying without that
+migration must continue to fail rather than split historical and new values.
+
 ## Logging
 
 Applications may log stable error and diagnostic codes, source SHA-256, source byte size, table dimensions, parser version, duration, and an opaque correlation ID. They must not log:
@@ -21,6 +42,12 @@ Applications may log stable error and diagnostic codes, source SHA-256, source b
 - decoded HTML or resource payloads;
 - MIME boundary values;
 - exception chains containing source-controlled detail.
+
+Database adapters must preserve this boundary: connection, SQL-operation,
+transaction, and type-conversion failures are surfaced as fixed load errors.
+Operational systems may correlate the error code with protected server-side
+diagnostics, but must not copy DSNs, SQL text, identifiers, row values, or
+provider exception bodies into logs or metrics.
 
 The public package emits no operational logs by itself. The CLI writes one success JSON object to stdout or one fixed-message error JSON object to stderr.
 

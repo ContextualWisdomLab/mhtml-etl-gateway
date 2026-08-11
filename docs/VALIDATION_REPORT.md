@@ -16,8 +16,8 @@ Semantic Data Portal connector boundary. In the current integration worktree on
 310 tests passed
 3 tests skipped
 30 subtests passed
-2,649 production statements: 100%
-932 production branches: 100%
+2,681 production statements: 100%
+936 production branches: 100%
 ```
 
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
@@ -28,8 +28,13 @@ actor-, tenant-, and approval-bound envelope identity, explicit actor request
 bodies, tenant- and approval-scoped idempotency keys, strict surrounding-
 whitespace rejection, and invalid-context rejection. The candidate passes
 repository validation, compileall, full-repository Ruff checks, and wheel
-build. Its merge and release claims remain subject to fresh exact-head GitHub
-evidence.
+build. Database identifier tests additionally prove multiword canonicalization,
+63-byte suffix preservation, fail-closed direct SQL names, realistic
+`COMMENT ON COLUMN` output, the replay-safe `load_status_code` catalog
+migration, signed-BIGINT overflow classification as `NUMERIC`, fixed PostgreSQL
+DDL type allow-listing, and nonreflecting connection/operation/load/identifier
+failures. Its merge and release claims remain subject to fresh exact-head
+GitHub evidence.
 
 ## Evidence semantics
 

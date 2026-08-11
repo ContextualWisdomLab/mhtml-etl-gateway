@@ -60,6 +60,17 @@ class RepositoryContractTests(unittest.TestCase):
             [],
         )
 
+    def test_legacy_identifier_upgrade_boundary_is_documented(self) -> None:
+        """Canonical decision and runbook docs expose the fail-closed gap."""
+        adr = Path("docs/adr/0016-multiword-database-identifiers.md").read_text(
+            encoding="utf-8"
+        )
+        operability = Path("docs/OPERABILITY.md").read_text(encoding="utf-8")
+        for document in (adr, operability):
+            self.assertIn("explicit migration", document)
+            self.assertIn("parallel", document)
+            self.assertIn("fail closed", document)
+
     def test_missing_docstring_detector_reports_module_and_symbol(self) -> None:
         """Undocumented production modules and public symbols are both reported."""
         with tempfile.TemporaryDirectory() as directory:
