@@ -4,19 +4,42 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+No unreleased changes.
+
+### Planned
+
+- Approved schema decisions, streamed transactional loading, rejection
+  quarantine, reconciliation, replay, tenant-aware APIs, and authenticated
+  governed CWL connectors.
+
+## [0.3.0] — 2026-08-12
+
 ### Added
 
+- Bounded, non-rendering MHTML inspection with RFC 2387 root selection,
+  deterministic table extraction, resource budgets, and fixed error contracts.
+- PostgreSQL ETL with validation, idempotent artifact cataloging, opaque lineage,
+  schema inference, JSON/CSV/PPTX column mappings, and `COMMENT ON COLUMN` DDL.
+- Value-free schema proposal and approval-boundary documentation, PRD/TRD,
+  architecture/UML/ERD, threat model, operability, compliance mapping, test
+  strategy, ADR index, and APA 7th research traceability.
 - A deterministic, value-free Semantic Data Portal graph manifest connector for
   schema-proposal discovery, with caller-owned authentication and transport.
 - An approval-, tenant-, and actor-bound Semantic Data Portal handoff envelope
-  with tenant- and approval-scoped deterministic per-request idempotency keys,
-  strict governance-context validation, and no raw source values.
+  with deterministic per-request idempotency keys and no raw source values.
 - A caller-owned governed catalog publisher that records value-free remote
   acceptance receipts only for explicit 2xx responses, with safe partial-outcome
   errors and no request or provider bodies.
+- Python 3.11–3.14 quality matrix and privacy/security regression fixtures.
 
 ### Changed
 
+- CLI now exposes inspection, single-load, and batch commands through one
+  privacy-safe argument and output contract.
+- Public reports, errors, batch summaries, and lineage never echo source paths,
+  filenames, row values, or raw Content-Location values.
+- Schema evolution promotes incompatible live PostgreSQL columns transactionally;
+  mapping comments are applied with the table setup.
 - Enforce multiword lowercase `snake_case` database names across inference,
   DDL, `COMMENT ON COLUMN`, and dynamic SQL; canonicalize single-token inputs
   with `_field`/`_table` suffixes and migrate the catalog status column to
@@ -30,34 +53,6 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Bound signed BIGINT inference, reject arbitrary PostgreSQL DDL types, and
   normalize database/identifier failures without reflecting secrets or provider
   details.
-
-### Planned
-
-- Approved schema decisions, streamed transactional loading, rejection
-  quarantine, reconciliation, replay, tenant-aware APIs, and authenticated
-  governed CWL connectors.
-
-## [0.3.0] — 2026-08-11
-
-### Added
-
-- Bounded, non-rendering MHTML inspection with RFC 2387 root selection,
-  deterministic table extraction, resource budgets, and fixed error contracts.
-- PostgreSQL ETL with validation, idempotent artifact cataloging, opaque lineage,
-  schema inference, JSON/CSV/PPTX column mappings, and `COMMENT ON COLUMN` DDL.
-- Value-free schema proposal and approval-boundary documentation, PRD/TRD,
-  architecture/UML/ERD, threat model, operability, compliance mapping, test
-  strategy, ADR index, and APA 7th research traceability.
-- Python 3.11–3.14 quality matrix and privacy/security regression fixtures.
-
-### Changed
-
-- CLI now exposes inspection, single-load, and batch commands through one
-  privacy-safe argument and output contract.
-- Public reports, errors, batch summaries, and lineage never echo source paths,
-  filenames, row values, or raw Content-Location values.
-- Schema evolution promotes incompatible live PostgreSQL columns transactionally;
-  mapping comments are applied with the table setup.
 
 ### Security
 
