@@ -57,3 +57,13 @@ def test_colspan_expands_header_cells() -> None:
     table = extract_primary_table(html)
     assert table.headers == ["MERGED", "MERGED", "C"]
     assert table.rows[0] == ["a", "b", "c"]
+
+
+def test_colspan_dos_protection() -> None:
+    html = """
+    <html><body><table>
+      <tr><td colspan="1000000">TOO_BIG</td></tr>
+    </table></body></html>
+    """
+    with pytest.raises(TableExtractError, match="colspan too large"):
+        extract_primary_table(html)

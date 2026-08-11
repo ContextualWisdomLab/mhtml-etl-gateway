@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "ContextualWisdomLab" }]
 dependencies = [
+  "defusedxml>=0.7",
   "psycopg[binary]>=3.1",
 ]
 

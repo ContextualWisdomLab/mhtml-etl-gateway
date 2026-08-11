@@ -94,6 +94,8 @@ class _TopLevelTableParser(HTMLParser):
                     span = max(1, int(str(raw_span).strip()))
                 except ValueError as exc:
                     raise TableExtractError(f"invalid colspan={raw_span!r}") from exc
+                if span > 100000:
+                    raise TableExtractError(f"colspan too large: {span}")
             for _ in range(span):
                 self._cur_row.append(val)
             self._in_td = False
