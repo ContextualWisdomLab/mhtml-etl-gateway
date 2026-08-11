@@ -53,19 +53,19 @@ class RowSink(Protocol):
 
     def ensure_table(self, schema: TableSchema) -> None:
         """Ensure the target table exists and matches the supplied schema."""
-        ...
+        raise NotImplementedError  # pragma: no cover
 
     def ensure_catalog(self) -> None:
         """Ensure the idempotency catalog relation exists."""
-        ...
+        raise NotImplementedError  # pragma: no cover
 
     def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
         """Return a prior load record for an artifact and table, if present."""
-        ...
+        raise NotImplementedError  # pragma: no cover
 
     def count_rows(self, table_name: str) -> int:
         """Return the current row count for a validated table name."""
-        ...
+        raise NotImplementedError  # pragma: no cover
 
     def write_artifact_rows(
         self,
@@ -83,7 +83,7 @@ class RowSink(Protocol):
         On failure, no partial business-row delete may remain committed while
         catalog still says ``loaded``.
         """
-        ...
+        raise NotImplementedError  # pragma: no cover
 
 
 def _build_row_records(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import date, datetime, time, timezone
-from email.message import EmailMessage
 from io import StringIO
 import argparse
 import json
@@ -20,33 +19,12 @@ import mhtml_etl_gateway.cli as cli_module
 import mhtml_etl_gateway.html_table_extractor as html_module
 import mhtml_etl_gateway.mhtml_parser as mhtml_module
 import mhtml_etl_gateway.pipeline as pipeline_module
-from mhtml_etl_gateway.batch import BatchError, BatchReport, discover_mhtml_files, run_batch
-from mhtml_etl_gateway.cli import main
-from mhtml_etl_gateway.html_table_extractor import (
-    ExtractedTable,
-    TableExtractError,
-    _TopLevelTableParser,
-    assert_headers_present,
-    extract_primary_table,
-    extract_tables_from_html,
-    rows_as_dicts,
-)
 from mhtml_etl_gateway.lineage import (
     artifact_reference,
     build_lineage,
     sha256_bytes,
     sha256_file,
     write_lineage_json,
-)
-from mhtml_etl_gateway.mhtml_parser import (
-    MimePart,
-    MhtmlParseError,
-    _decode_part_payload,
-    _looks_like_mhtml,
-    extract_html_bytes,
-    extract_html_from_path,
-    parse_mhtml_parts,
-    read_mhtml_file,
 )
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres, extract_table, infer_schema_for_extract
 from mhtml_etl_gateway.ingest_catalog import make_catalog_entry
@@ -134,21 +112,21 @@ def test_lineage_file_and_error_contracts(tmp_path: Path) -> None:
 def test_mhtml_parser_supports_bare_html_and_defensive_payloads(tmp_path: Path) -> None:
     """Bare worksheets and non-standard MIME payloads follow bounded paths."""
     html = b"<html><body><table><tr><td>A</td></tr></table></body></html>"
-    assert _looks_like_mhtml(b"Content-Type: text/html\n")
-    assert _looks_like_mhtml(b"multipart/related\n")
-    assert _looks_like_mhtml(html)
-    assert not _looks_like_mhtml(b"plain text")
-    parts = parse_mhtml_parts(html)
+    assert mhtml_module._looks_like_mhtml(b"Content-Type: text/html\n")
+    assert mhtml_module._looks_like_mhtml(b"multipart/related\n")
+    assert mhtml_module._looks_like_mhtml(html)
+    assert not mhtml_module._looks_like_mhtml(b"plain text")
+    parts = mhtml_module.parse_mhtml_parts(html)
     assert parts[0].content_type == "text/plain"
-    assert extract_html_bytes(html) == html
+    assert mhtml_module.extract_html_bytes(html) == html
 
     source = tmp_path / "bare.mhtml"
     source.write_bytes(html)
-    assert read_mhtml_file(source, chunk_size=3) == html
-    raw, selected = extract_html_from_path(source)
+    assert mhtml_module.read_mhtml_file(source, chunk_size=3) == html
+    raw, selected = mhtml_module.extract_html_from_path(source)
     assert raw == selected == html
     with pytest.raises(FileNotFoundError):
-        read_mhtml_file(tmp_path / "missing.mhtml")
+        mhtml_module.read_mhtml_file(tmp_path / "missing.mhtml")
 
     class FakePart:
         def __init__(self, decoded, raw, charset="utf-8") -> None:
@@ -162,25 +140,25 @@ def test_mhtml_parser_supports_bare_html_and_defensive_payloads(tmp_path: Path) 
         def get_content_charset(self):
             return self.charset
 
-    assert _decode_part_payload(FakePart(b"decoded", "ignored")) == b"decoded"
-    assert _decode_part_payload(FakePart(None, b"raw")) == b"raw"
-    assert _decode_part_payload(FakePart(None, "한글", "utf-8")) == "한글".encode()
-    assert _decode_part_payload(FakePart(None, "text", "not-a-charset")) == b"text"
-    assert _decode_part_payload(FakePart(None, "")) is None
+    assert mhtml_module._decode_part_payload(FakePart(b"decoded", "ignored")) == b"decoded"
+    assert mhtml_module._decode_part_payload(FakePart(None, b"raw")) == b"raw"
+    assert mhtml_module._decode_part_payload(FakePart(None, "한글", "utf-8")) == "한글".encode()
+    assert mhtml_module._decode_part_payload(FakePart(None, "text", "not-a-charset")) == b"text"
+    assert mhtml_module._decode_part_payload(FakePart(None, "")) is None
 
-    with pytest.raises(MhtmlParseError, match="no MIME parts"):
-        parse_mhtml_parts(b"MIME-Version: 1.0\n")
+    with pytest.raises(mhtml_module.MhtmlParseError, match="no MIME parts"):
+        mhtml_module.parse_mhtml_parts(b"MIME-Version: 1.0\n")
     with patch.object(mhtml_module, "_decode_part_payload", return_value=None):
-        fallback_parts = parse_mhtml_parts(html)
+        fallback_parts = mhtml_module.parse_mhtml_parts(html)
     assert fallback_parts[0].payload == html
-    no_html_parts = [MimePart("text/plain", None, b"<table>ordinary text")]
+    no_html_parts = [mhtml_module.MimePart("text/plain", None, b"<table>ordinary text")]
     with patch("mhtml_etl_gateway.mhtml_parser.parse_mhtml_parts", return_value=no_html_parts):
-        assert extract_html_bytes(b"ignored") == b"<table>ordinary text"
+        assert mhtml_module.extract_html_bytes(b"ignored") == b"<table>ordinary text"
     with patch(
         "mhtml_etl_gateway.mhtml_parser.parse_mhtml_parts",
-        return_value=[MimePart("application/octet-stream", None, b"binary")],
-    ), pytest.raises(MhtmlParseError, match="no HTML part"):
-        extract_html_bytes(b"ignored")
+        return_value=[mhtml_module.MimePart("application/octet-stream", None, b"binary")],
+    ), pytest.raises(mhtml_module.MhtmlParseError, match="no HTML part"):
+        mhtml_module.extract_html_bytes(b"ignored")
 
 
 def test_html_table_extractor_handles_legacy_cells_and_fail_closed_inputs() -> None:
@@ -195,33 +173,33 @@ def test_html_table_extractor_handles_legacy_cells_and_fail_closed_inputs() -> N
     <table><tr><th></th></tr></table>
     <table></table>
     """
-    tables = extract_tables_from_html(html)
+    tables = html_module.extract_tables_from_html(html)
     assert tables[0].headers == ["Header", "Header", "Fallback", "col_4"]
     assert tables[0].rows == [["A\nBnested\nvalue", "", "C"]]
-    assert rows_as_dicts(tables[0])[0]["col_4"] == ""
+    assert html_module.rows_as_dicts(tables[0])[0]["col_4"] == ""
     assert tables[0].column_count == 4
     assert tables[0].row_count == 1
-    assert_headers_present(tables[0], ["Header"])
-    with pytest.raises(TableExtractError, match="missing required"):
-        assert_headers_present(tables[0], ["missing"])
-    with pytest.raises(TableExtractError, match="empty HTML"):
-        extract_tables_from_html(b" ")
-    with pytest.raises(TableExtractError, match="no HTML tables"):
-        extract_primary_table("<p>no table</p>")
+    html_module.assert_headers_present(tables[0], ["Header"])
+    with pytest.raises(html_module.TableExtractError, match="missing required"):
+        html_module.assert_headers_present(tables[0], ["missing"])
+    with pytest.raises(html_module.TableExtractError, match="empty HTML"):
+        html_module.extract_tables_from_html(b" ")
+    with pytest.raises(html_module.TableExtractError, match="no HTML tables"):
+        html_module.extract_primary_table("<p>no table</p>")
 
-    with pytest.raises(TableExtractError, match="invalid colspan"):
-        extract_tables_from_html("<table><tr><th colspan='bad'>x</th></tr></table>")
-    with pytest.raises(TableExtractError, match="colspan too large"):
-        extract_tables_from_html("<table><tr><th colspan='100001'>x</th></tr></table>")
+    with pytest.raises(html_module.TableExtractError, match="invalid colspan"):
+        html_module.extract_tables_from_html("<table><tr><th colspan='bad'>x</th></tr></table>")
+    with pytest.raises(html_module.TableExtractError, match="colspan too large"):
+        html_module.extract_tables_from_html("<table><tr><th colspan='100001'>x</th></tr></table>")
 
-    parser = _TopLevelTableParser()
+    parser = html_module._TopLevelTableParser()
     parser._table_depth = 1
     parser._in_td = True
     parser._cur_row = None
-    with pytest.raises(TableExtractError, match="open row"):
+    with pytest.raises(html_module.TableExtractError, match="open row"):
         parser.handle_endtag("td")
     parser.handle_data("ignored after reset")
-    parser = _TopLevelTableParser()
+    parser = html_module._TopLevelTableParser()
     parser._table_depth = 1
     parser.handle_endtag("tr")
     parser._in_tr = True
@@ -230,11 +208,13 @@ def test_html_table_extractor_handles_legacy_cells_and_fail_closed_inputs() -> N
     parser.handle_endtag("tr")
 
     large = "<table><tr><th>A</th></tr><tr><td>" + ("x" * 300_000) + "</td></tr></table>"
-    assert extract_tables_from_html(large)[0].row_count == 1
-    with patch.object(html_module, "extract_tables_from_html", return_value=[ExtractedTable([], [])]), pytest.raises(
-        TableExtractError, match="primary table"
+    assert html_module.extract_tables_from_html(large)[0].row_count == 1
+    with patch.object(
+        html_module, "extract_tables_from_html", return_value=[html_module.ExtractedTable([], [])]
+    ), pytest.raises(
+        html_module.TableExtractError, match="primary table"
     ):
-        extract_primary_table("ignored")
+        html_module.extract_primary_table("ignored")
 
 
 def test_batch_discovery_and_sanitized_failure_paths(tmp_path: Path) -> None:
@@ -244,20 +224,20 @@ def test_batch_discovery_and_sanitized_failure_paths(tmp_path: Path) -> None:
     one = nested / "one.MHTML"
     one.write_bytes(make_mhtml("<table><tr><th>A</th></tr><tr><td>1</td></tr></table>"))
     (nested / "ignore.txt").write_text("ignore", encoding="utf-8")
-    assert discover_mhtml_files(one) == [one]
-    assert discover_mhtml_files(tmp_path, recursive=False) == []
-    assert discover_mhtml_files(tmp_path) == [one]
-    assert discover_mhtml_files(str(nested / "*.MHTML")) == [one]
+    assert batch_module.discover_mhtml_files(one) == [one]
+    assert batch_module.discover_mhtml_files(tmp_path, recursive=False) == []
+    assert batch_module.discover_mhtml_files(tmp_path) == [one]
+    assert batch_module.discover_mhtml_files(str(nested / "*.MHTML")) == [one]
     old_cwd = Path.cwd()
     try:
         import os
 
         os.chdir(nested)
-        assert discover_mhtml_files("*.MHTML") == [Path("one.MHTML")]
+        assert batch_module.discover_mhtml_files("*.MHTML") == [Path("one.MHTML")]
     finally:
         os.chdir(old_cwd)
-    assert discover_mhtml_files(str(tmp_path / "absent" / "*.mhtml")) == []
-    assert BatchReport("safe", 0).to_dict()["source"] == "safe"
+    assert batch_module.discover_mhtml_files(str(tmp_path / "absent" / "*.mhtml")) == []
+    assert batch_module.BatchReport("safe", 0).to_dict()["source"] == "safe"
 
     class RollbackSink:
         def __init__(self, rollback_error: bool = False) -> None:
@@ -287,9 +267,9 @@ def test_batch_discovery_and_sanitized_failure_paths(tmp_path: Path) -> None:
     with patch.object(batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert), patch.object(
         batch_module, "discover_mhtml_files", return_value=files
     ):
-        report = run_batch(nested, sink=sink, limit=0)
+        report = batch_module.run_batch(nested, sink=sink, limit=0)
         assert report.files_discovered == 0
-        report = run_batch(nested, sink=sink)
+        report = batch_module.run_batch(nested, sink=sink)
     assert report.failure_count == 1
     assert report.results[1].error == "ValueError"
     assert str(nested) not in json.dumps(report.to_dict())
@@ -299,13 +279,13 @@ def test_batch_discovery_and_sanitized_failure_paths(tmp_path: Path) -> None:
     with patch.object(batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert), patch.object(
         batch_module, "discover_mhtml_files", return_value=files
     ):
-        failed_report = run_batch(nested, sink=rollback_error_sink)
+        failed_report = batch_module.run_batch(nested, sink=rollback_error_sink)
     assert "rollback_failed=RuntimeError" in failed_report.results[1].error
 
     with patch.object(batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert), patch.object(
         batch_module, "discover_mhtml_files", return_value=files
-    ), pytest.raises(BatchError, match="batch ingestion failed"):
-        run_batch(nested, sink=sink, continue_on_error=False)
+    ), pytest.raises(batch_module.BatchError, match="batch ingestion failed"):
+        batch_module.run_batch(nested, sink=sink, continue_on_error=False)
 
 
 def test_batch_owns_and_closes_a_postgres_sink(tmp_path: Path) -> None:
@@ -330,7 +310,7 @@ def test_batch_owns_and_closes_a_postgres_sink(tmp_path: Path) -> None:
     with patch("mhtml_etl_gateway.postgres_loader.PsycopgSink", return_value=fake_sink), patch.object(
         batch_module, "convert_mhtml_to_postgres", return_value=result
     ), patch.object(batch_module, "discover_mhtml_files", return_value=[source]):
-        report = run_batch(tmp_path, dsn="postgresql://redacted")
+        report = batch_module.run_batch(tmp_path, dsn="postgresql://redacted")
     assert report.success_count == 1
     assert fake_sink.closed
 
@@ -340,7 +320,7 @@ def test_batch_owns_and_closes_a_postgres_sink(tmp_path: Path) -> None:
     with patch("mhtml_etl_gateway.postgres_loader.PsycopgSink", return_value=NoCloseSink()), patch.object(
         batch_module, "convert_mhtml_to_postgres", return_value=result
     ), patch.object(batch_module, "discover_mhtml_files", return_value=[source]):
-        assert run_batch(tmp_path, dsn="postgresql://redacted").success_count == 1
+        assert batch_module.run_batch(tmp_path, dsn="postgresql://redacted").success_count == 1
 
 
 def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path: Path) -> None:
@@ -355,18 +335,18 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
     source.write_bytes(sample_mhtml_path.read_bytes())
     stderr = StringIO()
     with redirect_stderr(stderr):
-        assert main(["load", str(tmp_path / "missing.MHTML"), "--dry-run"]) == 2
+        assert cli_module.main(["load", str(tmp_path / "missing.MHTML"), "--dry-run"]) == 2
     assert "unavailable" in stderr.getvalue()
     stderr = StringIO()
     with redirect_stderr(stderr):
-        assert main(["load", str(source)]) == 2
+        assert cli_module.main(["load", str(source)]) == 2
     assert "DSN" in stderr.getvalue()
 
     ddl_path = tmp_path / "output.sql"
     lineage_path = tmp_path / "load-lineage.json"
     stdout = StringIO()
     with redirect_stdout(stdout):
-        assert main(
+        assert cli_module.main(
             [
                 "load",
                 str(source),
@@ -388,17 +368,17 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
 
     stdout = StringIO()
     with redirect_stdout(stdout):
-        assert main(["load", str(source), "--dry-run"]) == 0
+        assert cli_module.main(["load", str(source), "--dry-run"]) == 0
     assert "artifact_ref:" in stdout.getvalue()
 
     with patch.object(cli_module, "convert_mhtml_to_postgres", side_effect=RuntimeError("private")):
         with redirect_stderr(stderr := StringIO()):
-            assert main(["load", str(source), "--dry-run"]) == 1
+            assert cli_module.main(["load", str(source), "--dry-run"]) == 1
     assert "artifact load failed" in stderr.getvalue()
 
     stderr = StringIO()
     with redirect_stderr(stderr):
-        assert main(["batch", "--dry-run", "--json"]) == 2
+        assert cli_module.main(["batch", "--dry-run", "--json"]) == 2
     assert "source is required" in stderr.getvalue()
 
     corpus = tmp_path / "corpus"
@@ -406,27 +386,27 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
     (corpus / "one.MHTML").write_bytes(sample_mhtml_path.read_bytes())
     stderr = StringIO()
     with redirect_stderr(stderr):
-        assert main(["batch", str(corpus)]) == 2
+        assert cli_module.main(["batch", str(corpus)]) == 2
     assert "DSN" in stderr.getvalue()
     stdout = StringIO()
     with redirect_stdout(stdout):
-        assert main(["batch", str(corpus), "--dry-run", "--json"]) == 0
+        assert cli_module.main(["batch", str(corpus), "--dry-run", "--json"]) == 0
     assert json.loads(stdout.getvalue())["success_count"] == 1
 
     stdout = StringIO()
     with redirect_stdout(stdout):
-        assert main(["batch", str(corpus), "--dry-run"]) == 0
+        assert cli_module.main(["batch", str(corpus), "--dry-run"]) == 0
     assert "discovered:" in stdout.getvalue()
 
     with patch.object(cli_module, "run_batch", side_effect=RuntimeError("private")):
         with redirect_stderr(stderr := StringIO()):
-            assert main(["batch", str(corpus), "--dry-run"]) == 1
+            assert cli_module.main(["batch", str(corpus), "--dry-run"]) == 1
     assert "batch load failed" in stderr.getvalue()
 
-    failed_report = BatchReport("safe", 1, failure_count=1)
+    failed_report = batch_module.BatchReport("safe", 1, failure_count=1)
     with patch.object(cli_module, "run_batch", return_value=failed_report):
         with redirect_stdout(StringIO()) as output:
-            assert main(["batch", str(corpus), "--dry-run"]) == 1
+            assert cli_module.main(["batch", str(corpus), "--dry-run"]) == 1
     assert "failure_count" in output.getvalue()
 
     class UnknownParser:
@@ -755,6 +735,11 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         last = None
 
         def __init__(self, conninfo: str) -> None:
+            class StubConnection:
+                autocommit = False
+
+            with patch("psycopg.connect", return_value=StubConnection()):
+                super().__init__(conninfo)
             self.inner = InMemorySink()
             self.closed = False
             type(self).last = self
