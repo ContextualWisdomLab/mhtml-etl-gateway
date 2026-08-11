@@ -15,6 +15,14 @@ compatibility migration renames legacy `status` to `load_status_code` only when
 the new column is absent. A migration failure must roll back the transaction
 and block the load; it must never silently create a second status column.
 
+Dynamic business tables and columns have a separate upgrade boundary. If a
+legacy one-word predecessor exists, setup must fail closed before creating a
+parallel `_table` or `_field` object. Operators must preserve the transaction,
+take a schema/data backup, inventory name collisions and dependent views or
+queries, and apply an explicit migration with a tested rollback. Automatic
+dynamic-object migration is not yet implemented; retrying without that
+migration must continue to fail rather than split historical and new values.
+
 ## Logging
 
 Applications may log stable error and diagnostic codes, source SHA-256, source byte size, table dimensions, parser version, duration, and an opaque correlation ID. They must not log:

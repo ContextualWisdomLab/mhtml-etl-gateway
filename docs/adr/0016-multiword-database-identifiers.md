@@ -31,6 +31,11 @@ single-token name is shortened.
    the same canonicalization resolves it to the generated multiword column.
    Direct callers constructing an unsafe `TableSchema` receive the existing
    `UnsafeIdentifierError` before DDL or row writes.
+6. The fixed-catalog rename does not authorize a guessed migration for dynamic
+   business tables or columns. When the live sink detects a legacy one-word
+   predecessor, it must fail closed before creating a parallel suffixed object
+   and require an explicit migration with collision, rollback, and recovery
+   evidence.
 
 ## Consequences
 
@@ -41,6 +46,10 @@ single-token name is shortened.
   must not hard-code old names.
 - Existing ingest catalogs upgrade in place through a deterministic column
   rename; the migration is safe to replay and does not change catalog values.
+- Existing dynamic business objects do not yet migrate automatically. The
+  fail-closed split guard prevents mixed old/new writes, while an explicit
+  migration and rollback contract remains a known gap before this decision is
+  integration-ready.
 - The policy is deliberately narrower than PostgreSQL's full identifier
   grammar. It avoids quoted, case-sensitive, dollar-sign, and one-word names
   to keep generated SQL portable and reviewable.
@@ -52,6 +61,9 @@ single-token name is shortened.
 single-token canonicalization, 63-byte suffix preservation, direct unsafe
 identifier rejection, mapping compatibility, realistic `COMMENT ON COLUMN`
 DDL, catalog-column migration SQL, and in-memory/live-sink write boundaries.
+The persisted-upgrade regressions additionally prove that a legacy table or
+column blocks parallel object creation and reports the explicit migration
+requirement without interpolating the legacy identifier into SQL.
 
 ## References
 

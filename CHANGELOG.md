@@ -18,6 +18,10 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
   DDL, `COMMENT ON COLUMN`, and dynamic SQL; canonicalize single-token inputs
   with `_field`/`_table` suffixes and migrate the catalog status column to
   `load_status_code`.
+- Fail closed when a persisted legacy table or column would otherwise coexist
+  with a parallel suffixed object; operators receive an explicit migration
+  requirement until the dynamic-object migration and rollback contract is
+  implemented.
 
 ### Planned
 
