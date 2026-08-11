@@ -11,6 +11,7 @@ This map is engineering evidence, not certification or legal advice. An assessor
 | approved schema artifact | change management | processing integrity | change control | ADR, approval record, hash |
 | multiword database object naming | secure configuration/change control | security, processing integrity | schema integrity | ADR-0016, identifier tests, DDL/migration evidence |
 | actor/tenant/approval-bound catalog handoff | access/change accountability | security, confidentiality, processing integrity | access/audit | envelope ID and request keys are correlation/deduplication evidence only; caller-owned actor authentication, tenant authorization, approval verification, remote acceptance, and immutable audit records are recorded separately |
+| bounded catalog publication receipt | processing integrity and audit evidence | security, processing integrity, confidentiality | access/audit/integrity | caller-owned evidence gates plus explicit 2xx/accepted/opaque remote ID; safe receipt and accepted-prefix error exclude request/provider bodies |
 | reconciliation and rollback | operations/integrity | availability, processing integrity | continuity/integrity | loader tests and run evidence |
 | full-SHA actions, SBOM, provenance | supplier/software security | security | supply-chain controls | CI, SPDX, SLSA attestation |
 | vulnerability and private reporting | incident/vulnerability management | security | vulnerability response | SECURITY.md, advisories, SLA |

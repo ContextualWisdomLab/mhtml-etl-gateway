@@ -23,6 +23,7 @@ The **status declared inside each ADR is authoritative**. This index deliberatel
 | [ADR-0014](0014-semantic-catalog-connector.md) | Emit deterministic value-free Semantic Data Portal graph manifests without taking network or approval authority. |
 | [ADR-0015](0015-governed-catalog-handoff.md) | Bind catalog submission plans to explicit tenant, actor, approval, and idempotency context while keeping transport authority outside the gateway. |
 | [ADR-0016](0016-multiword-database-identifiers.md) | Enforce descriptive multiword database identifiers at inference, DDL, catalog, and dynamic-SQL boundaries. |
+| [ADR-0017](0017-governed-catalog-publisher.md) | Publish governed request plans through a caller-owned transport and record bounded remote-acceptance receipts without source values. |
 
 ## Status vocabulary
 

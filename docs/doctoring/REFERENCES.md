@@ -14,6 +14,8 @@ Anomaly. (2026). *OpenCode Homebrew formula for version 1.18.15 at revision a72a
 
 Davis, K. R., Peabody, B., & Leach, P. J. (2024). *Universally unique identifiers (UUIDs)* (RFC 9562). Internet Engineering Task Force. https://doi.org/10.17487/RFC9562
 
+Fielding, R., Nottingham, M., & Reschke, J. (2022). *HTTP semantics* (RFC 9110). Internet Engineering Task Force. https://doi.org/10.17487/RFC9110
+
 International Organization for Standardization. (2022). *ISO/IEC 27001:2022 information security, cybersecurity and privacy protection—Information security management systems—Requirements*. https://www.iso.org/standard/82875.html
 
 International Organization for Standardization. (2024). *ISO/IEC 27001:2022/Amd 1:2024 information security, cybersecurity and privacy protection—Information security management systems—Requirements—Amendment 1: Climate action changes*. https://www.iso.org/standard/88435.html
@@ -25,6 +27,8 @@ Levinson, E. (1998). *The MIME multipart/related content-type* (RFC 2387). Inter
 National Institute of Standards and Technology. (2022). *Secure software development framework (SSDF) version 1.1: Recommendations for mitigating the risk of software vulnerabilities* (NIST SP 800-218). https://doi.org/10.6028/NIST.SP.800-218
 
 National Institute of Standards and Technology. (2025). *Secure software development framework (SSDF) version 1.2: Recommendations for mitigating the risk of software vulnerabilities* (Initial public draft, NIST SP 800-218r1). https://csrc.nist.gov/news/2025/draft-ssdf-version-1-2
+
+Nottingham, M., Wilde, E., & Dalal, S. (2023). *Problem details for HTTP APIs* (RFC 9457). Internet Engineering Task Force. https://doi.org/10.17487/RFC9457
 
 OpenAPI Initiative. (2025). *OpenAPI specification version 3.2.0*. https://spec.openapis.org/oas/v3.2.0.html
 
@@ -43,6 +47,8 @@ Python Packaging Authority. (2026). *Secure installs*. pip documentation (Versio
 Python Software Foundation. (2026, February 3). *coverage 7.13.3* [Software distribution metadata]. Python Package Index. https://pypi.org/project/coverage/7.13.3/
 
 World Wide Web Consortium. (2024). *Data Catalog Vocabulary (DCAT)—Version 3*. https://www.w3.org/TR/vocab-dcat-3/
+
+World Wide Web Consortium. (2021). *Trace context*. https://www.w3.org/TR/trace-context/
 
 SLSA Community. (2026). *Supply-chain levels for software artifacts specification, version 1.2*. https://slsa.dev/spec/v1.2/
 
