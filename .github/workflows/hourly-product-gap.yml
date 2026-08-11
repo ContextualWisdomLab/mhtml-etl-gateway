@@ -59,6 +59,43 @@ jobs:
           gh api --paginate --slurp \
             "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=agent-task&per_page=100" \
             > "$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json"
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          evidence_dir = Path(os.environ["GITHUB_WORKSPACE"]) / ".agent" / "evidence"
+          repository = os.environ["GITHUB_REPOSITORY"]
+          collected_at = datetime.now(timezone.utc).isoformat()
+          sources = (
+              (
+                  "open-pulls.json",
+                  "open-pulls.manifest.json",
+                  f"repos/{repository}/pulls",
+                  {"state": "open", "per_page": "100"},
+              ),
+              (
+                  "agent-issues.json",
+                  "agent-issues.manifest.json",
+                  f"repos/{repository}/issues",
+                  {"state": "open", "labels": "agent-task", "per_page": "100"},
+              ),
+          )
+          for source_file, manifest_file, endpoint, query in sources:
+              manifest = {
+                  "source_file": source_file,
+                  "repository": repository,
+                  "endpoint": endpoint,
+                  "query": query,
+                  "collected_at": collected_at,
+                  "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              }
+              (evidence_dir / manifest_file).write_text(
+                  json.dumps(manifest, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+          PY
 
       - name: Install secret-stripping execution wrapper
         run: |
@@ -117,7 +154,7 @@ jobs:
           test "$(stat -c '%U:%G:%a' /usr/local/bin/cwl-safe-exec)" = "root:root:755"
           cwl-safe-exec /bin/bash -euo pipefail -c '
             workspace_gid="$(getent group cwl-workspace | cut -d: -f3)"
-            source_file="$workspace/scripts/hourly_product_gap.py"
+            source_file="$GITHUB_WORKSPACE/scripts/hourly_product_gap.py"
             test "$(id -un)" = cwl-untrusted
             test "$(id -gn)" = cwl-workspace
             test "$(id -G)" = "$workspace_gid"
@@ -128,7 +165,7 @@ jobs:
             printf "cwl-safe-exec source identity uid=%s gid=%s groups=%s mode=" "$(id -u)" "$(id -g)" "$(id -G)" >&2
             stat -c "%U:%G:%a" "$source_file" >&2
             namei -l "$source_file" >&2
-            for readable_file in "$source_file" "$workspace/.agent/evidence/open-pulls.json" "$workspace/.agent/evidence/agent-issues.json"; do
+            for readable_file in "$source_file" "$GITHUB_WORKSPACE/.agent/evidence/open-pulls.json" "$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json"; do
               test -r "$readable_file"
               head -c 1 "$readable_file" >/dev/null
             done
@@ -330,6 +367,43 @@ jobs:
           gh api --paginate --slurp \
             "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=agent-task&per_page=100" \
             > "$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json"
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          evidence_dir = Path(os.environ["GITHUB_WORKSPACE"]) / ".agent" / "evidence"
+          repository = os.environ["GITHUB_REPOSITORY"]
+          collected_at = datetime.now(timezone.utc).isoformat()
+          sources = (
+              (
+                  "open-pulls.json",
+                  "open-pulls.manifest.json",
+                  f"repos/{repository}/pulls",
+                  {"state": "open", "per_page": "100"},
+              ),
+              (
+                  "agent-issues.json",
+                  "agent-issues.manifest.json",
+                  f"repos/{repository}/issues",
+                  {"state": "open", "labels": "agent-task", "per_page": "100"},
+              ),
+          )
+          for source_file, manifest_file, endpoint, query in sources:
+              manifest = {
+                  "source_file": source_file,
+                  "repository": repository,
+                  "endpoint": endpoint,
+                  "query": query,
+                  "collected_at": collected_at,
+                  "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              }
+              (evidence_dir / manifest_file).write_text(
+                  json.dumps(manifest, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+          PY
 
       - name: Ensure one durable agent task
         id: ensure_task
@@ -412,7 +486,7 @@ jobs:
           test "$(stat -c '%U:%G:%a' /usr/local/bin/cwl-safe-exec)" = "root:root:755"
           cwl-safe-exec /bin/bash -euo pipefail -c '
             workspace_gid="$(getent group cwl-workspace | cut -d: -f3)"
-            source_file="$workspace/scripts/hourly_product_gap.py"
+            source_file="$GITHUB_WORKSPACE/scripts/hourly_product_gap.py"
             test "$(id -un)" = cwl-untrusted
             test "$(id -gn)" = cwl-workspace
             test "$(id -G)" = "$workspace_gid"
@@ -423,7 +497,7 @@ jobs:
             printf "cwl-safe-exec source identity uid=%s gid=%s groups=%s mode=" "$(id -u)" "$(id -g)" "$(id -G)" >&2
             stat -c "%U:%G:%a" "$source_file" >&2
             namei -l "$source_file" >&2
-            for readable_file in "$source_file" "$workspace/.agent/evidence/open-pulls.json" "$workspace/.agent/evidence/agent-issues.json"; do
+            for readable_file in "$source_file" "$GITHUB_WORKSPACE/.agent/evidence/open-pulls.json" "$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json"; do
               test -r "$readable_file"
               head -c 1 "$readable_file" >/dev/null
             done

@@ -93,10 +93,10 @@ class AutonomousContinuationContractTests(unittest.TestCase):
                 "cwl-safe-exec /bin/bash -euo pipefail -c",
                 "NoNewPrivs",
                 "for capability in Inh Prm Eff Bnd Amb",
-                "source_file=\"$workspace/scripts/hourly_product_gap.py\"",
+                "source_file=\"$GITHUB_WORKSPACE/scripts/hourly_product_gap.py\"",
                 "stat -c \"%U:%G:%a\" \"$source_file\" >&2",
                 "namei -l \"$source_file\"",
-                "for readable_file in \"$source_file\" \"$workspace/.agent/evidence/open-pulls.json\" \"$workspace/.agent/evidence/agent-issues.json\"",
+                "for readable_file in \"$source_file\" \"$GITHUB_WORKSPACE/.agent/evidence/open-pulls.json\" \"$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json\"",
                 "test -r \"$readable_file\"",
                 "head -c 1 \"$readable_file\" >/dev/null",
             ):
