@@ -39,6 +39,8 @@ class ExtractResult:
     headers: list[str]
     rows: list[list[str]]
     table: ExtractedTable
+    # Retained for API compatibility; this is an opaque artifact reference,
+    # never the operator-provided filesystem path.
     source_path: str
     source_sha256: str
     source_size: int
@@ -67,7 +69,7 @@ def extract_table(path: str | Path, *, data: bytes | None = None) -> ExtractResu
         headers=list(table.headers),
         rows=[list(r) for r in table.rows],
         table=table,
-        source_path=str(p),
+        source_path=artifact_reference(digest),
         source_sha256=digest,
         source_size=len(data),
     )

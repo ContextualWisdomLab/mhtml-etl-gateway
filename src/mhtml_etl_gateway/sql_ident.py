@@ -33,7 +33,7 @@ def quote_sql_literal(value: str) -> str:
         raise ValueError("SQL literal cannot contain NUL bytes")
     escaped = (
         value.replace("\\", "\\\\")
-        .replace("'", "\\'")
+        .replace("'", "''")
         .replace("\r", "\\r")
         .replace("\n", "\\n")
         .replace("\t", "\\t")

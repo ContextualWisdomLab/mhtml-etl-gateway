@@ -13,6 +13,7 @@ from mhtml_etl_gateway.ingest_catalog import (
     CatalogEntry,
     make_catalog_entry,
 )
+from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.sql_ident import require_safe_ident
 from mhtml_etl_gateway.schema_inference import (
     PG_BIGINT,
@@ -237,11 +238,49 @@ class PsycopgSink:
                 cur.execute(query, params)
             return list(cur.fetchall())
 
+    def _ensure_missing_columns(self, schema: TableSchema) -> None:
+        """Add schema columns missing from an already-existing relation."""
+        from psycopg import sql as pgsql
+
+        existing_names = {
+            str(name)
+            for name, _data_type in self._fetchall(
+                "SELECT column_name, data_type "
+                "FROM information_schema.columns "
+                "WHERE table_schema = current_schema() AND table_name = %s",
+                (schema.table_name,),
+            )
+        }
+        allowed_types = {
+            PG_TEXT,
+            PG_BOOLEAN,
+            PG_BIGINT,
+            PG_NUMERIC,
+            PG_DATE,
+            PG_TIME,
+            PG_TIMESTAMP,
+        }
+        table = require_safe_ident(schema.table_name)
+        for column in schema.columns:
+            if column.db_name in existing_names:
+                continue
+            if column.pg_type not in allowed_types:
+                raise LoadError("unsupported schema column type")
+            self._execute(
+                pgsql.SQL("ALTER TABLE {} ADD COLUMN IF NOT EXISTS {} {}").format(
+                    pgsql.Identifier(table),
+                    pgsql.Identifier(require_safe_ident(column.db_name)),
+                    pgsql.SQL(column.pg_type),
+                )
+            )
+            existing_names.add(column.db_name)
+
     def ensure_table(self, schema: TableSchema) -> None:
         # DDL identifiers validated inside TableSchema.ddl().  Keep CREATE and
         # COMMENT statements separate so psycopg never has to prepare a
         # multi-command statement, while committing them together.
         self._execute(schema.create_ddl(include_lineage=True))
+        self._ensure_missing_columns(schema)
         for statement in schema.comment_ddl():
             self._execute(statement)
         self._conn.commit()
@@ -288,6 +327,7 @@ class PsycopgSink:
         first artifact's type sample, while the already-created table still has
         BIGINT/DATE/etc. Inspect the live relation as well as the current
         inferred schema so that schema evolution cannot fail at INSERT time.
+        Missing columns are added by ``ensure_table`` before this method runs.
         """
         existing_types = {
             str(name): str(data_type).lower()
@@ -325,8 +365,6 @@ class PsycopgSink:
                 ):
                     to_promote.append(col.db_name)
                 continue
-            if col.pg_type != PG_TEXT and values_require_text(col.pg_type, prepared):
-                to_promote.append(col.db_name)
         return to_promote
 
     def write_artifact_rows(
@@ -466,6 +504,12 @@ def load_table(
     """
     if not schema.columns:
         raise LoadError("schema has no columns")
+    try:
+        expected_artifact_path = artifact_reference(source_artifact_sha256)
+    except ValueError:
+        raise LoadError("invalid source artifact digest") from None
+    if source_artifact_path != expected_artifact_path:
+        raise LoadError("source artifact reference does not match source digest")
 
     sink.ensure_catalog()
     sink.ensure_table(schema)

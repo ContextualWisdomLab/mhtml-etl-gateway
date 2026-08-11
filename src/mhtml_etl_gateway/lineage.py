@@ -64,9 +64,14 @@ def build_lineage(
         digest = sha256_bytes(data)
         size = len(data)
         mtime_ns = p.stat().st_mtime_ns if p.is_file() else None
+    if not digest:
+        raise ValueError("cannot build lineage without source artifact bytes")
+    expected_reference = artifact_reference(digest)
+    if source_artifact_path is not None and source_artifact_path != expected_reference:
+        raise ValueError("source artifact reference does not match source digest")
     ts = loaded_at or datetime.now(timezone.utc)
     return ArtifactLineage(
-        source_artifact_path=source_artifact_path or str(p),
+        source_artifact_path=expected_reference,
         source_artifact_sha256=digest,
         source_artifact_size=size,
         source_artifact_mtime_ns=mtime_ns,

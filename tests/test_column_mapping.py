@@ -11,7 +11,7 @@ from mhtml_etl_gateway.column_mapping import (
     attach_column_comments,
     load_column_mapping,
 )
-from mhtml_etl_gateway.lineage import artifact_reference
+from mhtml_etl_gateway.lineage import artifact_reference, build_lineage, sha256_bytes
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres
 from mhtml_etl_gateway.postgres_loader import PsycopgSink
 from mhtml_etl_gateway.schema_inference import TableSchema, infer_table_schema
@@ -51,6 +51,8 @@ def test_json_mapping_attaches_comments_by_qualified_source(tmp_path: Path) -> N
     document = load_column_mapping(path)
     schema, report = attach_column_comments(_schema(), document)
 
+    assert document.path.startswith("artifact:")
+    assert str(path) not in document.path
     assert report.matched == {
         "ZCRHT810.ERDAT": "erdat",
         "ZCRHT811.TITLE": "title",
@@ -59,6 +61,16 @@ def test_json_mapping_attaches_comments_by_qualified_source(tmp_path: Path) -> N
     assert schema.comment_map() == {"erdat": "VOC 작성일자", "title": "상담 제목"}
     assert "COMMENT ON COLUMN voc_rows.erdat IS E'VOC 작성일자';" in schema.ddl()
     assert "COMMENT ON COLUMN voc_rows.title IS E'상담 제목';" in schema.ddl()
+
+
+def test_mapping_errors_do_not_include_source_path(tmp_path: Path) -> None:
+    path = tmp_path / "private-map.json"
+    path.write_text("{", encoding="utf-8")
+
+    with pytest.raises(ColumnMappingError) as exc_info:
+        load_column_mapping(path)
+
+    assert str(path) not in str(exc_info.value)
 
 
 def test_csv_mapping_and_unmatched_reference_are_reported(tmp_path: Path) -> None:
@@ -97,6 +109,8 @@ def test_pptx_mapping_reads_text_layer_and_expression_suffixes(tmp_path: Path) -
     document = load_column_mapping(path)
     schema, report = attach_column_comments(_schema(), document)
 
+    assert document.path.startswith("artifact:")
+    assert all(mapping.slide_number == 1 for mapping in document.mappings)
     assert len(report.matched) == 3
     assert set(report.matched) == {
         "ZCRHT823.ERDAT",
@@ -130,6 +144,8 @@ def test_pipeline_result_and_ddl_include_column_comments(sample_mhtml_path, tmp_
         "title": "상담 제목",
     }
     assert result["column_mapping"]["matched_count"] == 2
+    assert result["column_mapping"]["path"].startswith("artifact:")
+    assert str(mapping) not in json.dumps(result["column_mapping"], ensure_ascii=False)
     assert "COMMENT ON COLUMN zcrht811_export_rows.mandt" in result["ddl"]
     assert "COMMENT ON COLUMN zcrht811_export_rows.title" in result["ddl"]
 
@@ -154,6 +170,29 @@ def test_artifact_reference_is_opaque_and_validated() -> None:
         artifact_reference("not-a-digest")
 
 
+def test_lineage_rejects_non_opaque_explicit_source(tmp_path: Path) -> None:
+    data = b"safe-source"
+    path = tmp_path / "private.MHTML"
+    expected_reference = artifact_reference(sha256_bytes(data))
+
+    lineage = build_lineage(
+        path,
+        data=data,
+        row_count=1,
+        table_name="safe_rows",
+    )
+    assert lineage.source_artifact_path == expected_reference
+
+    with pytest.raises(ValueError, match="does not match"):
+        build_lineage(
+            path,
+            data=data,
+            row_count=1,
+            table_name="safe_rows",
+            source_artifact_path=str(path),
+        )
+
+
 def test_explicit_conflicting_comments_fail_closed(tmp_path: Path) -> None:
     path = tmp_path / "conflict.json"
     path.write_text(
@@ -173,7 +212,7 @@ def test_explicit_conflicting_comments_fail_closed(tmp_path: Path) -> None:
 
 def test_comment_literal_escapes_sql_syntax_and_rejects_nul() -> None:
     literal = quote_sql_literal("O'Reilly \\ path\nnext")
-    assert literal == "E'O\\'Reilly \\\\ path\\nnext'"
+    assert literal == "E'O''Reilly \\\\ path\\nnext'"
     with pytest.raises(ValueError, match="NUL"):
         quote_sql_literal("bad\x00comment")
 
@@ -207,6 +246,9 @@ def test_live_sink_executes_create_and_comments_separately() -> None:
     sink = object.__new__(PsycopgSink)
     sink._conn = connection
     schema = _schema().with_column_comments({"title": "상담 제목"})
+    sink._fetchall = lambda query, params=None: [
+        (column.db_name, column.pg_type.lower()) for column in schema.columns
+    ]
 
     sink.ensure_table(schema)
 

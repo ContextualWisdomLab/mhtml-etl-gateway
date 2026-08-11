@@ -130,8 +130,8 @@ mhtml-etl-gateway load file.MHTML --required-headers none   # disable extra requ
 
 Table `mhtml_ingest_artifact` records `(source_artifact_sha256, table_name)` with
 an opaque artifact reference, size, row_count, status, and loaded_at. Operator
-filesystem paths and input filenames are not emitted in reports or stored as
-lineage values by the pipeline/batch paths.
+filesystem paths and input filenames are not emitted in extraction, load, or
+batch results, and are never stored as lineage values.
 
 ## Docker (optional)
 

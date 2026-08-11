@@ -9,14 +9,16 @@ ambiguous or conflicting mappings fail closed.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
-from xml.etree import ElementTree
+from defusedxml import ElementTree
 
+from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.schema_inference import TableSchema, to_snake_case
 
 
@@ -37,7 +39,7 @@ class ColumnMapping:
 
 @dataclass(frozen=True)
 class ColumnMappingDocument:
-    """Parsed mapping document with its source format and path."""
+    """Parsed mapping document with an opaque artifact reference."""
 
     path: str
     format: str
@@ -87,6 +89,15 @@ _QUALIFIED_FIELD = re.compile(
 )
 _SECTION_TITLE = re.compile(r"^\s*(?P<number>\d+)\.\s*(?P<title>.+?)\s*$")
 _SLIDE_NUMBER = re.compile(r"ppt/slides/slide(?P<number>\d+)\.xml$")
+
+
+def _mapping_reference(path: Path) -> str:
+    """Return an opaque reference derived from mapping content, never its path."""
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        raise ColumnMappingError("cannot fingerprint column mapping artifact") from None
+    return artifact_reference(digest)
 
 
 def _key_name(value: object) -> str:
@@ -180,15 +191,15 @@ def _json_records(data: Any) -> list[Mapping[str, Any]]:
 def _load_json(path: Path) -> tuple[ColumnMapping, ...]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ColumnMappingError(f"cannot read JSON mapping {path}: {exc}") from exc
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise ColumnMappingError("cannot read JSON mapping") from None
     records = _json_records(data)
     mappings = [
-        _mapping_from_record(record, location=f"{path} record {index}")
+        _mapping_from_record(record, location=f"JSON mapping record {index}")
         for index, record in enumerate(records, 1)
     ]
     if not mappings:
-        raise ColumnMappingError(f"JSON mapping has no mapping records: {path}")
+        raise ColumnMappingError("JSON mapping has no mapping records")
     return _dedupe_mappings(mappings)
 
 
@@ -197,18 +208,18 @@ def _load_csv(path: Path) -> tuple[ColumnMapping, ...]:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
             if not reader.fieldnames:
-                raise ColumnMappingError(f"CSV mapping has no header row: {path}")
+                raise ColumnMappingError("CSV mapping has no header row")
             mappings = [
-                _mapping_from_record(row, location=f"{path} row {reader.line_num}")
+                _mapping_from_record(row, location=f"CSV mapping row {reader.line_num}")
                 for row in reader
                 if any(str(value or "").strip() for value in row.values())
             ]
     except ColumnMappingError:
         raise
-    except (OSError, UnicodeError, csv.Error) as exc:
-        raise ColumnMappingError(f"cannot read CSV mapping {path}: {exc}") from exc
+    except (OSError, UnicodeError, csv.Error):
+        raise ColumnMappingError("cannot read CSV mapping") from None
     if not mappings:
-        raise ColumnMappingError(f"CSV mapping has no mapping records: {path}")
+        raise ColumnMappingError("CSV mapping has no mapping records")
     return _dedupe_mappings(mappings)
 
 
@@ -216,7 +227,7 @@ def _xml_texts(raw_xml: bytes) -> list[str]:
     try:
         root = ElementTree.fromstring(raw_xml)
     except ElementTree.ParseError as exc:
-        raise ColumnMappingError(f"invalid PPTX slide XML: {exc}") from exc
+        raise ColumnMappingError(f"invalid PPTX slide XML: {type(exc).__name__}") from None
     texts: list[str] = []
     paragraphs = [
         element
@@ -265,7 +276,7 @@ def _slide_sources(text: str) -> list[str]:
 
 
 def _load_pptx(path: Path) -> tuple[ColumnMapping, ...]:
-    contexts: dict[str, list[str]] = {}
+    contexts: dict[str, list[tuple[int, str]]] = {}
     try:
         with zipfile.ZipFile(path) as archive:
             slide_files: list[tuple[int, str]] = []
@@ -274,7 +285,7 @@ def _load_pptx(path: Path) -> tuple[ColumnMapping, ...]:
                 if match:
                     slide_files.append((int(match.group("number")), name))
             if not slide_files:
-                raise ColumnMappingError(f"PPTX has no slides: {path}")
+                raise ColumnMappingError("PPTX has no slides")
             for slide_number, name in sorted(slide_files):
                 texts = _xml_texts(archive.read(name))
                 section = next(
@@ -289,23 +300,28 @@ def _load_pptx(path: Path) -> tuple[ColumnMapping, ...]:
                 for text in texts:
                     for source in _slide_sources(text):
                         values = contexts.setdefault(source, [])
-                        if slide_context not in values:
-                            values.append(slide_context)
+                        context_entry = (slide_number, slide_context)
+                        if context_entry not in values:
+                            values.append(context_entry)
     except ColumnMappingError:
         raise
     except (OSError, zipfile.BadZipFile, KeyError) as exc:
-        raise ColumnMappingError(f"cannot read PPTX mapping {path}: {exc}") from exc
+        raise ColumnMappingError(
+            f"cannot read PPTX mapping: {type(exc).__name__}"
+        ) from None
 
     mappings = [
         ColumnMapping(
             source_name=source,
-            comment=f"VOC mapping: {'; '.join(slide_contexts)} — {source}",
-            context="; ".join(slide_contexts),
+            comment=f"VOC mapping: {slide_context} — {source}",
+            context=slide_context,
+            slide_number=slide_number,
         )
         for source, slide_contexts in contexts.items()
+        for slide_number, slide_context in slide_contexts
     ]
     if not mappings:
-        raise ColumnMappingError(f"PPTX text layer has no qualified source fields: {path}")
+        raise ColumnMappingError("PPTX text layer has no qualified source fields")
     return _dedupe_mappings(mappings)
 
 
@@ -313,7 +329,7 @@ def load_column_mapping(path: str | Path) -> ColumnMappingDocument:
     """Load a JSON, CSV, or PPTX column mapping reference."""
     mapping_path = Path(path)
     if not mapping_path.is_file():
-        raise ColumnMappingError(f"column mapping file not found: {mapping_path}")
+        raise ColumnMappingError("column mapping file not found")
     suffix = mapping_path.suffix.lower()
     if suffix == ".json":
         mappings = _load_json(mapping_path)
@@ -329,7 +345,7 @@ def load_column_mapping(path: str | Path) -> ColumnMappingDocument:
             f"unsupported column mapping format {mapping_path.suffix!r}; use .json, .csv, or .pptx"
         )
     return ColumnMappingDocument(
-        path=str(mapping_path),
+        path=_mapping_reference(mapping_path),
         format=format_name,
         mappings=mappings,
     )

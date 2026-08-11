@@ -13,6 +13,10 @@ from mhtml_etl_gateway.postgres_loader import OnDuplicate, RowSink
 MHTML_SUFFIXES = {".mhtml", ".MHTML"}
 
 
+class BatchError(RuntimeError):
+    """Sanitized batch failure that never carries an operator input path."""
+
+
 @dataclass
 class FileResult:
     path: str
@@ -151,7 +155,7 @@ def run_batch(
                         fr.error = f"{fr.error}; rollback_failed={type(rb_exc).__name__}"
                 if not continue_on_error:
                     report.results.append(fr)
-                    raise
+                    raise BatchError("batch ingestion failed") from None
             report.results.append(fr)
     finally:
         if own_pg and shared_sink is not None:

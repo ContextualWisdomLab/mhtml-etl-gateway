@@ -5,6 +5,7 @@ import os
 import pytest
 
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres, extract_table, infer_schema_for_extract
+from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.postgres_loader import InMemorySink, LoadError, PsycopgSink, load_table
 from mhtml_etl_gateway.schema_inference import ColumnSpec, PG_BIGINT, PG_DATE, PG_TEXT, TableSchema
 
@@ -29,6 +30,8 @@ def test_inmemory_loader_with_lineage(sample_mhtml_path) -> None:
     assert row0["guid"] == "0050569512931FE183BEBA5F974B88B9"
     assert row0["source_artifact_sha256"] == extracted.source_sha256
     assert row0["source_artifact_path"] == extracted.source_path
+    assert extracted.source_path.startswith("artifact:")
+    assert str(sample_mhtml_path) not in extracted.source_path
     assert row0["source_row_number"] == 1
     assert "source_artifact_sha256" in result.ddl
 
@@ -45,6 +48,23 @@ def test_load_fails_without_columns() -> None:
             source_artifact_path="x",
             source_artifact_sha256="y",
         )
+
+
+def test_load_rejects_non_opaque_source_reference() -> None:
+    schema = TableSchema(
+        table_name="mhtml_rows",
+        columns=[ColumnSpec("VALUE", "value", PG_TEXT)],
+    )
+    with pytest.raises(LoadError, match="does not match"):
+        load_table(
+            schema,
+            [["sample"]],
+            sink=InMemorySink(),
+            source_artifact_path="operator-supplied-path",
+            source_artifact_sha256="a" * 64,
+        )
+
+    assert artifact_reference("a" * 64) == "artifact:aaaaaaaaaaaaaaaa"
 
 
 def test_pipeline_dry_run_end_to_end(sample_mhtml_path, tmp_path) -> None:
@@ -83,6 +103,27 @@ def test_live_type_promotion_checks_existing_relation_type() -> None:
         "mixed_value",
         "typed_mismatch",
     ]
+
+
+def test_live_sink_adds_missing_columns() -> None:
+    sink = object.__new__(PsycopgSink)
+    statements: list[str] = []
+    sink._fetchall = lambda query, params=None: [("existing_value", "text")]
+    sink._execute = lambda query, params=None: statements.append(str(query))
+    schema = TableSchema(
+        table_name="mhtml_rows",
+        columns=[
+            ColumnSpec("EXISTING_VALUE", "existing_value", PG_TEXT),
+            ColumnSpec("ADDED_VALUE", "added_value", PG_BIGINT),
+        ],
+    )
+
+    sink._ensure_missing_columns(schema)
+
+    assert len(statements) == 1
+    assert "ADD COLUMN IF NOT EXISTS" in statements[0]
+    assert "added_value" in statements[0]
+    assert "BIGINT" in statements[0]
 
 
 @pytest.mark.skipif(
