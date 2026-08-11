@@ -45,10 +45,10 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         self.assertIn("cwl-safe-exec python scripts/hourly_product_gap.py", gate_section)
 
     def test_gate_uses_workspace_evidence_instead_of_privileged_temp_paths(self) -> None:
-        """The unprivileged gate reads and writes only group-scoped workspace files."""
-        self.assertIn("$GITHUB_WORKSPACE/.agent/evidence/open-pulls.json", self.workflow_text)
-        self.assertIn("$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json", self.workflow_text)
-        self.assertIn("$GITHUB_WORKSPACE/.agent/evidence/loop-output.txt", self.workflow_text)
+        """The unprivileged gate reads and writes only relative workspace files."""
+        self.assertIn('".agent/evidence/open-pulls.json"', self.workflow_text)
+        self.assertIn('".agent/evidence/agent-issues.json"', self.workflow_text)
+        self.assertIn('gate_output=".agent/evidence/loop-output.txt"', self.workflow_text)
         self.assertIn('cat "$gate_output" >> "$GITHUB_OUTPUT"', self.workflow_text)
 
     def test_gate_output_is_group_writable_before_unprivileged_execution(self) -> None:
@@ -91,12 +91,13 @@ class AutonomousContinuationContractTests(unittest.TestCase):
                 "--bounding-set=-all",
                 "--no-new-privs",
                 "cwl-safe-exec /bin/bash -euo pipefail -c",
+                'cd "$workspace"',
                 "NoNewPrivs",
                 "for capability in Inh Prm Eff Bnd Amb",
-                "source_file=\"$GITHUB_WORKSPACE/scripts/hourly_product_gap.py\"",
+                'source_file="scripts/hourly_product_gap.py"',
                 "stat -c \"%U:%G:%a\" \"$source_file\" >&2",
                 "namei -l \"$source_file\"",
-                "for readable_file in \"$source_file\" \"$GITHUB_WORKSPACE/.agent/evidence/open-pulls.json\" \"$GITHUB_WORKSPACE/.agent/evidence/agent-issues.json\"",
+                'for readable_file in "$source_file" ".agent/evidence/open-pulls.json" ".agent/evidence/agent-issues.json"',
                 "test -r \"$readable_file\"",
                 "head -c 1 \"$readable_file\" >/dev/null",
             ):
