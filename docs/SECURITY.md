@@ -62,6 +62,11 @@ perform HTTP, persist data, attach credentials, or make approval decisions. A
 caller-owned boundary must enforce actor identity, tenant authorization,
 steward approval, idempotency, retry, TLS, and remote audit before submission.
 
+`semantic_catalog_handoff` makes the actor, tenant reference, approval reference,
+and per-request idempotency keys explicit. It does not verify the approval or
+send the request. Tenant and approval references stay outside graph-node
+properties, and request construction remains free of raw MHTML values.
+
 ### PII without destructive masking
 
 Exact business values may remain usable inside future authorized workflows. Compensating controls are tenant isolation, encryption, scoped credentials, row/column authorization, purpose limitation, retention, deletion/legal hold, export approval, immutable audit, and incident response. Public operational artifacts remain value-free.

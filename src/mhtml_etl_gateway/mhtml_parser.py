@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
-from typing import BinaryIO, Iterable
+from typing import Iterable
 
 
 class MhtmlParseError(ValueError):

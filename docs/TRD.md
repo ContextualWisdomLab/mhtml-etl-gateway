@@ -131,6 +131,17 @@ The `semantic_catalog_connector` module shall:
 - remain importable as a standalone Python library and composable as an MSA
   module.
 
+The `semantic_catalog_handoff` module shall:
+
+- require bounded tenant and approval references plus an explicit actor;
+- add the actor field to each portal node/edge request body;
+- emit stable per-request idempotency keys and a governance-context-bound
+  envelope ID;
+- keep tenant and approval references at the handoff boundary rather than in
+  graph-node properties;
+- perform no credential binding, approval decision, HTTP request, retry,
+  persistence, database operation, or LLM call.
+
 ## Autonomous-development requirements
 
 - the repository-owned gate runs only after secret isolation is installed;

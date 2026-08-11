@@ -15,6 +15,11 @@ from mhtml_etl_gateway.semantic_catalog_connector import (
     SemanticCatalogManifest,
     build_semantic_catalog_manifest,
 )
+from mhtml_etl_gateway.semantic_catalog_handoff import (
+    CatalogSubmissionEnvelope,
+    CatalogWriteRequest,
+    build_semantic_catalog_submission_envelope,
+)
 
 
 def _proposal() -> SchemaProposal:
@@ -123,7 +128,117 @@ def test_catalog_value_objects_serialize_portal_shapes() -> None:
     assert manifest.to_dict()["manifest_id"] == "semantic_catalog_manifest_demo"
 
 
+def test_submission_envelope_binds_actor_approval_and_tenant_without_values() -> None:
+    manifest = build_semantic_catalog_manifest(_proposal(), catalog_name="VOC")
+    envelope = build_semantic_catalog_submission_envelope(
+        manifest,
+        tenant_id="tenant_cwl_production",
+        actor="svc_catalog_publisher",
+        approval_reference="approval_2026_08_11_001",
+    )
+    payload = envelope.to_dict()
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+    assert isinstance(envelope, CatalogSubmissionEnvelope)
+    assert payload["privacy_mode"] == "value_free"
+    assert payload["tenant_id"] == "tenant_cwl_production"
+    assert payload["actor"] == "svc_catalog_publisher"
+    assert payload["approval_reference"] == "approval_2026_08_11_001"
+    assert len(payload["requests"]) == 5
+    assert {request["path"] for request in payload["requests"]} == {
+        "/graph/nodes",
+        "/graph/edges",
+    }
+    assert all(request["method"] == "POST" for request in payload["requests"])
+    assert all(
+        request["body"]["actor"] == "svc_catalog_publisher"
+        for request in payload["requests"]
+    )
+    assert len({request["idempotency_key"] for request in payload["requests"]}) == 5
+    assert "MANDT" not in encoded
+    assert "603" not in encoded
+    assert "20260220" not in encoded
+
+
+def test_submission_envelope_identity_changes_with_governance_context() -> None:
+    manifest = build_semantic_catalog_manifest(_proposal(), catalog_name="VOC")
+    first = build_semantic_catalog_submission_envelope(
+        manifest,
+        tenant_id="tenant_a",
+        actor="actor_a",
+        approval_reference="approval_a",
+    )
+    second = build_semantic_catalog_submission_envelope(
+        manifest,
+        tenant_id="tenant_b",
+        actor="actor_a",
+        approval_reference="approval_a",
+    )
+    changed_actor = build_semantic_catalog_submission_envelope(
+        manifest,
+        tenant_id="tenant_a",
+        actor="actor_b",
+        approval_reference="approval_a",
+    )
+
+    assert first.to_dict() == build_semantic_catalog_submission_envelope(
+        manifest,
+        tenant_id="tenant_a",
+        actor="actor_a",
+        approval_reference="approval_a",
+    ).to_dict()
+    assert first.envelope_id != second.envelope_id
+    assert first.envelope_id != changed_actor.envelope_id
+    assert first.requests[0].idempotency_key != changed_actor.requests[0].idempotency_key
+
+
+def test_catalog_write_request_serializes_its_transport_boundary() -> None:
+    request = CatalogWriteRequest(
+        method="POST",
+        path="/graph/nodes",
+        idempotency_key="semantic_catalog_write_demo",
+        body={"node_id": "demo", "actor": "actor"},
+    )
+
+    assert request.to_dict() == {
+        "method": "POST",
+        "path": "/graph/nodes",
+        "idempotency_key": "semantic_catalog_write_demo",
+        "body": {"node_id": "demo", "actor": "actor"},
+    }
+
+
 @pytest.mark.parametrize("catalog_name", ["", 42])
 def test_manifest_rejects_missing_or_non_text_catalog_name(catalog_name: object) -> None:
     with pytest.raises(ValueError, match="catalog_name"):
         build_semantic_catalog_manifest(_proposal(), catalog_name=catalog_name)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("tenant_id", ""),
+        ("tenant_id", "tenant with spaces"),
+        ("tenant_id", 42),
+        ("actor", ""),
+        ("actor", "actor\nforbidden"),
+        ("actor", 42),
+        ("approval_reference", ""),
+        ("approval_reference", "approval with spaces"),
+        ("approval_reference", "a" * 129),
+    ],
+)
+def test_submission_envelope_rejects_invalid_governance_context(
+    field: str,
+    value: str,
+) -> None:
+    manifest = build_semantic_catalog_manifest(_proposal(), catalog_name="VOC")
+    context = {
+        "tenant_id": "tenant_cwl",
+        "actor": "svc_catalog_publisher",
+        "approval_reference": "approval_001",
+    }
+    context[field] = value
+
+    with pytest.raises(ValueError, match=field):
+        build_semantic_catalog_submission_envelope(manifest, **context)  # type: ignore[arg-type]

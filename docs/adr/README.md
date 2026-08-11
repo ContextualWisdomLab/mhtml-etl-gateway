@@ -21,6 +21,7 @@ The **status declared inside each ADR is authoritative**. This index deliberatel
 | [ADR-0011](0011-verified-opencode-runner.md) | Verify the exact OpenCode release archive and CLI version before exposing model or repository credentials. |
 | [ADR-0013](0013-fork-read-only-maintenance.md) | Enforce fork PR triage in a separate read-only job with no OIDC or repository-write authority. |
 | [ADR-0014](0014-semantic-catalog-connector.md) | Emit deterministic value-free Semantic Data Portal graph manifests without taking network or approval authority. |
+| [ADR-0015](0015-governed-catalog-handoff.md) | Bind catalog submission plans to explicit tenant, actor, approval, and idempotency context while keeping transport authority outside the gateway. |
 
 ## Status vocabulary
 

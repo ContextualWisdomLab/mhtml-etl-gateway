@@ -25,6 +25,7 @@
 10. privileged agent process to secret-stripped repository-code execution;
 11. product repository to central organization governance.
 12. value-free catalog manifest to caller-owned Semantic Data Portal transport.
+13. governance-bound catalog handoff envelope to caller-owned authenticated publisher.
 
 ## Principal threats and mitigations
 
@@ -78,6 +79,7 @@
 | false remediation activity | no blocker change despite cost | mandatory permission/API/effect feasibility proof |
 | compromised dependency/action | supply-chain compromise | dependency minimization, hash locks, full-SHA pins, verified agent binary, future SBOM/provenance |
 | catalog connector receives or emits protected values | semantic-catalog disclosure | accept only value-free `SchemaProposal` output, serialize hashes/aggregates/review reasons only, test raw-value absence, and leave transport/approval outside the library |
+| anonymous or cross-tenant catalog replay | unauthorized graph write or confused-deputy disclosure | require explicit actor, bounded tenant/approval references, deterministic envelope/request IDs, and caller-owned approval verification and authorization |
 
 ## Residual risks
 

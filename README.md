@@ -16,6 +16,8 @@ references as `COMMENT ON COLUMN`, and load rows with opaque artifact lineage.
 - JSON, CSV, and PPTX text-layer column mapping references for `COMMENT ON COLUMN`.
 - Value-free, deterministic schema proposals and a Semantic Data Portal graph
   manifest connector for dataset/column discovery without network side effects.
+- Explicit actor, tenant, approval, and per-request idempotency context for a
+  caller-owned Semantic Data Portal submission handoff.
 - Privacy-safe reports and errors that do not echo local paths, filenames, row
   values, or raw Content-Location values.
 
@@ -84,18 +86,28 @@ CSV mapping instead of implicit OCR.
 ## Semantic catalog handoff
 
 ```python
-from mhtml_etl_gateway import build_semantic_catalog_manifest
+from mhtml_etl_gateway import (
+    build_semantic_catalog_manifest,
+    build_semantic_catalog_submission_envelope,
+)
 
 manifest = build_semantic_catalog_manifest(
     schema_proposal,
     catalog_name="SAP VOC export",
 )
+envelope = build_semantic_catalog_submission_envelope(
+    manifest,
+    tenant_id="tenant_cwl_production",
+    actor="svc_catalog_publisher",
+    approval_reference="approval_2026_08_11_001",
+)
 ```
 
 The manifest contains value-free dataset/column graph requests compatible with
 `semantic-data-portal` `/graph/nodes` and `/graph/edges`. It is deterministic and
-caller-owned: authentication, steward approval, tenant policy, retries, and
-network submission remain outside the gateway. See the
+caller-owned. The envelope makes the actor, tenant, approval reference, and
+stable per-request idempotency keys explicit while authentication, retry policy,
+and network submission remain outside the gateway. See the
 [connector contract](docs/SEMANTIC_CATALOG_CONNECTOR.md).
 
 ## Batch loading

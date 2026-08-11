@@ -62,6 +62,32 @@ filesystem write, browser rendering, or external-resource retrieval. It can be
 embedded as a library or used by a future MSA connector service without changing
 the deterministic parser path.
 
+## Governed submission handoff
+
+When an application is ready to publish an approved manifest, it can make the
+authority explicit without adding a network client to this package:
+
+```python
+from mhtml_etl_gateway import build_semantic_catalog_submission_envelope
+
+envelope = build_semantic_catalog_submission_envelope(
+    manifest,
+    tenant_id="tenant_cwl_production",
+    actor="svc_catalog_publisher",
+    approval_reference="approval_2026_08_11_001",
+)
+for request in envelope.requests:
+    publisher.send(request.to_dict())
+```
+
+The envelope records a deterministic handoff ID, the manifest ID, tenant and
+approval context, and ordered node/edge `POST` plans. Each plan has a stable
+idempotency key and adds the explicit `actor` field expected by the portal. The
+tenant and approval references remain envelope-level governance metadata rather
+than graph-node properties. `publisher` remains responsible for verifying the
+approval, authorizing the tenant, binding credentials and TLS, retrying safely,
+and recording remote acceptance. The envelope is not proof of publication.
+
 ## Interoperability mapping
 
 Semantic Data Portal's `dataset` and `column` nodes form a graph-native
@@ -81,4 +107,5 @@ governed catalog publisher exists.
 - Upstream API alignment was checked against the Semantic Data Portal
   `GraphNodeRequest` and `GraphEdgeRequest` contracts on 2026-08-11.
 
-The governing decision is [ADR-0014](adr/0014-semantic-catalog-connector.md).
+The governing decisions are [ADR-0014](adr/0014-semantic-catalog-connector.md)
+and [ADR-0015](adr/0015-governed-catalog-handoff.md).

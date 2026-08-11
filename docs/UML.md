@@ -26,9 +26,11 @@ flowchart LR
         HTML --> ERR
     INS --> MOD
         PROPOSAL[schema_proposal]
-        CATALOG[semantic_catalog_connector]
+    CATALOG[semantic_catalog_connector]
+    HANDOFF[semantic_catalog_handoff]
         INS --> PROPOSAL
-        PROPOSAL --> CATALOG
+    PROPOSAL --> CATALOG
+    CATALOG --> HANDOFF
     end
 
     SRC[Untrusted MHTML bytes] --> CLI
@@ -43,7 +45,7 @@ flowchart LR
     end
 
     REPORT -. protected evidence reference .-> CUST
-    CATALOG -. value-free nodes and edges .-> PORTAL[semantic-data-portal]
+    HANDOFF -. actor/tenant/approval-bound requests .-> PORTAL[semantic-data-portal]
     CUST -. authenticated header/value evidence .-> SCHEMA
     SCHEMA -. approved schema artifact .-> LOAD
     LOAD -. transaction and COPY .-> STORE

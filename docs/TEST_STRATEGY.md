@@ -58,6 +58,11 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - raw source headers and representative values are absent from serialized
   manifests;
 - empty-schema and invalid steward display-name boundaries fail closed;
+- actor-, tenant-, and approval-bound handoff envelopes produce stable IDs and
+  unique per-request idempotency keys;
+- every handoff request carries the explicit actor while tenant/approval context
+  remains envelope-level metadata;
+- invalid governance references and control characters fail closed;
 - connector generation performs no HTTP, database, LLM, or file operation.
 
 ### Repository and CI
