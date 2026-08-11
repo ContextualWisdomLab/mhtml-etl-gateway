@@ -10,8 +10,15 @@ The historical evidence below remains preserved for the original inspection
 baseline. The current merged main implementation also includes versioned
 value-free schema proposals, `COMMENT ON COLUMN` mapping support, and the
 Semantic Data Portal connector boundary. The current integration worktree on
-2026-08-12 is validated with the Python 3.14 result recorded by the release
-candidate validation below.
+2026-08-12 is validated with Python 3.14 as follows:
+
+```text
+357 tests passed
+3 tests skipped
+30 subtests passed
+2,672 production statements: 100%
+918 production branches: 100%
+```
 
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
 graph manifests, endpoint-compatible node/edge shapes, order-sensitive identity,
