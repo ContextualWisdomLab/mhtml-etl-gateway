@@ -119,6 +119,11 @@ def _is_numeric(v: str) -> bool:
 
 def _is_date(v: str) -> bool:
     s = v.strip()
+    try:
+        date.fromisoformat(s)
+        return True
+    except ValueError:
+        pass
     for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y%m%d", "%d.%m.%Y"):
         try:
             datetime.strptime(s, fmt)
@@ -130,6 +135,12 @@ def _is_date(v: str) -> bool:
 
 def _is_time(v: str) -> bool:
     s = v.strip()
+    try:
+        parsed = time.fromisoformat(s)
+        # PostgreSQL TIME is without time zone; retain offset-bearing inputs as text.
+        return parsed.tzinfo is None
+    except ValueError:
+        pass
     for fmt in ("%H:%M:%S", "%H:%M", "%H%M%S"):
         try:
             datetime.strptime(s, fmt)
@@ -141,6 +152,19 @@ def _is_time(v: str) -> bool:
 
 def _is_timestamp(v: str) -> bool:
     s = v.strip()
+    try:
+        # datetime.fromisoformat() parses '2026-02-20' without a time part successfully.
+        # But for _is_timestamp, we specifically want to require a time part if relying on fromisoformat,
+        # or we check if there's a space or 'T' indicating time.
+        if " " in s or "T" in s or "t" in s:
+            parsed = datetime.fromisoformat(s)
+            # TIMESTAMP is without time zone; preserve offset-bearing values as TEXT.
+            if parsed.tzinfo is not None:
+                return False
+            return True
+    except ValueError:
+        # ISO-like inputs can still match one of the legacy formats below.
+        pass
     for fmt in (
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%dT%H:%M:%S",
@@ -314,6 +338,10 @@ def coerce_value(value: str, pg_type: str):
         parsed = _parse_decimal(s)
         return parsed if parsed is not None else s
     if pg_type == PG_DATE:
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            pass
         for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y%m%d", "%d.%m.%Y"):
             try:
                 return datetime.strptime(s, fmt).date()
@@ -321,6 +349,12 @@ def coerce_value(value: str, pg_type: str):
                 continue
         return s
     if pg_type == PG_TIME:
+        try:
+            parsed = time.fromisoformat(s)
+            # Do not silently discard an explicit offset in TIME columns.
+            return parsed if parsed.tzinfo is None else s
+        except ValueError:
+            pass
         for fmt in ("%H:%M:%S", "%H:%M", "%H%M%S"):
             try:
                 return datetime.strptime(s, fmt).time()
@@ -328,6 +362,15 @@ def coerce_value(value: str, pg_type: str):
                 continue
         return s
     if pg_type == PG_TIMESTAMP:
+        try:
+            # We know it's supposed to be a timestamp, so we can try fromisoformat
+            if " " in s or "T" in s or "t" in s:
+                parsed = datetime.fromisoformat(s)
+                # Do not silently discard an explicit offset in TIMESTAMP columns.
+                return parsed if parsed.tzinfo is None else s
+        except ValueError:
+            # Parse failures fall through to the supported legacy timestamp formats.
+            pass
         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d %H:%M:%S"):
             try:
                 return datetime.strptime(s, fmt)
