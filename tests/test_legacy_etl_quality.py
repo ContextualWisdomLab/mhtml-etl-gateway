@@ -643,6 +643,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             catalog_entry=catalog_entry,
             replace_existing=False,
         )
+    assert rollback_failure_connection.rollbacks == 1
 
 
 def test_inmemory_sink_and_load_edge_contracts() -> None:
