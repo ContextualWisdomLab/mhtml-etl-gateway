@@ -69,6 +69,12 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         self.assertIn("groupadd --system cwl-workspace", self.workflow_text)
         self.assertIn("usermod -a -G cwl-workspace cwl-untrusted", self.workflow_text)
         self.assertIn('chown -R "$(id -un):cwl-workspace"', self.workflow_text)
+        self.assertEqual(
+            self.workflow_text.count(
+                "exec sudo -u cwl-untrusted -g cwl-workspace env -i"
+            ),
+            2,
+        )
         self.assertNotIn('runner_group="$(id -gn)"', self.workflow_text)
         self.assertNotIn('usermod -a -G "$runner_group"', self.workflow_text)
 
