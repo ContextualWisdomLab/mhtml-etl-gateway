@@ -10,6 +10,8 @@
 - `SchemaProposal`: ordered, content-addressed, value-free proposed columns.
 - `SemanticCatalogManifest`: deterministic dataset/column graph handoff with no
   network or persistence authority.
+- `CatalogSubmissionEnvelope`: deterministic, value-free actor/tenant/approval
+  handoff with ordered portal request plans and idempotency keys.
 
 Data rows are intentionally absent from the serialized inspection model.
 
@@ -21,6 +23,18 @@ fingerprints, types, nullability, bounded aggregate evidence, and review
 reasons. It contains no raw source headers or sample values. Actor identity,
 tenant policy, approval, and transport credentials remain outside this
 in-memory contract.
+
+### Governed catalog handoff
+
+`CatalogSubmissionEnvelope` contains `envelope_id`, `contract_version`,
+`target_system`, `manifest_id`, `tenant_id`, `actor`,
+`approval_reference`, and ordered `CatalogWriteRequest` objects. Each request
+contains a portal path, `POST` method, actor-bearing body, and deterministic
+idempotency key scoped by tenant and approval reference. The envelope is a
+plan, not a remote-acceptance record; envelope and request IDs are only
+correlation/deduplication evidence. Credential binding, actor authentication,
+approval verification, tenant authorization, TLS, retry, remote acceptance,
+and immutable audit remain caller-owned.
 
 ## Future PostgreSQL schemas
 

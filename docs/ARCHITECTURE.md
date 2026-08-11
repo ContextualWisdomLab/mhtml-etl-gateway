@@ -16,11 +16,12 @@ flowchart TB
     R --> D["CREATE TABLE and COMMENT ON COLUMN"]
     V --> SP["Value-free schema proposal"]
     SP --> SC["Semantic catalog manifest connector"]
+    SC --> SH["Governed submission handoff envelope"]
     D --> L["Transactional PostgreSQL loader"]
     L --> P[("PostgreSQL")]
     V --> O["Audit and observability"]
     L --> O
-    SC --> SDP["semantic-data-portal graph ingestion"]
+    SH --> SDP
     P --> N["Approved opaque artifact for CWL connectors"]
 ```
 
@@ -35,6 +36,7 @@ flowchart TB
 | `validation_engine` | required headers and row-shape contracts | fail closed |
 | `schema_inference` / `schema_proposal` | safe types and versioned proposals | approval boundary |
 | `semantic_catalog_connector` | value-free dataset/column graph manifest | no network or approval bypass |
+| `semantic_catalog_handoff` | actor/tenant/approval-bound request plan and idempotency keys | no credentials or transport |
 | `column_mapping` | JSON/CSV/PPTX text-layer mapping | explicit comments only |
 | `postgres_loader` | DDL, comments, rows, catalog, lineage | scoped database DSN |
 | `batch` / `pipeline` | single-file and multi-file orchestration | opaque reporting |
@@ -50,6 +52,7 @@ sequenceDiagram
     participant M as MIME parser
     participant T as Table extractor
     participant S as Schema and mapping
+    participant SH as semantic_catalog_handoff
     participant P as PostgreSQL
     U->>G: runtime source reference
     G->>M: bounded immutable bytes
@@ -58,7 +61,8 @@ sequenceDiagram
     S->>S: infer safe identifiers and mapped comments
     S->>P: transactional DDL, COMMENT ON, rows, catalog
     S->>S: build deterministic semantic catalog manifest
-    S-->>G: caller-owned portal node/edge handoff
+    S->>SH: bind actor, tenant, approval, and request idempotency
+    SH-->>G: caller-owned portal node/edge handoff
     P-->>G: aggregate counts and opaque lineage
     G-->>U: value-free result
 ```
@@ -110,10 +114,13 @@ approval, rerun, merge, release, and credential authority. Local loops may
 prepare fixes and evidence but must not synthesize approvals or weaken gates.
 
 The semantic catalog connector emits request-compatible nodes and edges for
-`ContextualWisdomLab/semantic-data-portal` but performs no HTTP request. A
-caller-owned authenticated boundary supplies actor identity, tenant policy,
-approval, retry, and transport controls. This preserves standalone operation
-while providing a direct MSA seam for catalog discovery.
+`ContextualWisdomLab/semantic-data-portal` but performs no HTTP request. The
+handoff module makes actor identity, tenant reference, approval reference, and
+tenant- and approval-scoped per-request idempotency explicit while a
+caller-owned authenticated boundary still supplies actor authentication, tenant
+authorization, approval verification, credentials, retry, TLS, remote
+acceptance, and immutable audit controls. This preserves standalone operation
+while providing a direct MSA seam for governed catalog discovery.
 
 ## Deployment modes
 

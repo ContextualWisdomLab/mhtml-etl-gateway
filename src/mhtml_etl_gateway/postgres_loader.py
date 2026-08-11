@@ -9,7 +9,6 @@ from typing import Any, Literal, Protocol, Sequence
 
 from mhtml_etl_gateway.ingest_catalog import (
     CATALOG_DDL,
-    CATALOG_TABLE,
     CatalogEntry,
     make_catalog_entry,
 )

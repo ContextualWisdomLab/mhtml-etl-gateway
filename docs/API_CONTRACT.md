@@ -3,9 +3,9 @@
 ## Current scope
 
 Version `0.3.0` exposes deterministic, synchronous, local inspection, schema
-proposal, mapping, and value-free catalog-manifest APIs. It performs no
-database write through the catalog connector, network request, browser
-rendering, office execution, or external-resource retrieval.
+proposal, mapping, value-free catalog-manifest, and governed handoff APIs. It
+performs no database write through the catalog connector, network request,
+browser rendering, office execution, or external-resource retrieval.
 
 ## Python API
 
@@ -75,6 +75,29 @@ The manifest contains proposal fingerprints, normalized target names, aggregate
 evidence, review reasons, and `privacy_mode: "value_free"`. It never contains
 raw source headers or sample values and performs no network, database, LLM, or
 file operation. See [the connector contract](SEMANTIC_CATALOG_CONNECTOR.md).
+
+### `build_semantic_catalog_submission_envelope`
+
+```python
+build_semantic_catalog_submission_envelope(
+    manifest: SemanticCatalogManifest,
+    *,
+    tenant_id: str,
+    actor: str,
+    approval_reference: str,
+) -> CatalogSubmissionEnvelope
+```
+
+This function binds a value-free manifest to an opaque tenant reference, an
+explicit actor, and an approval reference. It produces an envelope containing
+`envelope_id`, `contract_version`, `target_system`, `manifest_id`, the claimed
+governance context, and ordered `POST` request plans for `/graph/nodes` and
+`/graph/edges`. Each request has a deterministic `idempotency_key` scoped by
+tenant and approval reference plus an actor-bearing request body. The envelope
+ID changes when governance context changes. The function does not authenticate,
+authorize, send, retry, persist, or mutate the manifest; the caller-owned
+publisher must provide actor authentication, tenant authorization, approval
+verification, credentials, TLS, remote acceptance, and immutable audit.
 
 ## CLI
 

@@ -28,12 +28,13 @@ The public package emits no operational logs by itself. The CLI writes one succe
 
 The package has no service health endpoint. A caller determines availability by importing the package or invoking the CLI. Service liveness/readiness contracts belong to a later authenticated service milestone.
 
-The Semantic Data Portal connector is also a synchronous in-process library
-boundary. Its success means only that a deterministic, value-free manifest was
-constructed. Operators must separately observe the caller-owned approval,
-authentication, request submission, retry, and remote upsert outcomes. A
-manifest ID is the idempotency and replay correlation key; it is not proof that
-the portal accepted the graph requests.
+The Semantic Data Portal connector and handoff are synchronous in-process
+library boundaries. Their success means only that a deterministic, value-free
+manifest and governance-bound request plan were constructed. Operators must
+separately observe approval verification, authentication, tenant authorization,
+request submission, retry, and remote upsert outcomes. The envelope ID and
+per-request idempotency keys correlate replay; neither proves that the portal
+accepted graph requests.
 
 Resource limits are per document and independent of deployment capacity. A future worker pool will add tenant queue quotas, concurrency limits, backpressure, hard process-memory limits, cancellation, and dead-letter recovery. Large input does not justify disabling parser budgets.
 

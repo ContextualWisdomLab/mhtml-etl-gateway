@@ -78,15 +78,34 @@ classDiagram
       +target_id
       +properties
     }
+    class CatalogSubmissionEnvelope {
+      +envelope_id
+      +contract_version
+      +target_system
+      +manifest_id
+      +tenant_id
+      +actor
+      +approval_reference
+      +requests
+    }
+    class CatalogWriteRequest {
+      +method
+      +path
+      +idempotency_key
+      +body
+    }
 
     SchemaProposal --> SemanticCatalogManifest : deterministic conversion
     SemanticCatalogManifest "1" --> "1..*" CatalogNode : emits
     SemanticCatalogManifest "1" --> "0..*" CatalogEdge : emits
+    SemanticCatalogManifest --> CatalogSubmissionEnvelope : governed handoff
+    CatalogSubmissionEnvelope "1" --> "1..*" CatalogWriteRequest : plans
 ```
 
 This is an in-memory contract, not a database migration. The manifest can be
 submitted by a caller to the Semantic Data Portal graph API only after the
 caller performs authentication, tenant authorization, and steward approval.
+The submission envelope is still a plan: remote acceptance is not represented.
 
 ## Future conceptual PostgreSQL ERD
 

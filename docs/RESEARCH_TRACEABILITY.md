@@ -3,7 +3,7 @@
 | Decision | Authority | Product consequence |
 |---|---|---|
 | semantic catalog interoperability | World Wide Web Consortium, DCAT 3 | model the future catalog publication boundary around dataset identity, versioning, checksum, and discoverability without claiming a complete JSON-LD publisher in the connector slice |
-| graph request validation | ContextualWisdomLab Semantic Data Portal graph contracts | emit request-compatible dataset/column nodes and edges while keeping actor, tenant, approval, and transport authority outside this library |
+| graph request validation and governed handoff | ContextualWisdomLab. (2026). *Semantic Data Portal graph node and edge request contracts* [Source code, commit e48aa13c4af7a4875d4b53e6a60b50405c265a2f; `src/sdp/api.py`, `src/sdp/graph_models.py`]. GitHub. https://github.com/ContextualWisdomLab/semantic-data-portal/tree/e48aa13c4af7a4875d4b53e6a60b50405c265a2f/src/sdp | emit request-compatible dataset/column nodes and edges, bind an explicit actor/tenant/approval context, scope request idempotency by tenant and approval, and keep credential/transport authority outside this library |
 | MHTML aggregate structure and Content-Location | RFC 2557 | parse MIME aggregate; never trust location as origin; protect file URIs |
 | root `start`, first-direct-body default, and required type | RFC 2387 plus verified erratum 5578 | deterministic root; diagnose enterprise missing type; reject mismatch and nested substitution |
 | opaque time-ordered external IDs | RFC 9562 | future service/database UUIDv7 contract |

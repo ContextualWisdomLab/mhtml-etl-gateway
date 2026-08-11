@@ -11,6 +11,11 @@ from .semantic_catalog_connector import (
     SemanticCatalogManifest,
     build_semantic_catalog_manifest,
 )
+from .semantic_catalog_handoff import (
+    CatalogSubmissionEnvelope,
+    CatalogWriteRequest,
+    build_semantic_catalog_submission_envelope,
+)
 
 __version__ = "0.3.0"
 
@@ -29,4 +34,7 @@ __all__ = [
     "CatalogNode",
     "SemanticCatalogManifest",
     "build_semantic_catalog_manifest",
+    "CatalogSubmissionEnvelope",
+    "CatalogWriteRequest",
+    "build_semantic_catalog_submission_envelope",
 ]

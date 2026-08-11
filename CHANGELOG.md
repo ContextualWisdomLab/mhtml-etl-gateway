@@ -8,6 +8,9 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 - A deterministic, value-free Semantic Data Portal graph manifest connector for
   schema-proposal discovery, with caller-owned authentication and transport.
+- An approval-, tenant-, and actor-bound Semantic Data Portal handoff envelope
+  with tenant- and approval-scoped deterministic per-request idempotency keys,
+  strict governance-context validation, and no raw source values.
 
 ### Planned
 
