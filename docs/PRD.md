@@ -74,7 +74,10 @@ Semantic Data Portal manifest. It exposes dataset/column graph nodes and
 `contains_column` edges for caller-owned authenticated submission, while
 keeping network, tenant, approval, and transport authority outside the parser.
 The governed handoff envelope makes tenant, actor, approval reference, and
-per-request idempotency explicit before a caller crosses that boundary.
+per-request idempotency explicit before a caller crosses that boundary. The
+caller-owned publisher now provides a value-free receipt only after each
+request receives explicit remote 2xx acceptance and an opaque remote request ID;
+partial outcomes remain reconciliation work rather than false success.
 
 ## P2: PostgreSQL loading
 

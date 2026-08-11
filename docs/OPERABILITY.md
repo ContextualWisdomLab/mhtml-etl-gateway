@@ -57,11 +57,14 @@ The package has no service health endpoint. A caller determines availability by 
 
 The Semantic Data Portal connector and handoff are synchronous in-process
 library boundaries. Their success means only that a deterministic, value-free
-manifest and governance-bound request plan were constructed. Operators must
-separately observe approval verification, authentication, tenant authorization,
-request submission, retry, and remote upsert outcomes. The envelope ID and
-per-request idempotency keys correlate replay; neither proves that the portal
-accepted graph requests.
+manifest and governance-bound request plan were constructed. The optional
+publisher boundary sends each plan through a caller-owned transport and returns
+a receipt only for explicit 2xx acceptance, `accepted=True`, and an opaque
+remote request ID. Operators must separately observe approval verification,
+authentication, tenant authorization, retry, trace propagation, immutable audit,
+and remote upsert outcomes. The envelope ID and per-request idempotency keys
+correlate replay; a receipt proves only the adapter response and not the
+intrinsic trustworthiness of the caller's policy systems.
 
 Resource limits are per document and independent of deployment capacity. A future worker pool will add tenant queue quotas, concurrency limits, backpressure, hard process-memory limits, cancellation, and dead-letter recovery. Large input does not justify disabling parser budgets.
 
@@ -87,6 +90,9 @@ Capacity tests must measure at least:
 - duration and peak memory;
 - schema-review queue depth;
 - load and reconciliation outcomes;
+- catalog publication accepted, rejected, partial, and transport-error counts;
+- catalog publication envelope IDs, request IDs, remote request IDs, and audit
+  references as opaque correlation fields;
 - retry, rollback, cancellation, and dead-letter counts;
 - tenant-scoped SLOs without raw customer labels.
 

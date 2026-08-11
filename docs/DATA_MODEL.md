@@ -12,6 +12,12 @@
   network or persistence authority.
 - `CatalogSubmissionEnvelope`: deterministic, value-free actor/tenant/approval
   handoff with ordered portal request plans and idempotency keys.
+- `CatalogPublisherEvidence`: caller-provided proof of authentication,
+  authorization, approval verification, and immutable audit correlation.
+- `CatalogTransportResponse`: explicit remote status, acceptance, and opaque
+  request identity returned by a caller-owned transport.
+- `CatalogPublicationReceipt`: value-free remote-acceptance evidence for the
+  complete submission, with safe per-request receipts and no request bodies.
 
 Data rows are intentionally absent from the serialized inspection model.
 
@@ -35,6 +41,18 @@ plan, not a remote-acceptance record; envelope and request IDs are only
 correlation/deduplication evidence. Credential binding, actor authentication,
 approval verification, tenant authorization, TLS, retry, remote acceptance,
 and immutable audit remain caller-owned.
+
+### Governed catalog publication
+
+`CatalogPublisherEvidence` records only four required governance assertions and
+an opaque immutable audit reference. `CatalogTransportResponse` accepts only a
+2xx status, explicit `accepted=True`, and an opaque remote request ID.
+`CatalogPublicationReceipt` records the envelope ID, target, audit reference,
+accepted request count, and ordered `CatalogRequestReceipt` values containing
+request index, path, idempotency key, status, and remote request ID. Request
+bodies, source values, credentials, and provider error bodies are excluded.
+Partial acceptance is an error with only the accepted prefix count; it is not a
+complete publication receipt.
 
 ## Future PostgreSQL schemas
 

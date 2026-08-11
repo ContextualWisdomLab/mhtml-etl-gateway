@@ -11,6 +11,9 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - An approval-, tenant-, and actor-bound Semantic Data Portal handoff envelope
   with tenant- and approval-scoped deterministic per-request idempotency keys,
   strict governance-context validation, and no raw source values.
+- A caller-owned governed catalog publisher that records value-free remote
+  acceptance receipts only for explicit 2xx responses, with safe partial-outcome
+  errors and no request or provider bodies.
 
 ### Changed
 

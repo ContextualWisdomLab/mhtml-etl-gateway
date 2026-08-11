@@ -9,15 +9,15 @@
 The historical evidence below remains preserved for the original inspection
 baseline. The current merged main implementation also includes versioned
 value-free schema proposals, `COMMENT ON COLUMN` mapping support, and the
-Semantic Data Portal connector boundary. In the current integration worktree on
-2026-08-11, Python 3.14 evidence for the governed catalog handoff candidate is:
+Semantic Data Portal connector boundary. The current integration worktree on
+2026-08-12 is validated with Python 3.14 as follows:
 
 ```text
-310 tests passed
+357 tests passed
 3 tests skipped
 30 subtests passed
-2,681 production statements: 100%
-936 production branches: 100%
+2,672 production statements: 100%
+918 production branches: 100%
 ```
 
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
@@ -26,15 +26,17 @@ raw-value absence, and caller-owned transport boundaries. The connector creates
 no network, database, LLM, or file side effect. The handoff tests also prove
 actor-, tenant-, and approval-bound envelope identity, explicit actor request
 bodies, tenant- and approval-scoped idempotency keys, strict surrounding-
-whitespace rejection, and invalid-context rejection. The candidate passes
-repository validation, compileall, full-repository Ruff checks, and wheel
-build. Database identifier tests additionally prove multiword canonicalization,
-63-byte suffix preservation, fail-closed direct SQL names, realistic
-`COMMENT ON COLUMN` output, the replay-safe `load_status_code` catalog
-migration, signed-BIGINT overflow classification as `NUMERIC`, fixed PostgreSQL
-DDL type allow-listing, and nonreflecting connection/operation/load/identifier
-failures. Its merge and release claims remain subject to fresh exact-head
-GitHub evidence.
+whitespace rejection, and invalid-context rejection. Database identifier tests
+additionally prove multiword canonicalization, 63-byte suffix preservation,
+fail-closed direct SQL names, realistic `COMMENT ON COLUMN` output, the
+replay-safe `load_status_code` catalog migration, signed-BIGINT overflow
+classification as `NUMERIC`, fixed PostgreSQL DDL type allow-listing, and
+nonreflecting connection/operation/load/identifier failures. The publisher tests
+additionally prove complete 2xx/204 acceptance receipts, governance evidence
+gates, opaque remote IDs, bounded request counts, safe provider/partial errors,
+and body exclusion. The publisher is transport-neutral: the caller retains
+authentication, TLS, retry, trace, persistence, and audit authority. Its merge
+and release claims remain subject to fresh exact-head GitHub evidence.
 
 ## Evidence semantics
 

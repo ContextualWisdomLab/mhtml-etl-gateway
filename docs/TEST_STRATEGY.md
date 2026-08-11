@@ -82,6 +82,20 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - live connection, SQL operation, load, and unsafe-identifier failures expose
   fixed messages without DSNs, SQL, identifiers, or provider detail.
 
+### Governed catalog publisher
+
+- complete submissions accept realistic `201` responses and `204` responses
+  only when the caller provides all authentication, tenant, approval, and
+  immutable-audit evidence;
+- every receipt is value-free, ordered, idempotency-correlated, and carries an
+  opaque remote request ID;
+- invalid evidence, request paths/methods/keys, request limits, response status,
+  explicit acceptance flags, and remote IDs fail closed;
+- provider exceptions, remote rejection, and partial accepted prefixes produce
+  fixed safe errors without provider bodies or request bodies;
+- the publisher performs no authentication, HTTP, retry, persistence, or file
+  operation and reaches 100% statement and branch coverage.
+
 ### Repository and CI
 
 - complete required documentation;

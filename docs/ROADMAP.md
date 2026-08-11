@@ -24,6 +24,7 @@ Exit criteria:
 - human/policy approval and immutable decision artifact;
 - value-free Semantic Data Portal graph-manifest handoff;
 - actor/tenant/approval-bound Semantic Data Portal request envelope;
+- caller-owned governed publisher with bounded remote-acceptance receipts;
 - pg-erd-cloud visualization handoff.
 
 ## M2 — Transactional PostgreSQL loading
@@ -58,8 +59,9 @@ Exit criteria:
 
 ## M5 — Ecosystem connectors
 
-- authenticated Semantic Data Portal submission, remote acceptance, and
-  steward-review callback;
+- authenticated Semantic Data Portal adapters, remote acceptance reconciliation,
+  and steward-review callback; the transport-neutral receipt boundary is
+  implemented in M1 while provider integration remains caller-owned;
 - naruon notifications and governed handoff;
 - pg-erd-cloud schema/lineage visualization;
 - pg-llm-batch post-ingestion enrichment;
