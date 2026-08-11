@@ -69,12 +69,33 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         self.assertIn("groupadd --system cwl-workspace", self.workflow_text)
         self.assertIn("usermod -a -G cwl-workspace cwl-untrusted", self.workflow_text)
         self.assertIn('chown -R "$(id -un):cwl-workspace"', self.workflow_text)
-        self.assertEqual(
-            self.workflow_text.count(
-                "exec sudo -u cwl-untrusted -g cwl-workspace env -i"
+        write_job_start = self.workflow_text.index("  write-loop:\n")
+        wrapper_sections = (
+            _step_section(
+                self.workflow_text,
+                "Install secret-stripping execution wrapper",
             ),
-            2,
+            _step_section(
+                self.workflow_text[write_job_start:],
+                "Install secret-stripping execution wrapper",
+            ),
         )
+        for wrapper in wrapper_sections:
+            wrapper_flat = " ".join(wrapper.split())
+            for fragment in (
+                "exec sudo /usr/bin/setpriv --reuid=cwl-untrusted",
+                "--regid=cwl-workspace",
+                "--groups=cwl-workspace",
+                "--inh-caps=-all",
+                "--ambient-caps=-all",
+                "--bounding-set=-all",
+                "--no-new-privs",
+                "cwl-safe-exec /bin/sh -c",
+                "NoNewPrivs",
+                "for capability in Inh Prm Eff Bnd Amb",
+            ):
+                self.assertIn(fragment, wrapper_flat)
+        self.assertNotIn("sudo -u cwl-untrusted -g cwl-workspace", self.workflow_text)
         self.assertNotIn('runner_group="$(id -gn)"', self.workflow_text)
         self.assertNotIn('usermod -a -G "$runner_group"', self.workflow_text)
 
