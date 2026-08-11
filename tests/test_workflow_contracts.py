@@ -225,6 +225,10 @@ class WorkflowContractTests(unittest.TestCase):
             job_flat = " ".join(job.split())
             for fragment in wrapper_fragments:
                 self.assertIn(fragment, job_flat)
+            self.assertLess(
+                job_flat.index('cd "$workspace"'),
+                job_flat.index('source_file="scripts/hourly_product_gap.py"'),
+            )
             self.assertIn("Collect live queue evidence", job)
             self.assertIn(
                 'pulls?state=open&per_page=100',

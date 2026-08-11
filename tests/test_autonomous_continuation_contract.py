@@ -46,10 +46,15 @@ class AutonomousContinuationContractTests(unittest.TestCase):
 
     def test_gate_uses_workspace_evidence_instead_of_privileged_temp_paths(self) -> None:
         """The unprivileged gate reads and writes only relative workspace files."""
-        self.assertIn('".agent/evidence/open-pulls.json"', self.workflow_text)
-        self.assertIn('".agent/evidence/agent-issues.json"', self.workflow_text)
-        self.assertIn('gate_output=".agent/evidence/loop-output.txt"', self.workflow_text)
-        self.assertIn('cat "$gate_output" >> "$GITHUB_OUTPUT"', self.workflow_text)
+        gate_section = _step_section(
+            self.workflow_text,
+            "Select exact-head loop mode",
+        )
+        self.assertIn('".agent/evidence/open-pulls.json"', gate_section)
+        self.assertIn('".agent/evidence/agent-issues.json"', gate_section)
+        self.assertIn('gate_output=".agent/evidence/loop-output.txt"', gate_section)
+        self.assertIn('cat "$gate_output" >> "$GITHUB_OUTPUT"', gate_section)
+        self.assertNotIn("GITHUB_WORKSPACE", gate_section)
 
     def test_gate_output_is_group_writable_before_unprivileged_execution(self) -> None:
         """The isolated gate can append outputs without inheriting runner ownership."""
@@ -102,6 +107,10 @@ class AutonomousContinuationContractTests(unittest.TestCase):
                 "head -c 1 \"$readable_file\" >/dev/null",
             ):
                 self.assertIn(fragment, wrapper_flat)
+            self.assertLess(
+                wrapper_flat.index('cd "$workspace"'),
+                wrapper_flat.index('source_file="scripts/hourly_product_gap.py"'),
+            )
         self.assertNotIn("sudo -u cwl-untrusted -g cwl-workspace", self.workflow_text)
         self.assertNotIn('runner_group="$(id -gn)"', self.workflow_text)
         self.assertNotIn('usermod -a -G "$runner_group"', self.workflow_text)
