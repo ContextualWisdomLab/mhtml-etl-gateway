@@ -340,12 +340,6 @@ class PsycopgSink:
         }
         to_promote: list[str] = []
         for i, col in enumerate(schema.columns):
-            prepared = []
-            for row in rows:
-                raw = row[i] if i < len(row) else None
-                prepared.append(
-                    coerce_value(str(raw), col.pg_type) if raw is not None else None
-                )
             existing_type = existing_types.get(col.db_name)
             if existing_type in {"text", "character varying"}:
                 continue
@@ -359,6 +353,13 @@ class PsycopgSink:
                     PG_TIME: {"time without time zone"},
                     PG_TIMESTAMP: {"timestamp without time zone"},
                 }.get(col.pg_type, {col.pg_type.lower()})
+                # Keep validation lazy so large batches can short-circuit.
+                prepared = (
+                    coerce_value(str(row[i]), col.pg_type)
+                    if i < len(row) and row[i] is not None
+                    else None
+                    for row in rows
+                )
                 if (
                     existing_type not in compatible_types
                     or values_require_text(col.pg_type, prepared)
