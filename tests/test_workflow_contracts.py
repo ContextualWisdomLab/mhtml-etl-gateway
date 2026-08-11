@@ -199,10 +199,25 @@ class WorkflowContractTests(unittest.TestCase):
             "unset NVIDIA_API_KEY NVIDIA_NIM_API_KEY",
             "unset GH_TOKEN GITHUB_TOKEN",
             "unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL",
-            "exec sudo /usr/bin/setpriv --reuid=cwl-untrusted",
         )
         for fragment in required_workflow_fragments:
             self.assertIn(fragment, self.hourly_flat)
+        wrapper_fragments = (
+            "exec sudo /usr/bin/setpriv --reuid=cwl-untrusted",
+            "--regid=cwl-workspace",
+            "--groups=cwl-workspace",
+            "--inh-caps=-all",
+            "--ambient-caps=-all",
+            "--bounding-set=-all",
+            "--no-new-privs",
+            "cwl-safe-exec /bin/sh -c",
+            "NoNewPrivs",
+            "for capability in Inh Prm Eff Bnd Amb",
+        )
+        for job in (self.select_job, self.write_job):
+            job_flat = " ".join(job.split())
+            for fragment in wrapper_fragments:
+                self.assertIn(fragment, job_flat)
         self.assertIn(
             "Run repository-controlled code, tests, package managers, builds, and scripts only through cwl-safe-exec",
             self.maintenance_flat,

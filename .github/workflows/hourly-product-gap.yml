@@ -99,6 +99,9 @@ jobs:
           exec sudo /usr/bin/setpriv --reuid=cwl-untrusted \
             --regid=cwl-workspace \
             --groups=cwl-workspace \
+            --inh-caps=-all \
+            --ambient-caps=-all \
+            --bounding-set=-all \
             --no-new-privs \
             env -i \
             HOME=/home/cwl-untrusted \
@@ -112,6 +115,16 @@ jobs:
           EOF
           sudo chmod 0755 /usr/local/bin/cwl-safe-exec
           test "$(stat -c '%U:%G:%a' /usr/local/bin/cwl-safe-exec)" = "root:root:755"
+          cwl-safe-exec /bin/sh -c '
+            workspace_gid="$(getent group cwl-workspace | cut -d: -f3)"
+            test "$(id -un)" = cwl-untrusted
+            test "$(id -gn)" = cwl-workspace
+            test "$(id -G)" = "$workspace_gid"
+            grep -Eq "^NoNewPrivs:[[:space:]]+1\$" /proc/self/status
+            for capability in Inh Prm Eff Bnd Amb; do
+              grep -Eq "^Cap${capability}:[[:space:]]+0+\$" /proc/self/status
+            done
+          '
 
       - name: Select exact-head loop mode
         id: loop_gate
@@ -361,6 +374,9 @@ jobs:
           exec sudo /usr/bin/setpriv --reuid=cwl-untrusted \
             --regid=cwl-workspace \
             --groups=cwl-workspace \
+            --inh-caps=-all \
+            --ambient-caps=-all \
+            --bounding-set=-all \
             --no-new-privs \
             env -i \
             HOME=/home/cwl-untrusted \
@@ -373,6 +389,16 @@ jobs:
           EOF
           sudo chmod 0755 /usr/local/bin/cwl-safe-exec
           test "$(stat -c '%U:%G:%a' /usr/local/bin/cwl-safe-exec)" = "root:root:755"
+          cwl-safe-exec /bin/sh -c '
+            workspace_gid="$(getent group cwl-workspace | cut -d: -f3)"
+            test "$(id -un)" = cwl-untrusted
+            test "$(id -gn)" = cwl-workspace
+            test "$(id -G)" = "$workspace_gid"
+            grep -Eq "^NoNewPrivs:[[:space:]]+1\$" /proc/self/status
+            for capability in Inh Prm Eff Bnd Amb; do
+              grep -Eq "^Cap${capability}:[[:space:]]+0+\$" /proc/self/status
+            done
+          '
 
       - name: Install verified OpenCode CLI
         env:
