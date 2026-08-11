@@ -28,6 +28,8 @@ class ValidationError(ValueError):
 
 @dataclass(frozen=True)
 class ValidationResult:
+    """Successful fail-closed validation outcome for one extracted table."""
+
     ok: bool
     headers: list[str]
     row_count: int

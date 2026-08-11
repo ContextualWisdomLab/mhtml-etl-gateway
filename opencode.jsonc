@@ -1,0 +1,104 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "model": "nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5",
+  "small_model": "nvidia-nim/meta/llama-3.3-70b-instruct",
+  "enabled_providers": ["nvidia-nim"],
+  "lsp": false,
+  "mcp": {},
+  "permission": {
+    "edit": "allow",
+    "bash": {
+      "*": "deny",
+      "cwl-safe-exec *": "allow",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      "git rev-parse*": "allow",
+      "git merge-base*": "allow",
+      "git remote -v": "allow",
+      "git config --get *": "allow",
+      "git branch*": "allow",
+      "git fetch*": "allow",
+      "git checkout*": "allow",
+      "git switch*": "allow",
+      "git restore*": "allow",
+      "git add *": "allow",
+      "git commit *": "allow",
+      "git merge *": "allow",
+      "git rebase *": "allow",
+      "git cherry-pick *": "allow",
+      "git push origin HEAD*": "allow",
+      "git push -u origin HEAD*": "allow",
+      "git push --force-with-lease origin HEAD*": "allow",
+      "gh repo view *": "allow",
+      "gh pr list *": "allow",
+      "gh pr view *": "allow",
+      "gh pr checks *": "allow",
+      "gh pr diff *": "allow",
+      "gh pr create *": "allow",
+      "gh pr edit *": "allow",
+      "gh pr comment *": "allow",
+      "gh issue list *": "allow",
+      "gh issue view *": "allow",
+      "gh issue create *": "allow",
+      "gh issue edit *": "allow",
+      "gh issue comment *": "allow",
+      "gh issue close *": "allow",
+      "gh run list *": "allow",
+      "gh run view *": "allow",
+      "gh run rerun *": "allow",
+      "gh api --method GET *": "allow",
+      "gh api -X GET *": "allow",
+      "gh api --paginate --method GET *": "allow",
+      "gh api --paginate --slurp --method GET *": "allow"
+    },
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "grep": "allow",
+    "glob": "allow",
+    "list": "allow",
+    "task": "allow",
+    "webfetch": "deny",
+    "websearch": "deny",
+    "lsp": "deny",
+    "external_directory": "deny"
+  },
+  "provider": {
+    "nvidia-nim": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NVIDIA NIM",
+      "options": {
+        "baseURL": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "{env:NVIDIA_API_KEY}"
+      },
+      "models": {
+        "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
+          "name": "NVIDIA Llama 3.3 Nemotron Super 49B v1.5",
+          "tool_call": true,
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "high"
+          },
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          }
+        },
+        "meta/llama-3.3-70b-instruct": {
+          "name": "Meta Llama 3.3 70B Instruct",
+          "tool_call": true,
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          }
+        }
+      }
+    }
+  }
+}

@@ -180,6 +180,8 @@ def infer_pg_type(samples: Sequence[str]) -> str:
 
 @dataclass(frozen=True)
 class ColumnSpec:
+    """Source-to-database column mapping with an inferred PostgreSQL type."""
+
     source_name: str
     db_name: str
     pg_type: str
@@ -188,6 +190,8 @@ class ColumnSpec:
 
 @dataclass(frozen=True)
 class TableSchema:
+    """Validated table definition used for DDL, comments, and row coercion."""
+
     table_name: str
     columns: list[ColumnSpec]
 
@@ -262,6 +266,7 @@ class TableSchema:
         }
 
     def type_map(self) -> dict[str, str]:
+        """Return inferred PostgreSQL types keyed by original source header."""
         return {c.source_name: c.pg_type for c in self.columns}
 
 

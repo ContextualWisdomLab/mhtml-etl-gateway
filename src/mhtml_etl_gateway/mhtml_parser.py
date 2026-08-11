@@ -16,6 +16,8 @@ class MhtmlParseError(ValueError):
 
 @dataclass(frozen=True)
 class MimePart:
+    """Decoded MIME part metadata and payload selected from an MHTML archive."""
+
     content_type: str
     content_location: str | None
     payload: bytes

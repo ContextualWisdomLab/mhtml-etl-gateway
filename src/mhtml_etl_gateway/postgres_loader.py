@@ -37,6 +37,8 @@ class LoadError(ValueError):
 
 @dataclass
 class LoadResult:
+    """Outcome and SQL evidence produced by one table load."""
+
     table_name: str
     inserted_rows: int
     ddl: str
@@ -47,13 +49,23 @@ class LoadResult:
 
 
 class RowSink(Protocol):
-    def ensure_table(self, schema: TableSchema) -> None: ...
+    """Transactional storage contract shared by PostgreSQL and test sinks."""
 
-    def ensure_catalog(self) -> None: ...
+    def ensure_table(self, schema: TableSchema) -> None:
+        """Ensure the target table exists and matches the supplied schema."""
+        raise NotImplementedError  # pragma: no cover
 
-    def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None: ...
+    def ensure_catalog(self) -> None:
+        """Ensure the idempotency catalog relation exists."""
+        raise NotImplementedError  # pragma: no cover
 
-    def count_rows(self, table_name: str) -> int: ...
+    def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
+        """Return a prior load record for an artifact and table, if present."""
+        raise NotImplementedError  # pragma: no cover
+
+    def count_rows(self, table_name: str) -> int:
+        """Return the current row count for a validated table name."""
+        raise NotImplementedError  # pragma: no cover
 
     def write_artifact_rows(
         self,
@@ -71,7 +83,7 @@ class RowSink(Protocol):
         On failure, no partial business-row delete may remain committed while
         catalog still says ``loaded``.
         """
-        ...
+        raise NotImplementedError  # pragma: no cover
 
 
 def _build_row_records(
@@ -108,17 +120,21 @@ class InMemorySink:
         self.fail_after_delete: bool = False
 
     def ensure_table(self, schema: TableSchema) -> None:
+        """Register a schema and record its DDL in the in-memory sink."""
         self.schemas[schema.table_name] = schema
         self.ddl_statements.append(schema.ddl(include_lineage=True))
         self.rows.setdefault(schema.table_name, [])
 
     def ensure_catalog(self) -> None:
+        """Record creation of the ingest catalog without opening a database."""
         self.ddl_statements.append(CATALOG_DDL)
 
     def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
+        """Return a previously stored catalog entry, if one exists."""
         return self.catalog.get((sha256, table_name))
 
     def count_rows(self, table_name: str) -> int:
+        """Return the number of rows currently stored for ``table_name``."""
         return len(self.rows.get(table_name, []))
 
     def write_artifact_rows(
@@ -132,6 +148,7 @@ class InMemorySink:
         replace_existing: bool,
         start_row_number: int = 1,
     ) -> int:
+        """Atomically replace or append rows and update the in-memory catalog."""
         if schema.table_name not in self.schemas:
             raise LoadError(f"table not ensured: {schema.table_name}")
         # Snapshot for atomic rollback.
@@ -187,6 +204,7 @@ class PsycopgSink:
         self._conn.autocommit = False
 
     def close(self) -> None:
+        """Close the live PostgreSQL connection."""
         self._conn.close()
 
     def rollback(self) -> None:
@@ -276,6 +294,7 @@ class PsycopgSink:
             existing_names.add(column.db_name)
 
     def ensure_table(self, schema: TableSchema) -> None:
+        """Create or evolve a table and apply its safe column comments."""
         # DDL identifiers validated inside TableSchema.ddl().  Keep CREATE and
         # COMMENT statements separate so psycopg never has to prepare a
         # multi-command statement, while committing them together.
@@ -286,10 +305,12 @@ class PsycopgSink:
         self._conn.commit()
 
     def ensure_catalog(self) -> None:
+        """Create the fixed artifact ingest catalog relation."""
         self._execute(CATALOG_DDL)
         self._conn.commit()
 
     def catalog_get(self, sha256: str, table_name: str) -> CatalogEntry | None:
+        """Fetch one idempotency record using bound values."""
         # Fixed catalog relation; bind parameters for values only.
         query = (
             "SELECT source_artifact_sha256, table_name, source_artifact_path, "
@@ -311,6 +332,7 @@ class PsycopgSink:
         )
 
     def count_rows(self, table_name: str) -> int:
+        """Count rows in a validated PostgreSQL relation."""
         from psycopg import sql as pgsql
 
         ident = require_safe_ident(table_name)
@@ -464,9 +486,11 @@ class PsycopgSink:
             raise
 
     def query_count(self, table_name: str) -> int:
+        """Return a queryable row count through the same identifier contract."""
         return self.count_rows(table_name)
 
     def query_sample(self, table_name: str, limit: int = 5) -> list[tuple]:
+        """Return a bounded sample from a validated PostgreSQL relation."""
         from psycopg import sql as pgsql
 
         ident = require_safe_ident(table_name)

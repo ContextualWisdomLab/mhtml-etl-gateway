@@ -36,6 +36,8 @@ from mhtml_etl_gateway.validation_engine import validate_extracted_table
 
 @dataclass(frozen=True)
 class ExtractResult:
+    """Validated table extraction result with opaque source identity metadata."""
+
     headers: list[str]
     rows: list[list[str]]
     table: ExtractedTable
@@ -80,6 +82,7 @@ def infer_schema_for_extract(
     *,
     table_name: str | None = None,
 ) -> TableSchema:
+    """Infer a database schema from an extracted table and optional table name."""
     name = table_name or _default_table_name(Path(extracted.source_path))
     return infer_table_schema(extracted.headers, extracted.rows, table_name=name)
 

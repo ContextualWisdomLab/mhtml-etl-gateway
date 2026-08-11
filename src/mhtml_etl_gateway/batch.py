@@ -19,6 +19,8 @@ class BatchError(RuntimeError):
 
 @dataclass
 class FileResult:
+    """Privacy-safe outcome for one artifact in a batch run."""
+
     path: str
     ok: bool
     sha256: str | None = None
@@ -31,6 +33,8 @@ class FileResult:
 
 @dataclass
 class BatchReport:
+    """Aggregate privacy-safe outcomes for a batch ingestion run."""
+
     source: str
     files_discovered: int
     success_count: int = 0
@@ -41,6 +45,7 @@ class BatchReport:
     results: list[FileResult] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the report as a JSON-serializable dictionary."""
         d = asdict(self)
         return d
 
@@ -65,11 +70,8 @@ def discover_mhtml_files(
             while str(cur) not in ("", "/") and not cur.exists():
                 parts.append(cur.name)
                 cur = cur.parent
-            if cur.exists() and parts:
-                rel = "/".join(reversed(parts))
-                matches = sorted(cur.glob(rel))
-            elif p.parent.exists():
-                matches = sorted(p.parent.glob(p.name))
+            rel = "/".join(reversed(parts))
+            matches = sorted(cur.glob(rel))
         else:
             matches = sorted(Path().glob(pattern))
         return [

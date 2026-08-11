@@ -56,6 +56,7 @@ class ColumnMappingReport:
     unmatched: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
+        """Return privacy-safe mapping resolution evidence for JSON output."""
         return {
             "path": self.path,
             "format": self.format,

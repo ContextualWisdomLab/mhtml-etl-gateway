@@ -1,24 +1,32 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools==82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mhtml-etl-gateway"
-version = "0.2.0"
-description = "Enterprise MHTML ingestion gateway for SAP ALV / Excel Web Archive exports into PostgreSQL"
+version = "0.3.0"
+description = "Safe MHTML inspection and privacy-preserving PostgreSQL ETL for enterprise tables."
 readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "ContextualWisdomLab" }]
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "ContextualWisdomLab"}]
+keywords = ["mhtml", "inspection", "etl", "postgresql", "lineage"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+]
 dependencies = [
   "defusedxml>=0.7",
   "psycopg[binary]>=3.1",
 ]
 
 [project.optional-dependencies]
-dev = [
-  "pytest>=7.0",
-]
+dev = ["pytest>=7.0"]
 
 [project.scripts]
 mhtml-etl-gateway = "mhtml_etl_gateway.cli:main"
@@ -29,3 +37,16 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.coverage.run]
+branch = true
+source = ["mhtml_etl_gateway", "scripts"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = false
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+]
