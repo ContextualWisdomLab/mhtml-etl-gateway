@@ -257,6 +257,21 @@ class WorkflowContractTests(unittest.TestCase):
         ):
             self.assertNotIn(f'"{command}": "allow"', self.opencode_text)
 
+    def test_live_queue_evidence_has_reconstructable_lineage_manifests(self) -> None:
+        """Each privileged collection records its exact source and run identity."""
+        for job in (self.select_job, self.write_job):
+            for fragment in (
+                "open-pulls.manifest.json",
+                "agent-issues.manifest.json",
+                '"source_file": source_file',
+                '"repository": repository',
+                '"endpoint": endpoint',
+                '"query": query',
+                '"collected_at": collected_at',
+                '"workflow_run_id": os.environ["GITHUB_RUN_ID"]',
+            ):
+                self.assertIn(fragment, job)
+
     def test_hourly_loop_uses_durable_agent_task_only_for_product_mode(self) -> None:
         """A durable product lease is created only for the empty-queue product lane."""
         self.assertIn("Ensure one durable agent task", self.write_job)
