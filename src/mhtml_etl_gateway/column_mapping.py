@@ -368,6 +368,7 @@ def _source_candidates(schema: TableSchema, source_name: str) -> list[str]:
             if to_snake_case(source_suffix) == column.db_name.casefold():
                 candidates.append(column.db_name)
         except ValueError:
+            # Ignore malformed mapping text and continue checking other candidates.
             pass
     return candidates
 
