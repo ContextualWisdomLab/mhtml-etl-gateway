@@ -21,6 +21,12 @@ Validation Engine (fail-closed; required headers)
 Schema Inference (PostgreSQL types + snake_case names)
     |
     v
+Column Mapping Reference (JSON / CSV / PPTX text layer)
+    |
+    v
+COMMENT ON COLUMN DDL
+    |
+    v
 Ingest Catalog check (sha256 + table_name)
     |
     +-- already loaded + on_duplicate=skip --> skip insert
@@ -50,6 +56,7 @@ Catalog upsert + Governed Data Asset
 | html_table_extractor | `mhtml_etl_gateway.html_table_extractor` | HTML → headers + rows (chunked feed) |
 | validation_engine | `mhtml_etl_gateway.validation_engine` | Fail-closed pre-load checks |
 | schema_inference | `mhtml_etl_gateway.schema_inference` | PG types + snake_case |
+| column_mapping | `mhtml_etl_gateway.column_mapping` | JSON/CSV/PPTX references → column comments |
 | ingest_catalog | `mhtml_etl_gateway.ingest_catalog` | Catalog DDL + entry model |
 | postgres_loader | `mhtml_etl_gateway.postgres_loader` | Idempotent load + sinks |
 | batch | `mhtml_etl_gateway.batch` | Directory/glob multi-file |
@@ -58,10 +65,25 @@ Catalog upsert + Governed Data Asset
 
 ## Lineage columns (business tables)
 
-- `source_artifact_path` TEXT
+- `source_artifact_path` TEXT — opaque `artifact:<sha-prefix>` reference, not a filesystem path
 - `source_artifact_sha256` TEXT
 - `source_row_number` BIGINT
 - `loaded_at` TIMESTAMP
+
+## Column comments
+
+`--column-mapping` accepts JSON, CSV, or PPTX reference files. Explicit JSON/CSV
+records use `source`, optional `target`, and `comment` (or `description` /
+`label`). Qualified source names match an extracted header by suffix when the
+MHTML export contains only the field name. The resulting schema DDL contains
+one `COMMENT ON COLUMN` statement per matched business column; live PostgreSQL
+loads execute CREATE and comment statements in the same setup transaction.
+PPTX parsing reads qualified field tokens and slide section titles from the
+text layer, not labels embedded only in screenshots.
+
+Operator-provided directories and filenames are accepted only at runtime. Batch
+reports use ordinal/opaque artifact references, and the default table name is
+`mhtml_extracted_rows` rather than a name derived from an input filename.
 
 ## Catalog table
 

@@ -35,6 +35,13 @@ def _add_common_args(p: argparse.ArgumentParser) -> None:
         help="Override target table name (multiword snake_case applied).",
     )
     p.add_argument(
+        "--column-mapping",
+        "--column-comments",
+        dest="column_mapping",
+        default=None,
+        help="Column mapping reference (.json, .csv, or .pptx) used for COMMENT ON COLUMN.",
+    )
+    p.add_argument(
         "--on-duplicate",
         choices=("skip", "replace"),
         default="skip",
@@ -126,6 +133,7 @@ def _run_load(args: argparse.Namespace) -> int:
             dsn=None if args.dry_run else args.dsn,
             sink=None,
             table_name=args.table_name,
+            column_mapping=args.column_mapping,
             lineage_json=args.lineage_json,
             on_duplicate=on_dup,
             required_headers=required,
@@ -137,7 +145,8 @@ def _run_load(args: argparse.Namespace) -> int:
         if args.as_json:
             print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
         else:
-            print(f"source: {path}")
+            print("source: [redacted]")
+            print(f"artifact_ref: {result['lineage']['source_artifact_path']}")
             print(f"sha256: {result['source_sha256']}")
             print(f"skipped: {result.get('skipped')}")
             print(
@@ -183,6 +192,7 @@ def _run_batch(args: argparse.Namespace) -> int:
             dsn=None if args.dry_run else args.dsn,
             sink=None,
             table_name=args.table_name,
+            column_mapping=args.column_mapping,
             on_duplicate=on_dup,
             continue_on_error=args.continue_on_error,
             recursive=not args.no_recursive,

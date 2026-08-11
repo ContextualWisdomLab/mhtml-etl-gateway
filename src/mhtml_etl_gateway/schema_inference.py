@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 
 # PostgreSQL type names used by the gateway.
@@ -206,6 +206,7 @@ class ColumnSpec:
     source_name: str
     db_name: str
     pg_type: str
+    comment: str | None = None
 
 
 @dataclass(frozen=True)
@@ -213,7 +214,7 @@ class TableSchema:
     table_name: str
     columns: list[ColumnSpec]
 
-    def ddl(self, *, include_lineage: bool = True) -> str:
+    def create_ddl(self, *, include_lineage: bool = True) -> str:
         """Emit CREATE TABLE DDL with optional lineage columns.
 
         Identifiers are restricted to validated snake_case (see sql_ident).
@@ -237,6 +238,51 @@ class TableSchema:
             )
         body = ",\n".join(cols)
         return f"CREATE TABLE IF NOT EXISTS {table} (\n{body}\n);"
+
+    def comment_ddl(self) -> list[str]:
+        """Emit COMMENT ON statements for mapped business columns."""
+        from mhtml_etl_gateway.sql_ident import quote_sql_literal, require_safe_ident
+
+        table = require_safe_ident(self.table_name)
+        statements: list[str] = []
+        for column in self.columns:
+            if column.comment is None:
+                continue
+            name = require_safe_ident(column.db_name)
+            statements.append(
+                f"COMMENT ON COLUMN {table}.{name} IS {quote_sql_literal(column.comment)};"
+            )
+        return statements
+
+    def ddl(
+        self,
+        *,
+        include_lineage: bool = True,
+        include_comments: bool = True,
+    ) -> str:
+        """Emit CREATE TABLE DDL followed by mapped COMMENT ON statements."""
+        statements = [self.create_ddl(include_lineage=include_lineage)]
+        if include_comments:
+            statements.extend(self.comment_ddl())
+        return "\n\n".join(statements)
+
+    def with_column_comments(self, comments: Mapping[str, str]) -> "TableSchema":
+        """Return a schema with comments attached by database column name."""
+        return replace(
+            self,
+            columns=[
+                replace(column, comment=comments.get(column.db_name, column.comment))
+                for column in self.columns
+            ],
+        )
+
+    def comment_map(self) -> dict[str, str]:
+        """Return applied comments keyed by database column name."""
+        return {
+            column.db_name: column.comment
+            for column in self.columns
+            if column.comment is not None
+        }
 
     def type_map(self) -> dict[str, str]:
         return {c.source_name: c.pg_type for c in self.columns}
