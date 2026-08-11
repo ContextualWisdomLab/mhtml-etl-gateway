@@ -21,6 +21,7 @@ from mhtml_etl_gateway.schema_inference import (
     infer_table_schema,
     to_table_name,
     to_snake_case,
+    unique_snake_names,
     values_require_text,
 )
 
@@ -62,6 +63,23 @@ def test_long_multiword_table_names_remain_safe_and_multiword(source: str) -> No
 
 def test_long_multiword_table_name_prefers_complete_leading_tokens() -> None:
     assert to_table_name("alpha_beta_" + "x" * 60) == "alpha_beta"
+
+
+def test_long_multiword_table_name_preserves_second_token_when_first_is_long() -> None:
+    result = to_table_name("x" * 80 + "_rows")
+
+    assert len(result) == 63
+    assert result.endswith("_r")
+
+
+def test_unique_long_single_token_names_preserve_field_suffix_on_collision() -> None:
+    names = unique_snake_names(["x" * 63, "x" * 63])
+
+    assert names[0].endswith("_field")
+    assert names[1].endswith("_field_2")
+    assert len(names[0]) == len(names[1]) == 63
+    assert len(set(names)) == 2
+    assert unique_snake_names(["a_b", "a_b"]) == ["a_b", "a_b_2"]
 
 
 def test_infer_pg_types_unit() -> None:

@@ -55,18 +55,24 @@ def _to_multiword_snake_case(name: str, *, suffix: str, label: str) -> str:
     if len(s) <= 63:
         return s
 
-    # Prefer complete leading tokens. If the second token alone crosses the
-    # boundary, retain a bounded part of it so the result remains multiword and
-    # never ends in an unsafe separator.
-    complete_tokens: list[str] = []
-    for token in s.split("_"):  # pragma: no branch - over-limit input must break
-        candidate = "_".join([*complete_tokens, token])
-        if len(candidate) > 63:
-            break
-        complete_tokens.append(token)
-    if len(complete_tokens) >= 2:
-        return "_".join(complete_tokens)
-    return s[:63].rstrip("_")
+    # Prefer complete leading tokens. If the next token crosses the boundary,
+    # retain its bounded prefix so the result remains multiword and safe.
+    tokens = s.split("_")
+    prefix = tokens[0]
+    if len(prefix) >= 62:
+        return f"{prefix[:61]}_{tokens[1][0]}"
+    complete_count = 1
+    for token in tokens[1:]:  # pragma: no branch - over-limit input has a token
+        candidate = f"{prefix}_{token}"
+        if len(candidate) <= 63:
+            prefix = candidate
+            complete_count += 1
+            continue
+        if complete_count >= 2:
+            return prefix
+        remaining = 63 - len(prefix) - 1
+        return f"{prefix}_{token[:remaining]}"
+    return prefix  # pragma: no cover - an over-limit name must overflow a token
 
 
 def to_snake_case(name: str) -> str:
@@ -88,12 +94,17 @@ def unique_snake_names(headers: Sequence[str]) -> list[str]:
     out: list[str] = []
     for h in headers:
         base = to_snake_case(h)
-        candidate = base[:63]
+        candidate = base
         n = 1
         while candidate in used:
             n += 1
             suffix = f"_{n}"
-            candidate = f"{base[: 63 - len(suffix)]}{suffix}"
+            if base.endswith("_field"):
+                stem = base[: -len("_field")]
+                suffix = f"_field_{n}"
+            else:
+                stem = base
+            candidate = f"{stem[: 63 - len(suffix)].rstrip('_')}{suffix}"
         used.add(candidate)
         out.append(candidate)
     return out

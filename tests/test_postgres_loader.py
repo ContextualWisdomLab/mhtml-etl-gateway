@@ -159,10 +159,26 @@ def test_live_sink_rejects_parallel_legacy_column_creation() -> None:
         columns=[ColumnSpec("MANDT", "mandt_field", PG_BIGINT)],
     )
 
-    with pytest.raises(LoadError, match=r"legacy column.*mandt.*explicit migration"):
+    with pytest.raises(LoadError, match=r"legacy column requires explicit migration"):
         sink._ensure_missing_columns(schema)
 
     assert statements == []
+
+
+def test_live_sink_rejects_legacy_column_when_successor_already_exists() -> None:
+    """A dual-column state remains blocked until an explicit migration."""
+    sink = object.__new__(PsycopgSink)
+    sink._fetchall = lambda query, params=None: [
+        ("mandt", "bigint"),
+        ("mandt_field", "bigint"),
+    ]
+    schema = TableSchema(
+        table_name="mhtml_rows",
+        columns=[ColumnSpec("MANDT", "mandt_field", PG_BIGINT)],
+    )
+
+    with pytest.raises(LoadError, match=r"legacy column requires explicit migration"):
+        sink._ensure_missing_columns(schema)
 
 
 def test_legacy_column_detection_reconstructs_numeric_and_duplicate_names() -> None:
@@ -191,7 +207,7 @@ def test_live_sink_rejects_parallel_legacy_table_creation() -> None:
         columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
 
-    with pytest.raises(LoadError, match=r"legacy table.*simple.*explicit migration"):
+    with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink.ensure_table(schema)
 
     assert statements == []
@@ -216,7 +232,7 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
 
     sink._fetchall = fetchall
 
-    with pytest.raises(LoadError, match=r"legacy table.*explicit migration"):
+    with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink._reject_legacy_table_split(schema)
 
     assert legacy_name in observed[0]
@@ -233,7 +249,7 @@ def test_live_sink_queries_numeric_legacy_table_candidate() -> None:
     sink = object.__new__(PsycopgSink)
     sink._fetchall = lambda query, params=None: [(legacy_name,)]
 
-    with pytest.raises(LoadError, match=r"legacy table.*explicit migration"):
+    with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink._reject_legacy_table_split(schema)
 
 
@@ -251,6 +267,15 @@ def test_live_sink_allows_nonlegacy_or_already_migrated_table_names() -> None:
     )
 
     sink._fetchall = lambda query, params=None: [("simple",), ("simple_table",)]
+    with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
+        sink._reject_legacy_table_split(
+            TableSchema(
+                table_name="simple_table",
+                columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
+            )
+        )
+
+    sink._fetchall = lambda query, params=None: [("simple_table",)]
     sink._reject_legacy_table_split(
         TableSchema(
             table_name="simple_table",

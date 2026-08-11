@@ -315,8 +315,6 @@ class PsycopgSink:
 
     def _ensure_missing_columns(self, schema: TableSchema) -> None:
         """Add schema columns missing from an already-existing relation."""
-        from psycopg import sql as pgsql
-
         existing_names = {
             str(name)
             for name, _data_type in self._fetchall(
@@ -330,14 +328,12 @@ class PsycopgSink:
             schema.columns, _legacy_column_names(schema), strict=True
         ):
             if (
-                column.db_name not in existing_names
-                and legacy_name != column.db_name
+                legacy_name != column.db_name
                 and legacy_name in existing_names
             ):
-                raise LoadError(
-                    f"legacy column {legacy_name!r} requires explicit migration "
-                    f"before creating {column.db_name!r}"
-                )
+                raise LoadError("legacy column requires explicit migration")
+        from psycopg import sql as pgsql
+
         allowed_types = {
             PG_TEXT,
             PG_BOOLEAN,
@@ -388,12 +384,8 @@ class PsycopgSink:
             )
         }
         matching_legacy = sorted(candidates & existing_names)
-        if matching_legacy and schema.table_name not in existing_names:
-            legacy_name = matching_legacy[0]
-            raise LoadError(
-                f"legacy table {legacy_name!r} requires explicit migration "
-                f"before creating {schema.table_name!r}"
-            )
+        if matching_legacy:
+            raise LoadError("legacy table requires explicit migration")
 
     def ensure_table(self, schema: TableSchema) -> None:
         """Create or evolve a table and apply its safe column comments."""
