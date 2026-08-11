@@ -541,7 +541,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         ],
     )
     assert sink._columns_to_promote(
-        promotion_schema, [["x", "1", "2", "bad", None]]
+        promotion_schema, [["x", 1, 2, "bad", None]]
     ) == ["mixed_value", "bad_value"]
 
     write_connection = Connection()
