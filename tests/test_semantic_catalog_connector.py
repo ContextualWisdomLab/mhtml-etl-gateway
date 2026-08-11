@@ -23,6 +23,7 @@ from mhtml_etl_gateway.semantic_catalog_handoff import (
 
 
 def _proposal() -> SchemaProposal:
+    """Return a small value-free schema proposal used by connector tests."""
     return propose_schema(
         "a" * 64,
         (
@@ -33,6 +34,7 @@ def _proposal() -> SchemaProposal:
 
 
 def test_manifest_matches_portal_requests_without_protected_values() -> None:
+    """Manifest serialization preserves portal shapes without source values."""
     manifest = build_semantic_catalog_manifest(
         _proposal(),
         catalog_name="SAP VOC export",
@@ -59,6 +61,7 @@ def test_manifest_matches_portal_requests_without_protected_values() -> None:
 
 
 def test_manifest_identity_is_deterministic_and_order_sensitive() -> None:
+    """Manifest IDs are stable for equal input and change when order changes."""
     proposal = _proposal()
     first = build_semantic_catalog_manifest(proposal, catalog_name="VOC")
     second = build_semantic_catalog_manifest(proposal, catalog_name="VOC")
@@ -82,6 +85,7 @@ def test_manifest_identity_is_deterministic_and_order_sensitive() -> None:
 
 
 def test_manifest_trims_display_name_and_supports_empty_schema_shape() -> None:
+    """Display names trim safely and empty schemas retain a dataset node."""
     empty_proposal = SchemaProposal(
         schema_proposal_id="schema_proposal_empty",
         proposal_version="1.0.0",
@@ -100,6 +104,7 @@ def test_manifest_trims_display_name_and_supports_empty_schema_shape() -> None:
 
 
 def test_catalog_value_objects_serialize_portal_shapes() -> None:
+    """Catalog value objects serialize their transport-compatible fields."""
     node = CatalogNode(
         node_id="mhtml_etl_dataset_demo",
         kind="dataset",
@@ -129,6 +134,7 @@ def test_catalog_value_objects_serialize_portal_shapes() -> None:
 
 
 def test_submission_envelope_binds_actor_approval_and_tenant_without_values() -> None:
+    """Submission envelopes bind governance context while excluding raw values."""
     manifest = build_semantic_catalog_manifest(_proposal(), catalog_name="VOC")
     envelope = build_semantic_catalog_submission_envelope(
         manifest,
@@ -161,6 +167,7 @@ def test_submission_envelope_binds_actor_approval_and_tenant_without_values() ->
 
 
 def test_submission_envelope_identity_changes_with_governance_context() -> None:
+    """Tenant, actor, and approval changes produce distinct stable identities."""
     manifest = build_semantic_catalog_manifest(_proposal(), catalog_name="VOC")
     first = build_semantic_catalog_submission_envelope(
         manifest,
@@ -202,6 +209,7 @@ def test_submission_envelope_identity_changes_with_governance_context() -> None:
 
 
 def test_catalog_write_request_serializes_its_transport_boundary() -> None:
+    """A planned write request serializes method, path, key, and body exactly."""
     request = CatalogWriteRequest(
         method="POST",
         path="/graph/nodes",
@@ -219,6 +227,7 @@ def test_catalog_write_request_serializes_its_transport_boundary() -> None:
 
 @pytest.mark.parametrize("catalog_name", ["", 42])
 def test_manifest_rejects_missing_or_non_text_catalog_name(catalog_name: object) -> None:
+    """Catalog display names must be present text values."""
     with pytest.raises(ValueError, match="catalog_name"):
         build_semantic_catalog_manifest(_proposal(), catalog_name=catalog_name)  # type: ignore[arg-type]
 
@@ -247,6 +256,7 @@ def test_submission_envelope_rejects_invalid_governance_context(
     field: str,
     value: str,
 ) -> None:
+    """Malformed governance context is rejected instead of being normalized."""
     manifest = build_semantic_catalog_manifest(_proposal(), catalog_name="VOC")
     context = {
         "tenant_id": "tenant_cwl",
