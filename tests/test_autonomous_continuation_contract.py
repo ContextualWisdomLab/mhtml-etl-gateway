@@ -93,6 +93,9 @@ class AutonomousContinuationContractTests(unittest.TestCase):
                 "cwl-safe-exec /bin/sh -c",
                 "NoNewPrivs",
                 "for capability in Inh Prm Eff Bnd Amb",
+                "source_file=\"$workspace/scripts/hourly_product_gap.py\"",
+                "namei -l \"$source_file\"",
+                "for readable_file in",
             ):
                 self.assertIn(fragment, wrapper_flat)
         self.assertNotIn("sudo -u cwl-untrusted -g cwl-workspace", self.workflow_text)

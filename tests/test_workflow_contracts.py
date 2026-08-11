@@ -213,6 +213,9 @@ class WorkflowContractTests(unittest.TestCase):
             "cwl-safe-exec /bin/sh -c",
             "NoNewPrivs",
             "for capability in Inh Prm Eff Bnd Amb",
+            "source_file=\"$workspace/scripts/hourly_product_gap.py\"",
+            "namei -l \"$source_file\"",
+            "for readable_file in",
         )
         for job in (self.select_job, self.write_job):
             job_flat = " ".join(job.split())

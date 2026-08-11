@@ -117,12 +117,20 @@ jobs:
           test "$(stat -c '%U:%G:%a' /usr/local/bin/cwl-safe-exec)" = "root:root:755"
           cwl-safe-exec /bin/sh -c '
             workspace_gid="$(getent group cwl-workspace | cut -d: -f3)"
+            source_file="$workspace/scripts/hourly_product_gap.py"
             test "$(id -un)" = cwl-untrusted
             test "$(id -gn)" = cwl-workspace
             test "$(id -G)" = "$workspace_gid"
             grep -Eq "^NoNewPrivs:[[:space:]]+1\$" /proc/self/status
             for capability in Inh Prm Eff Bnd Amb; do
               grep -Eq "^Cap${capability}:[[:space:]]+0+\$" /proc/self/status
+            done
+            printf "cwl-safe-exec source identity uid=%s gid=%s groups=%s mode=" "$(id -u)" "$(id -g)" "$(id -G)" >&2
+            stat -c "%U:%G:%a" "$source_file" >&2
+            namei -l "$source_file" >&2
+            for readable_file in "$source_file" "$workspace/.agent/evidence/open-pulls.json" "$workspace/.agent/evidence/agent-issues.json"; do
+              test -r "$readable_file"
+              head -c 1 "$readable_file" >/dev/null
             done
           '
 
@@ -391,12 +399,20 @@ jobs:
           test "$(stat -c '%U:%G:%a' /usr/local/bin/cwl-safe-exec)" = "root:root:755"
           cwl-safe-exec /bin/sh -c '
             workspace_gid="$(getent group cwl-workspace | cut -d: -f3)"
+            source_file="$workspace/scripts/hourly_product_gap.py"
             test "$(id -un)" = cwl-untrusted
             test "$(id -gn)" = cwl-workspace
             test "$(id -G)" = "$workspace_gid"
             grep -Eq "^NoNewPrivs:[[:space:]]+1\$" /proc/self/status
             for capability in Inh Prm Eff Bnd Amb; do
               grep -Eq "^Cap${capability}:[[:space:]]+0+\$" /proc/self/status
+            done
+            printf "cwl-safe-exec source identity uid=%s gid=%s groups=%s mode=" "$(id -u)" "$(id -g)" "$(id -G)" >&2
+            stat -c "%U:%G:%a" "$source_file" >&2
+            namei -l "$source_file" >&2
+            for readable_file in "$source_file" "$workspace/.agent/evidence/open-pulls.json" "$workspace/.agent/evidence/agent-issues.json"; do
+              test -r "$readable_file"
+              head -c 1 "$readable_file" >/dev/null
             done
           '
 
