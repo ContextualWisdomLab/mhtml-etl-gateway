@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -14,7 +15,6 @@ from mhtml_etl_gateway.ingest_catalog import (
     make_catalog_entry,
 )
 from mhtml_etl_gateway.lineage import artifact_reference
-from mhtml_etl_gateway.sql_ident import require_safe_ident
 from mhtml_etl_gateway.schema_inference import (
     PG_BIGINT,
     PG_BOOLEAN,
@@ -27,12 +27,44 @@ from mhtml_etl_gateway.schema_inference import (
     coerce_value,
     values_require_text,
 )
+from mhtml_etl_gateway.sql_ident import require_safe_ident
 
 OnDuplicate = Literal["skip", "replace"]
 
 
 class LoadError(ValueError):
     """Fail-closed load error."""
+
+
+_LEGACY_NON_ALNUM = re.compile(r"[^0-9a-zA-Z]+")
+_LEGACY_CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+
+
+def _legacy_column_names(schema: TableSchema) -> list[str]:
+    """Reconstruct pre-policy inferred names only for upgrade detection.
+
+    These names are never emitted as SQL identifiers.  They let the live sink
+    reject a load before a persisted legacy column and its suffixed successor
+    can silently coexist and split values.
+    """
+    used: set[str] = set()
+    names: list[str] = []
+    for column in schema.columns:
+        name = _LEGACY_CAMEL_BOUNDARY.sub(r"\1_\2", str(column.source_name).strip())
+        name = _LEGACY_NON_ALNUM.sub("_", name)
+        name = re.sub(r"_+", "_", name).strip("_").lower()
+        if name and name[0].isdigit():
+            name = f"col_{name}"
+        base = name[:63]
+        candidate = base
+        suffix_number = 1
+        while candidate in used:
+            suffix_number += 1
+            suffix = f"_{suffix_number}"
+            candidate = f"{base[: 63 - len(suffix)]}{suffix}"
+        used.add(candidate)
+        names.append(candidate)
+    return names
 
 
 @dataclass
@@ -269,6 +301,18 @@ class PsycopgSink:
                 (schema.table_name,),
             )
         }
+        for column, legacy_name in zip(
+            schema.columns, _legacy_column_names(schema), strict=True
+        ):
+            if (
+                column.db_name not in existing_names
+                and legacy_name != column.db_name
+                and legacy_name in existing_names
+            ):
+                raise LoadError(
+                    f"legacy column {legacy_name!r} requires explicit migration "
+                    f"before creating {column.db_name!r}"
+                )
         allowed_types = {
             PG_TEXT,
             PG_BOOLEAN,
@@ -293,11 +337,34 @@ class PsycopgSink:
             )
             existing_names.add(column.db_name)
 
+    def _reject_legacy_table_split(self, schema: TableSchema) -> None:
+        """Fail before a suffixed relation can be created beside legacy rows."""
+        suffix = "_table"
+        if not schema.table_name.endswith(suffix):
+            return
+        legacy_name = schema.table_name[: -len(suffix)]
+        if not legacy_name or "_" in legacy_name:
+            return
+        existing_names = {
+            str(row[0])
+            for row in self._fetchall(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = current_schema() AND table_name IN (%s, %s)",
+                (legacy_name, schema.table_name),
+            )
+        }
+        if legacy_name in existing_names and schema.table_name not in existing_names:
+            raise LoadError(
+                f"legacy table {legacy_name!r} requires explicit migration "
+                f"before creating {schema.table_name!r}"
+            )
+
     def ensure_table(self, schema: TableSchema) -> None:
         """Create or evolve a table and apply its safe column comments."""
         # DDL identifiers validated inside TableSchema.ddl().  Keep CREATE and
         # COMMENT statements separate so psycopg never has to prepare a
         # multi-command statement, while committing them together.
+        self._reject_legacy_table_split(schema)
         self._execute(schema.create_ddl(include_lineage=True))
         self._ensure_missing_columns(schema)
         for statement in schema.comment_ddl():
