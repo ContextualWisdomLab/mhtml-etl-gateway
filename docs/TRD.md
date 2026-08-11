@@ -130,7 +130,7 @@ The loader architecture shall use separate `raw_import`, `staging_data`, `normal
 - 100% public API docstrings;
 - compileall, repository-contract, wheel-build, and installed-wheel smoke checks;
 - full-SHA GitHub Action pinning;
-- `unittest discover` executes every repository-owned quality contract test;
+- the hash-locked `pytest` runner executes every repository-owned quality contract test;
 - agent-branch pushes materialize exact-head quality evidence without duplicating a same-SHA PR run;
 - no customer-like `.mhtml` or `.mht` artifact is committed;
 - current-head central review, security, unresolved-thread, branch-freshness, and merge policy remain authoritative.

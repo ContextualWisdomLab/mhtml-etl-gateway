@@ -1,98 +1,155 @@
 # MHTML ETL Gateway
 
-MHTML ETL Gateway currently provides deterministic, privacy-preserving inspection of untrusted enterprise MHTML exports. Version `0.1.0` identifies the immutable source, resolves the authoritative HTML root, extracts bounded top-level table structure without rendering, and emits a value-free structural report. Governed PostgreSQL schema proposals and loading are the next product milestones, not current package capabilities.
+MHTML ETL Gateway is a deterministic, privacy-preserving ingestion boundary for
+enterprise MHTML exports. It can inspect untrusted MIME/HTML structure without
+rendering active content, infer governed PostgreSQL schemas, apply column mapping
+references as `COMMENT ON COLUMN`, and load rows with opaque artifact lineage.
 
-## Current capabilities
+## Capabilities
 
-- bounded `multipart/related` and standalone `text/html` parsing;
-- RFC 2387 `start` selection and first-direct-body default-root behavior;
-- fail-closed MIME defects, duplicate critical headers and parameters, ambiguous `Content-ID` values, contradictory root types, invalid charsets, malformed spans, and exhausted budgets;
-- total MIME entity and nesting-depth budgets, including stable conversion of parser recursion exhaustion to `mime_nesting_too_deep`;
-- strict charset decoding with BOM support and explicit diagnostics for known enterprise compatibility deviations;
-- top-level HTML table extraction without a browser, JavaScript engine, CSS renderer, network client, XML parser, office runtime, or external resource retrieval;
-- deterministic `rowspan` and `colspan` expansion with duplicate-attribute, overlap, raw-cell, projected-cell, row, and column budgets;
-- exact nested suppression of `script`, `style`, `noscript`, `template`, `iframe`, and `object`, while void `embed` resources are ignored without swallowing following text;
-- immutable SHA-256 source identity;
-- raw Content-Location replacement with SHA-256 only;
-- metadata-only JSON that excludes every cell-derived value, including header text;
-- fixed nonreflecting public error messages;
-- Python 3.11–3.14 support;
-- 100% production statement, branch, and public-docstring gates;
-- an hourly private OpenCode loop that drains executable PR work, shared blockers, and proven-disjoint buyer-visible work rather than stopping after one patch or external delay;
-- repository-controlled tests and builds executed through a secret-stripped unprivileged wrapper;
-- inherited organization-wide review, security, branch-freshness, and merge governance from `ContextualWisdomLab/.github`.
+- RFC 2387 `multipart/related` root resolution and standalone HTML support.
+- Non-rendering, chunked table extraction with fail-closed MIME, HTML, span,
+  row, column, cell, nesting, and source-size budgets.
+- Validation of headers, row shapes, required business fields, and empty inputs.
+- PostgreSQL type inference with multiword `snake_case` identifiers, idempotent
+  artifact cataloging, transactional type promotion, and row-level lineage.
+- JSON, CSV, and PPTX text-layer column mapping references for `COMMENT ON COLUMN`.
+- Privacy-safe reports and errors that do not echo local paths, filenames, row
+  values, or raw Content-Location values.
 
-## Install and inspect
+## Install
 
 ```bash
-python -m pip install .
-python -m mhtml_etl_gateway inspect export.mhtml --pretty
+python -m pip install -e ".[dev]"
 ```
 
-The report contains source identity and size, hashed Content-Location identity when present, table dimensions, header coordinate/source/count metadata, and fixed diagnostics. It contains no header or row values.
+Python 3.11–3.14 are supported. Live loads require PostgreSQL and either
+`MHTML_ETL_DSN` or `DATABASE_URL`; dry runs do not require a database.
+
+## Inspect an artifact
+
+```bash
+mhtml-etl-gateway inspect export.mhtml --pretty
+```
+
+Inspection output is metadata-only: source identity, size, table dimensions,
+fixed diagnostics, and non-reflecting error codes. Cell and header values are
+not emitted by the public inspection API.
+
+## Load one artifact
+
+```bash
+export MHTML_ETL_DSN="postgresql://user:pass@localhost:5432/dbname"
+mhtml-etl-gateway load export.MHTML \
+  --table-name zcrht811_export_rows \
+  --on-duplicate skip \
+  --json
+```
+
+Use `--dry-run` for parse, validation, type inference, and DDL generation without
+writing to PostgreSQL. `--on-duplicate replace` replaces rows for an already
+cataloged artifact; the default `skip` is idempotent.
+
+## Column mappings and comments
+
+Pass a JSON, CSV, or PPTX reference with `--column-mapping` (also accepted as
+`--column-comments`):
+
+```bash
+mhtml-etl-gateway load export.MHTML \
+  --column-mapping column-mapping.json \
+  --ddl-out schema.sql \
+  --dry-run
+```
+
+JSON records may use `source`, optional `target`, and `comment` (or
+`description`/`label`):
 
 ```json
 {
-  "source_hash_sha256": "…",
-  "source_size_bytes": 467343,
-  "root_content_location_hash_sha256": "…",
-  "table_count": 1,
-  "diagnostics": [],
-  "tables": [
-    {
-      "row_count": 14,
-      "data_row_count": 13,
-      "column_count": 40,
-      "header_row_index": 0,
-      "header_source": "positional",
-      "header_value_count": 40,
-      "diagnostics": []
-    }
+  "columns": [
+    {"source": "ZCRHT811.TITLE", "target": "title", "comment": "상담 제목"},
+    {"source": "ZCRHT810.ERDAT", "comment": "VOC 작성일자"}
   ]
 }
 ```
 
-Header access for schema design requires a future authenticated source-custody workflow with authorization, audit, retention, and protected output. The public inspection API and CLI do not expose a header-value option.
+Qualified source names match an extracted header by exact name or field suffix.
+Ambiguous or conflicting mappings fail closed. PPTX support reads text-layer
+tokens and slide sections; text embedded only in screenshots requires a JSON or
+CSV mapping instead of implicit OCR.
 
-Programmatic callers can lower all parser budgets through `ParseLimits`, including source bytes, total MIME entities, MIME depth, decoded HTML characters, tables, rows, columns, raw and normalized cells, and cell text. Every budget must be a positive non-boolean integer.
-
-## Safety boundary
-
-MHTML is untrusted input. The project never follows `Content-Location`, `cid:`, image, stylesheet, form, iframe, object, embed, or script references. Errors use stable codes and fixed messages rather than echoing paths, identifiers, charsets, transfer encodings, media types, boundary values, headers, or rows.
-
-Customer MHTML files must never be committed. Tests use synthetic fixtures. Protected real-file validation records only authorized aggregate evidence and never publishes the source path, values, or actual source hash.
-
-The scheduled coding agent treats repository source, comments, issues, reviews, logs, and artifacts as untrusted data. Repository-controlled code runs through `cwl-safe-exec`, which removes model, GitHub, OIDC, and provider credentials and executes under the dedicated unprivileged `cwl-untrusted` identity with workspace-only group access.
-
-## Development verification
+## Batch loading
 
 ```bash
-PYTHONPATH=src coverage erase
-PYTHONPATH=src coverage run --branch -m unittest discover -s tests -t . -v
-PYTHONPATH=src coverage report --show-missing --fail-under=100
-python -m compileall -q src tests scripts
-PYTHONPATH=src python scripts/validate_repository.py
-python -m pip wheel . --no-deps --no-build-isolation --wheel-dir dist
+export MHTML_ETL_SOURCE_DIR="/operator/local/source-directory"
+mhtml-etl-gateway batch \
+  --table-name mhtml_extracted_rows \
+  --on-duplicate skip \
+  --json
 ```
 
-## Documentation map
+The batch output contains aggregate counts and opaque artifact references only.
+The input directory is an operator-local runtime value and must never be
+committed or embedded in documentation, tests, logs, or database lineage.
 
-Start with the [PRD](docs/PRD.md) and [TRD](docs/TRD.md), then use the canonical [architecture](docs/ARCHITECTURE.md), [UML/runtime views](docs/UML.md), [data model](docs/DATA_MODEL.md), and [conceptual ERD](docs/ERD.md). Material decisions are indexed in the [ADR register](docs/adr/README.md). Interface and assurance contracts are maintained in the [API contract](docs/API_CONTRACT.md), [security design](docs/SECURITY.md), [threat model](docs/THREAT_MODEL.md), [test strategy](docs/TEST_STRATEGY.md), [operability guide](docs/OPERABILITY.md), [compliance control map](docs/COMPLIANCE_CONTROL_MAP.md), [research traceability](docs/RESEARCH_TRACEABILITY.md), [validation report](docs/VALIDATION_REPORT.md), and [APA 7 references](docs/doctoring/REFERENCES.md).
+## Database contract
 
-The diagram and ERD documents explicitly distinguish current as-built inspection behavior from future conceptual PostgreSQL/service boundaries. An accepted design decision or diagram must never be read as evidence that the corresponding migration, service, security control, or release artifact is already implemented.
+Business tables use at least two-word `snake_case` names. Lineage columns are:
 
-## Product path
+- `source_artifact_path TEXT`: `artifact:<sha-prefix>`, never a filesystem path;
+- `source_artifact_sha256 TEXT`;
+- `source_row_number BIGINT`;
+- `loaded_at TIMESTAMP`.
 
-The next bounded slices are:
+The `mhtml_ingest_artifact` catalog is keyed by
+`(source_artifact_sha256, table_name)`. Mapping comments are applied in the same
+setup transaction as the table DDL and are never inferred from raw cell values.
 
-1. versioned protected schema proposals and approval;
-2. immutable raw/staging/normalized PostgreSQL layers;
-3. transaction-safe streamed `COPY FROM STDIN`;
-4. row-level lineage, rejection quarantine, reconciliation, rollback, and idempotent replay;
-5. tenant-aware service APIs, workers, observability, and lifecycle controls;
-6. governed connectors to CWL data products.
+## Verification
 
-See [ROADMAP.md](docs/ROADMAP.md).
+```bash
+python -m pytest -q
+python -m compileall -q src tests scripts
+PYTHONPATH=src python scripts/validate_repository.py
+```
+
+The repository quality workflow exercises Python 3.11–3.14, exact pull-request
+heads, dependency/security checks, static analysis, coverage, and package build
+contracts. The quality gate is evidence for this repository; it is not a claim
+of certification.
+
+## Documentation and standards
+
+Start with [PRD](docs/PRD.md), [TRD](docs/TRD.md),
+[ARCHITECTURE](docs/ARCHITECTURE.md), [UML](docs/UML.md),
+[DATA_MODEL](docs/DATA_MODEL.md), and [ERD](docs/ERD.md). Operational and
+assurance material is in [OPERABILITY](docs/OPERABILITY.md),
+[THREAT_MODEL](docs/THREAT_MODEL.md), [TEST_STRATEGY](docs/TEST_STRATEGY.md),
+[COMPLIANCE_CONTROL_MAP](docs/COMPLIANCE_CONTROL_MAP.md), and
+[VALIDATION_REPORT](docs/VALIDATION_REPORT.md). Decisions are indexed in
+[docs/adr](docs/adr/README.md), and standards/papers are recorded in
+[docs/doctoring/REFERENCES.md](docs/doctoring/REFERENCES.md) using APA 7th style.
+
+The design considers NIST SSDF, OWASP ASVS, ISO/IEC 27001, CSAP readiness, SOC 2
+Trust Services Criteria, RFC 2387/RFC 2557, OpenAPI, OpenTelemetry, SPDX, and
+SLSA. The project does not claim those certifications.
+
+## Modular deployment
+
+The parser/inspection boundary is usable as a standalone library or service.
+Future MSA boundaries separate source custody, deterministic parsing, schema
+governance, PostgreSQL loading, audit/observability, and CWL connectors. A
+connector may consume approved opaque artifacts but cannot bypass source
+validation, authorization, or lineage controls. Candidate integrations include
+the central `.github` workflows, `naruon`, `contextual-orchestrator`, and
+governed PostgreSQL/lineage products.
+
+## Safety
+
+MHTML is untrusted input. The project never executes scripts, renders browsers,
+resolves XML entities, fetches external resources, or follows active references.
+Customer artifacts and real operator paths must never enter the repository.
 
 ## License
 

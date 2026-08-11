@@ -3,10 +3,16 @@ __pycache__/
 .coverage
 coverage.xml
 htmlcov/
+*.egg-info/
+.eggs/
 dist/
 build/
-*.egg-info/
+.pytest_cache/
 .venv/
+venv/
+*.egg
+.DS_Store
+src/*.egg-info/
 .env
 *.mhtml
 *.mht

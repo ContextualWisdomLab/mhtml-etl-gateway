@@ -32,8 +32,8 @@ class ErrorContractTests(unittest.TestCase):
         self.assertNotIn("attacker", str(error))
 
     def test_package_version_is_semantic(self) -> None:
-        """The package exports its initial semantic version."""
-        self.assertEqual(__version__, "0.1.0")
+        """The package exports the current release's semantic version."""
+        self.assertEqual(__version__, "0.3.0")
 
 
 if __name__ == "__main__":

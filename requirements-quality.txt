@@ -1,10 +1,33 @@
-# CI-only quality tool lock for CPython 3.11-3.14 on ubuntu-24.04 x86_64.
-# Hashes are the reviewed PyPI artifacts for coverage 7.13.3. Keep
-# --only-binary=:all: and --require-hashes in the consuming workflow so an
-# unreviewed sdist or artifact cannot satisfy this lock.
+# Hash-locked CI execution set for CPython 3.11-3.14 on ubuntu-24.04 x86_64;
+# the CPython 3.14 macOS arm64 wheels for coverage/psycopg-binary also keep
+# the same lock usable in the supported local development environment.
+# It contains the coverage/test runner plus the runtime packages exercised by
+# the PostgreSQL and MHTML paths.  Keep --only-binary=:all: and
+# --require-hashes in the consuming workflow.
 coverage==7.13.3 \
     --hash=sha256:0c2be202a83dde768937a61cdc5d06bf9fb204048ca199d93479488e6247656c \
     --hash=sha256:8bb09e83c603f152d855f666d70a71765ca8e67332e5829e62cb9466c176af23 \
     --hash=sha256:16d23d6579cf80a474ad160ca14d8b319abaa6db62759d6eef53b2fc979b58c8 \
     --hash=sha256:06e49c5897cb12e3f7ecdc111d44e97c4f6d0557b81a7a0204ed70a8b038f86f \
+    --hash=sha256:2f5e731627a3d5ef11a2a35aa0c6f7c435867c7ccbc391268eb4f2ca5dbdcc10 \
     --hash=sha256:90a8af9dba6429b2573199622d72e0ebf024d6276f16abce394ad4d181bb0910
+defusedxml==0.7.1 \
+    --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
+iniconfig==2.1.0 \
+    --hash=sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760
+packaging==26.0 \
+    --hash=sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529
+pluggy==1.6.0 \
+    --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
+psycopg==3.3.4 \
+    --hash=sha256:b6bbc25ccf05c8fad3b061d9db2ef0909a555171b84b07f29458a447253d679a
+psycopg-binary==3.3.4 \
+    --hash=sha256:ab8cca8ef8fb1ccf5b048ae5bd78ba55b9e4b5d472e3ce5ca39ff4d2a9c249e4 \
+    --hash=sha256:e7510c37550f91a187e3660a8cc50d4b760f8c3b8b2f89ebc5698cd2c7f2c85d \
+    --hash=sha256:c677c4ad433cb7150c8cd304a0769ae3bcfbe5ea0676eb53faa7b1443b16d0d3 \
+    --hash=sha256:1fbaa292a3c8bb61b45df1ad3da1908ccee7cb889db9425e3557d9e34e2a4829 \
+    --hash=sha256:8c0056529e68dbe9184cd4019a1f3d8f3a4ead2f6fc7a5afcf27d3314edd1277
+pygments==2.19.2 \
+    --hash=sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b
+pytest==9.1.1 \
+    --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c

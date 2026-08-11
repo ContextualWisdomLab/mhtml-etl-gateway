@@ -58,7 +58,8 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - exact-head agent-branch quality execution;
 - SHA-keyed push/PR concurrency;
 - hash-locked binary-only quality dependency installation;
-- dependency-integrity tests executed by `unittest discover`.
+- dependency-integrity and pytest-style behavior tests executed by the same
+  hash-locked `pytest` coverage command used in CI.
 
 ### Autonomous-maintenance contracts
 
@@ -99,7 +100,7 @@ Workflow contract tests require all of the following:
 
 ### Privileged OpenCode runner supply chain
 
-The active `unittest discover` suite verifies the exact executable that will receive model and repository authority:
+The active `pytest` suite verifies the exact executable that will receive model and repository authority:
 
 - the upstream composite action is absent from the hourly workflow;
 - mutable nested `actions/cache@*`, latest-release lookup, and remote installer piping are absent;

@@ -1,12 +1,12 @@
-"""Public package interface for MHTML ETL Gateway."""
+"""Public package interface for safe MHTML inspection and PostgreSQL ETL."""
 
-from __future__ import annotations
-
+from .batch import run_batch
 from .errors import ErrorCode, MhtmlGatewayError
 from .inspection import inspect_mhtml_bytes, inspect_mhtml_file
 from .models import InspectionReport, ParseLimits
+from .pipeline import convert_mhtml_to_postgres, extract_table
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "ErrorCode",
@@ -14,6 +14,9 @@ __all__ = [
     "MhtmlGatewayError",
     "ParseLimits",
     "__version__",
+    "convert_mhtml_to_postgres",
+    "extract_table",
     "inspect_mhtml_bytes",
     "inspect_mhtml_file",
+    "run_batch",
 ]

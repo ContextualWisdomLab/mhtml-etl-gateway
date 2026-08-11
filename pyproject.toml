@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mhtml-etl-gateway"
-version = "0.1.0"
-description = "Deterministic privacy-preserving inspection of enterprise MHTML tables."
+version = "0.3.0"
+description = "Safe MHTML inspection and privacy-preserving PostgreSQL ETL for enterprise tables."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [{name = "ContextualWisdomLab"}]
-keywords = ["mhtml", "inspection", "sap", "table", "lineage"]
+keywords = ["mhtml", "inspection", "etl", "postgresql", "lineage"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
@@ -20,16 +20,23 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+  "defusedxml>=0.7",
+  "psycopg[binary]>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
 
 [project.scripts]
 mhtml-etl-gateway = "mhtml_etl_gateway.cli:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.coverage.run]
 branch = true
