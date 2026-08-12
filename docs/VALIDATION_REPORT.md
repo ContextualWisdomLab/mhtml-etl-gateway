@@ -1,17 +1,17 @@
 # Validation Report
 
 **Validated:** 2026-08-12
-**Product version:** 0.3.2
+**Product version:** 0.4.0
 **Scope:** deterministic value-free MHTML inspection, work-conserving autonomous maintenance, and verified OpenCode runner delivery
 
-## Current 0.3.2 implementation addendum
+## Current 0.4.0 implementation addendum
 
 The historical evidence below remains preserved for the original inspection
 baseline. The current merged main implementation also includes versioned
-value-free schema proposals, `COMMENT ON COLUMN` mapping support, and the
-Semantic Data Portal connector boundary. The current development head adds a
-bounded local `propose` CLI/Python wrapper from validated MHTML tables. The
-worktree on 2026-08-12 is validated with Python 3.14 as follows:
+value-free schema proposals, `COMMENT ON COLUMN` mapping support, the
+Semantic Data Portal connector boundary, and a bounded local `propose`
+CLI/Python wrapper from validated MHTML tables. The worktree on 2026-08-12 is
+validated with Python 3.14 as follows:
 
 ```text
 374 tests passed
@@ -21,8 +21,8 @@ worktree on 2026-08-12 is validated with Python 3.14 as follows:
 1,022 production branches: 100%
 ```
 
-The release candidate reports package version `0.3.2`; `uv build --wheel`
-produced `mhtml_etl_gateway-0.3.2-py3-none-any.whl`. Build artifacts remain
+The release candidate reports package version `0.4.0`; `uv build --wheel`
+produced `mhtml_etl_gateway-0.4.0-py3-none-any.whl`. Build artifacts remain
 outside the repository.
 
 The pg-erd-cloud and local proposal implementation slices were validated with
@@ -37,8 +37,8 @@ current-head Checks remain the merge authority for the implementation PR.
 The local proposal tests additionally cover deterministic source-to-proposal
 conversion, protected-value absence, fixed parser/proposal errors, invalid
 resource limits, and the bounded MIME/HTML parser path. The produced
-`mhtml_etl_gateway-0.3.2-py3-none-any.whl` remains outside the repository until
-the release PR updates the package version.
+The `mhtml_etl_gateway-0.4.0-py3-none-any.whl` remains outside the repository
+and is subject to the exact-head release checks.
 
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
 graph manifests, endpoint-compatible node/edge shapes, order-sensitive identity,

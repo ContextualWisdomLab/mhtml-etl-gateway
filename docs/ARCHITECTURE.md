@@ -1,13 +1,11 @@
-# MHTML ETL Gateway Architecture v0.3
+# MHTML ETL Gateway Architecture v0.4
 
 ## System context
 
 The gateway is a modular boundary: deterministic parsing and inspection can run
 alone, while schema governance and PostgreSQL loading consume approved,
-versioned artifacts.
-The released `0.3.2` baseline is extended on the current development head by a
-local schema-proposal wrapper and CLI; that extension remains Unreleased until
-the release PR.
+versioned artifacts. Version `0.4.0` additionally exposes the local
+schema-proposal wrapper and CLI as a standalone source-custody module.
 
 ```mermaid
 flowchart TB

@@ -1,18 +1,18 @@
 # Product Requirements Document: MHTML ETL Gateway
 
-**Version:** 0.3
+**Version:** 0.4
 **Status:** Accepted implementation baseline with explicit future service boundaries
 **Date:** 2026-08-12
 
 ## Product vision
 
-Version `0.3.2` provides deterministic, privacy-preserving inspection of
+Version `0.4.0` provides deterministic, privacy-preserving inspection of
 untrusted enterprise MHTML exports plus an optional transactional PostgreSQL
 loader. It proves which MIME body is authoritative, extracts bounded top-level
 table structure without rendering or execution, applies explicit mapping
 comments, and preserves opaque artifact lineage through the live load path.
-The current development head additionally provides the local, value-free schema
-proposal workflow; that addition remains Unreleased until its release PR.
+It also provides a local, value-free schema proposal workflow from one
+validated MHTML table.
 
 The product is intended to evolve into an enterprise ingestion control plane
 that produces governed, queryable PostgreSQL assets. Staging schemas,
