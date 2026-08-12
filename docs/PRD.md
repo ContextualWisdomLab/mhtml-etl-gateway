@@ -1,18 +1,18 @@
 # Product Requirements Document: MHTML ETL Gateway
 
-**Version:** 0.3
+**Version:** 0.4
 **Status:** Accepted implementation baseline with explicit future service boundaries
 **Date:** 2026-08-12
 
 ## Product vision
 
-Version `0.3.2` provides deterministic, privacy-preserving inspection of
+Version `0.4.0` provides deterministic, privacy-preserving inspection of
 untrusted enterprise MHTML exports plus an optional transactional PostgreSQL
 loader. It proves which MIME body is authoritative, extracts bounded top-level
 table structure without rendering or execution, applies explicit mapping
 comments, and preserves opaque artifact lineage through the live load path.
-The current development head additionally provides the local, value-free schema
-proposal workflow; that addition remains Unreleased until its release PR.
+It also provides a local, value-free schema proposal workflow from one
+validated MHTML table.
 
 The product is intended to evolve into an enterprise ingestion control plane
 that produces governed, queryable PostgreSQL assets. Staging schemas,
@@ -49,9 +49,9 @@ Enterprise teams regularly receive SAP ALV, spreadsheet web-archive, browser-sav
 - Standalone operation and MSA composition are equally supported.
 - Product claims never exceed exact-head implemented and verified behavior.
 
-## Current P0 release slice: deterministic inspection
+## Current 0.4.0 release slice: inspection, proposal, and governed handoffs
 
-The `0.1.0` implementation shall:
+The `0.4.0` implementation provides:
 
 - accept bounded standalone `text/html` and `multipart/related` input;
 - reject parser defects and duplicate security-critical MIME metadata;
@@ -70,16 +70,30 @@ The `0.1.0` implementation shall:
 - omit all cell-derived values, including header text, from the public Python and CLI report;
 - use stable error codes and approved fixed messages that do not reflect attacker-controlled values;
 - perform no network, browser, office, XML-entity, database, or external-resource operation.
+- produce deterministic, value-free schema proposals from one validated MHTML
+  table through the local `propose` CLI and Python wrapper;
+- expose caller-owned Semantic Data Portal and pg-erd-cloud handoff plans
+  without transport, approval, persistence, or authentication authority;
+- load validated typed rows through the optional transactional PostgreSQL sink
+  with explicit mapping-driven `COMMENT ON COLUMN` support.
 
-Header values required by future schema governance must remain inside an authenticated source-custody workflow with authorization, audit, retention, and protected output. That workflow is not part of the current public inspection API or CLI.
+Header values required by schema governance remain inside the local
+source-custody workflow with caller-owned authorization, audit, retention, and
+protected output. They are not part of the public inspection report or default
+CLI output.
 
-## P1: governed schema proposals and catalog handoff
+## Future P1: governed schema approval and catalog service
 
-The next product slice shall produce versioned, reviewable PostgreSQL schema proposals without executing DDL. A protected proposal workflow includes source-header fingerprints, normalized multiword `snake_case` names, proposed data types, nullability evidence, date/number/code ambiguity, confidence, policy findings, reviewer decisions, and immutable source lineage.
+The next service slice shall add authenticated, tenant-aware approval and
+retention controls around the implemented versioned, reviewable PostgreSQL
+schema proposals. It must preserve source-header fingerprints, normalized
+multiword `snake_case` names, proposed data types, nullability evidence,
+date/number/code ambiguity, confidence, policy findings, reviewer decisions,
+and immutable source lineage without moving raw values into public artifacts.
 
 No automatic inference may reinterpret identifier-like values with leading zeroes as numbers without explicit policy evidence. Source headers and sample values must never be copied into public logs, issues, or default reports.
 
-The current P1 integration slice also emits a deterministic, value-free
+The current 0.4.0 integration slice also emits a deterministic, value-free
 Semantic Data Portal manifest. It exposes dataset/column graph nodes and
 `contains_column` edges for caller-owned authenticated submission, while
 keeping network, tenant, approval, and transport authority outside the parser.
@@ -101,7 +115,7 @@ The local proposal slice now closes the operator workflow gap: a bounded
 same value-free `SchemaProposal` contract. The command is source-custody local,
 not an authenticated service, and emits no raw header, cell, path, HTML, or DDL.
 
-## P2: PostgreSQL loading
+## Current 0.4.0 PostgreSQL loading and future P2 controls
 
 Every generated database object must use descriptive lowercase multiword
 `snake_case`; single-token inputs are suffixed by the canonical schema engine

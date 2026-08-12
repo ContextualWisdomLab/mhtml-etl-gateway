@@ -4,16 +4,18 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Planned
+
+- Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware
+  APIs, and authenticated governed CWL connectors.
+
+## [0.4.0] — 2026-08-12
+
 ### Added
 
 - A first-party `propose` CLI and Python wrapper that turn one validated MHTML
   table into a deterministic, value-free schema proposal for steward review and
   Semantic Data Portal or pg-erd-cloud handoff.
-
-### Planned
-
-- Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware
-  APIs, and authenticated governed CWL connectors.
 
 ## [0.3.2] — 2026-08-12
 
