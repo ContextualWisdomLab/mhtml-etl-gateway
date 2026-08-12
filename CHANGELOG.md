@@ -4,10 +4,6 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware
