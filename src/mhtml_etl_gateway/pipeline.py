@@ -113,6 +113,7 @@ def propose_schema_for_extract(
     """
     if not isinstance(extracted, ExtractResult):
         raise SchemaProposalError(SchemaProposalErrorCode.INVALID_INPUT)
+    effective_policy = policy or SchemaProposalPolicy()
     try:
         validate_extracted_table(
             extracted.headers,
@@ -122,6 +123,8 @@ def propose_schema_for_extract(
         )
     except ValidationError:
         raise SchemaProposalError(SchemaProposalErrorCode.INVALID_INPUT) from None
+    if len(extracted.rows) > effective_policy.max_samples_per_column:
+        raise SchemaProposalError(SchemaProposalErrorCode.TOO_MANY_SAMPLES)
 
     columns = tuple(
         ProtectedColumnInput(
@@ -131,7 +134,11 @@ def propose_schema_for_extract(
         )
         for index, header in enumerate(extracted.headers)
     )
-    return propose_schema(extracted.source_sha256, columns, policy=policy)
+    return propose_schema(
+        extracted.source_sha256,
+        columns,
+        policy=effective_policy,
+    )
 
 
 def _extract_proposal_table(
@@ -143,14 +150,10 @@ def _extract_proposal_table(
     """Extract a proposal table through the bounded, non-rendering parser path."""
     raw = data if data is not None else _read_bounded_source(path, limits=limits)
     document = parse_mhtml_bytes(raw, limits=limits)
-    tables = tuple(
-        table
-        for table in extract_tables(document, limits=limits)
-        if table.headers
-    )
-    if not tables:
+    tables = tuple(extract_tables(document, limits=limits))
+    if len(tables) != 1 or not tables[0].headers:
         raise SchemaProposalError(SchemaProposalErrorCode.INVALID_INPUT)
-    table = max(tables, key=lambda item: item.column_count * max(item.row_count, 1))
+    table = tables[0]
     headers = list(table.headers)
     rows = [
         [cell.text for cell in row]
@@ -176,13 +179,17 @@ def propose_schema_from_mhtml(
     limits: ParseLimits | None = None,
 ) -> SchemaProposal:
     """Read one bounded MHTML source and return its value-free schema proposal."""
+    effective_limits = limits or ParseLimits()
+    effective_policy = policy or SchemaProposalPolicy(
+        max_samples_per_column=effective_limits.max_rows_per_table,
+    )
     return propose_schema_for_extract(
         _extract_proposal_table(
             path,
             data=data,
-            limits=limits or ParseLimits(),
+            limits=effective_limits,
         ),
-        policy=policy,
+        policy=effective_policy,
     )
 
 

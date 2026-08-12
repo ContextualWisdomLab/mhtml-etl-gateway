@@ -27,6 +27,7 @@ from mhtml_etl_gateway.lineage import (
     write_lineage_json,
 )
 from mhtml_etl_gateway.ingest_catalog import make_catalog_entry
+from mhtml_etl_gateway.models import ParseLimits
 from mhtml_etl_gateway.postgres_loader import (
     InMemorySink,
     LoadError,
@@ -54,7 +55,11 @@ from mhtml_etl_gateway.schema_inference import (
     unique_snake_names,
     values_require_text,
 )
-from mhtml_etl_gateway.schema_proposal import SchemaProposalError
+from mhtml_etl_gateway.schema_proposal import (
+    SchemaProposalError,
+    SchemaProposalErrorCode,
+    SchemaProposalPolicy,
+)
 from mhtml_etl_gateway.sql_ident import UnsafeIdentifierError, quote_sql_literal, require_safe_ident
 from mhtml_etl_gateway.validation_engine import (
     DEFAULT_REQUIRED_HEADERS,
@@ -886,6 +891,44 @@ def test_schema_proposal_from_mhtml_is_deterministic_and_fail_closed(
     assert "018f0c44" not in serialized
     assert "schema_proposal_" in serialized
 
+    direct = pipeline_module.propose_schema_for_extract(
+        pipeline_module.extract_table(sample_mhtml_path)
+    )
+    assert direct == first
+
+    with pytest.raises(SchemaProposalError) as sample_limit:
+        pipeline_module.propose_schema_from_mhtml(
+            sample_mhtml_path,
+            policy=SchemaProposalPolicy(max_samples_per_column=1),
+        )
+    assert sample_limit.value.code is SchemaProposalErrorCode.TOO_MANY_SAMPLES
+
+    large_rows = "".join(
+        f"<tr><td>{index}</td></tr>" for index in range(10_001)
+    )
+    large = pipeline_module.propose_schema_from_mhtml(
+        sample_mhtml_path,
+        data=make_mhtml(
+            f"<table><tr><th>EVENT_ID</th></tr>{large_rows}</table>"
+        ),
+        limits=ParseLimits(max_rows_per_table=10_002),
+    )
+    assert large.columns[0].non_null_count == 10_001
+
+    with pytest.raises(SchemaProposalError):
+        pipeline_module.propose_schema_from_mhtml(
+            sample_mhtml_path,
+            data=make_mhtml("<table></table>"),
+        )
+    with pytest.raises(SchemaProposalError):
+        pipeline_module.propose_schema_from_mhtml(
+            sample_mhtml_path,
+            data=make_mhtml(
+                "<table><tr><th>A</th></tr></table>"
+                "<table><tr><th>B</th></tr></table>"
+            ),
+        )
+
     with pytest.raises(SchemaProposalError):
         pipeline_module.propose_schema_for_extract(object())  # type: ignore[arg-type]
 
@@ -899,6 +942,7 @@ def test_schema_proposal_from_mhtml_is_deterministic_and_fail_closed(
     )
     with pytest.raises(SchemaProposalError):
         pipeline_module.propose_schema_for_extract(malformed)
+
 
 def test_validation_and_identifier_contracts() -> None:
     """Required headers, ragged rows, and database identifiers fail closed."""

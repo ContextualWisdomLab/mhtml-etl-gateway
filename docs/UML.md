@@ -39,6 +39,8 @@ flowchart LR
         INS --> PROPOSAL
         CLI --> PROPOSE
         PROPOSE --> PROPOSAL
+        PROPOSE --> MIME
+        PROPOSE --> HTML
         PROPOSAL --> CATALOG
         CATALOG --> HANDOFF
         PROPOSAL --> PG_ERD

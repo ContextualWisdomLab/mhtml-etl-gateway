@@ -110,9 +110,19 @@ and export controls before sharing the proposal with downstream connectors.
 
 ## Error and nonreflection requirements
 
-Every expected failure raises `MhtmlGatewayError` with a stable `ErrorCode`. Public serialization exposes only the code and its approved fixed message. Caller-supplied details, configured limits, source paths, MIME metadata, headers, cells, and payload text must never appear in public errors or diagnostics.
+Inspection and load failures raise `MhtmlGatewayError` with a stable
+`ErrorCode`. The Python `propose_schema_from_mhtml` boundary additionally may
+raise `SchemaProposalError` for protected-input or proposal-policy failures;
+the CLI converts that exception to `MhtmlGatewayError` with
+`schema_proposal_failed`. Argparse failures and invalid `ParseLimits`
+construction map to `invalid_argument`. Unexpected programming exceptions are
+not reclassified as user errors.
 
-Argparse failures and invalid `ParseLimits` construction map to `invalid_argument`. Unexpected programming exceptions are not reclassified as user errors.
+Public serialization exposes only the stable error code and its approved fixed
+message. Caller-supplied details, configured limits, source paths, MIME
+metadata, headers, cells, and payload text must never appear in public errors
+or diagnostics. The CLI writes this fixed JSON contract to stderr and never
+serializes a `SchemaProposalError` body or exception chain.
 
 ## PostgreSQL requirements and remaining future controls
 

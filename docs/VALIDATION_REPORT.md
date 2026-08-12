@@ -17,8 +17,8 @@ worktree on 2026-08-12 is validated with Python 3.14 as follows:
 374 tests passed
 3 tests skipped
 30 subtests passed
-2,970 production statements: 100%
-1,020 production branches: 100%
+2,975 production statements: 100%
+1,022 production branches: 100%
 ```
 
 The release candidate reports package version `0.3.2`; `uv build --wheel`
@@ -26,8 +26,9 @@ produced `mhtml_etl_gateway-0.3.2-py3-none-any.whl`. Build artifacts remain
 outside the repository.
 
 The pg-erd-cloud and local proposal implementation slices were validated with
-`tests/test_pg_erd_connector.py` and the full suite. The current full suite is
-374 tests with 2,970 production statements plus 1,020 branches at 100%. The
+`tests/test_pg_erd_connector.py`, proposal-boundary tests, and the full suite.
+The current full suite is 374 tests with 2,975 production statements plus
+1,022 branches at 100%. The
 tests cover all five proposal type
 mappings, nullability, deterministic plans, malformed-input rejection, direct
 constructor contract enforcement, and absence of DBML data blocks. GitHub
