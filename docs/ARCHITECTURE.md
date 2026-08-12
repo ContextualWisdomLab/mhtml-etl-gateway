@@ -18,12 +18,14 @@ flowchart TB
     SP --> SC["Semantic catalog manifest connector"]
     SC --> SH["Governed submission handoff envelope"]
     SH --> CP["Caller-owned catalog publisher"]
+    SP --> ERD["pg-erd-cloud DBML visualization plan"]
     D --> L["Transactional PostgreSQL loader"]
     L --> P[("PostgreSQL")]
     V --> O["Audit and observability"]
     L --> O
     SH --> SDP
     CP --> SDP
+    ERD --> PG_ERD["Caller-owned pg-erd-cloud transport"]
     P --> N["Approved opaque artifact for CWL connectors"]
 ```
 
@@ -40,6 +42,7 @@ flowchart TB
 | `semantic_catalog_connector` | value-free dataset/column graph manifest | no network or approval bypass |
 | `semantic_catalog_handoff` | actor/tenant/approval-bound request plan and idempotency keys | no credentials or transport |
 | `semantic_catalog_publisher` | one-shot caller-owned transport and bounded remote-acceptance receipt | no auth, retry, persistence, or source values |
+| `pg_erd_connector` | value-free one-table DBML visualization request plan | no network, authentication, persistence, records, or guessed relationships |
 | `column_mapping` | JSON/CSV/PPTX text-layer mapping | explicit comments only |
 | `postgres_loader` | DDL, comments, streamed rows, catalog, lineage | scoped database DSN |
 | `batch` / `pipeline` | single-file and multi-file orchestration | opaque reporting |
@@ -68,6 +71,8 @@ sequenceDiagram
     S->>SH: bind actor, tenant, approval, and request idempotency
     SH->>CP: publish through caller-owned transport
     CP-->>SH: safe acceptance receipt or bounded partial error
+    S->>S: build value-free pg-erd-cloud DBML plan
+    S-->>G: caller-owned visualization request plan
     SH-->>G: portal handoff evidence
     P-->>G: aggregate counts and opaque lineage
     G-->>U: value-free result
@@ -137,6 +142,9 @@ propagation, and immutable audit controls. The publisher sends each validated
 request once and emits a value-free receipt only for explicit 2xx acceptance
 with an opaque remote request ID. This preserves standalone operation while
 providing a direct MSA seam for governed catalog discovery and reconciliation.
+The pg-erd connector is a parallel design-review seam: it emits only a DBML
+conversion plan for the proposed table and never calls the visualization
+service. Relationship and lineage edges require a later reviewed contract.
 
 ## Deployment modes
 

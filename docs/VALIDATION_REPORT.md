@@ -24,6 +24,12 @@ The release candidate reports package version `0.3.1`; `uv build --wheel`
 produced `mhtml_etl_gateway-0.3.1-py3-none-any.whl`. Build artifacts remain
 outside the repository.
 
+The next unreleased product slice adds `tests/test_pg_erd_connector.py`, which
+locally verifies the value-free pg-erd-cloud DBML request boundary, all five
+proposal type mappings, nullability, deterministic plans, malformed-input
+rejection, and absence of DBML data blocks. Its exact-head CI and release
+evidence must be refreshed after the implementation PR is opened.
+
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
 graph manifests, endpoint-compatible node/edge shapes, order-sensitive identity,
 raw-value absence, and caller-owned transport boundaries. The connector creates

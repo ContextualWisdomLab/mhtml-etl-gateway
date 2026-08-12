@@ -18,6 +18,8 @@
   request identity returned by a caller-owned transport.
 - `CatalogPublicationReceipt`: value-free remote-acceptance evidence for the
   complete submission, with safe per-request receipts and no request bodies.
+- `PgErdVisualizationPlan`: deterministic, value-free DBML conversion request
+  plan for one proposed table, without transport or persistence authority.
 
 Data rows are intentionally absent from the serialized inspection model.
 
@@ -53,6 +55,15 @@ request index, path, idempotency key, status, and remote request ID. Request
 bodies, source values, credentials, and provider error bodies are excluded.
 Partial acceptance is an error with only the accepted prefix count; it is not a
 complete publication receipt.
+
+### pg-erd-cloud visualization plan
+
+`PgErdVisualizationPlan` contains the connector contract version, target
+system, source/proposal identity, and a request body with DBML, PostgreSQL
+dialect, and `include_ddl=false`. The DBML contains one table, proposal target
+columns, allow-listed types, and optional `[not null]` settings. It has no
+samples, comments, records, or inferred relationships. It is a request plan,
+not a diagram snapshot or remote-acceptance record.
 
 ## Future PostgreSQL schemas
 

@@ -25,7 +25,8 @@ Exit criteria:
 - value-free Semantic Data Portal graph-manifest handoff;
 - actor/tenant/approval-bound Semantic Data Portal request envelope;
 - caller-owned governed publisher with bounded remote-acceptance receipts;
-- pg-erd-cloud visualization handoff.
+- transport-neutral pg-erd-cloud DBML visualization handoff for one reviewed
+  table, with multi-table relationships remaining a later proposal contract.
 
 ## M2 — Transactional PostgreSQL loading
 
@@ -66,7 +67,7 @@ service evidence.
   and steward-review callback; the transport-neutral receipt boundary is
   implemented in M1 while provider integration remains caller-owned;
 - naruon notifications and governed handoff;
-- pg-erd-cloud schema/lineage visualization;
+- pg-erd-cloud persisted schema/lineage visualization and remote reconciliation;
 - pg-llm-batch post-ingestion enrichment;
 - contextual-orchestrator policy/review adapter;
 - generic webhook, object-store, and database ports.

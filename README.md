@@ -19,6 +19,8 @@ references as `COMMENT ON COLUMN`, and load rows with opaque artifact lineage.
   manifest connector for dataset/column discovery without network side effects.
 - Explicit actor, tenant, approval, and per-request idempotency context for a
   caller-owned Semantic Data Portal submission handoff.
+- A value-free pg-erd-cloud DBML visualization handoff plan for opening reviewed
+  schema proposals in a database diagram without network side effects.
 - Privacy-safe reports and errors that do not echo local paths, filenames, row
   values, or raw Content-Location values.
 
@@ -110,6 +112,22 @@ caller-owned. The envelope makes the actor, tenant, approval reference, and
 stable per-request idempotency keys explicit while authentication, retry policy,
 and network submission remain outside the gateway. See the
 [connector contract](docs/SEMANTIC_CATALOG_CONNECTOR.md).
+
+For a design-first database diagram, build a pg-erd-cloud request plan from the
+same proposal:
+
+```python
+from mhtml_etl_gateway import build_pg_erd_visualization_plan
+
+plan = build_pg_erd_visualization_plan(
+    schema_proposal,
+    catalog_name="SAP VOC export",
+)
+```
+
+The plan targets `/api/dbml/convert`, contains no raw values or DBML records,
+and leaves transport/authentication to the caller. See the
+[pg-erd-cloud connector contract](docs/PG_ERD_CONNECTOR.md).
 
 ## Batch loading
 

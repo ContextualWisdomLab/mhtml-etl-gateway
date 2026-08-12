@@ -76,6 +76,13 @@ and remote upsert outcomes. The envelope ID and per-request idempotency keys
 correlate replay; a receipt proves only the adapter response and not the
 intrinsic trustworthiness of the caller's policy systems.
 
+The pg-erd-cloud connector is also synchronous and transport-neutral. Success
+means only that a deterministic one-table DBML request plan was built. Operators
+must authenticate, authorize, approve, submit, and reconcile any remote design
+conversion in the caller-owned adapter. The plan contains no records or
+comments, and its source/proposal hashes are correlation fields rather than
+remote acceptance evidence.
+
 Resource limits are per document and independent of deployment capacity. A future worker pool will add tenant queue quotas, concurrency limits, backpressure, hard process-memory limits, cancellation, and dead-letter recovery. Large input does not justify disabling parser budgets.
 
 Capacity tests must measure at least:

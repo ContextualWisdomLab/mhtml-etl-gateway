@@ -152,6 +152,22 @@ The `semantic_catalog_handoff` module shall:
 - perform no credential binding, approval decision, HTTP request, retry,
   persistence, database operation, or LLM call.
 
+## pg-erd-cloud visualization requirements
+
+The `pg_erd_connector` module shall:
+
+- accept only a `SchemaProposal` and steward-provided catalog metadata;
+- emit a `POST /api/dbml/convert` plan with PostgreSQL dialect and
+  `include_ddl=false`;
+- map only `text`, `boolean`, `date`, `bigint`, and `numeric` to DBML types;
+- validate table and column names with the existing multiword identifier
+  boundary and represent only explicit nullability;
+- exclude raw headers, sample values, DBML comments/notes/defaults/records, and
+  guessed relationships;
+- perform no network request, authentication, approval, persistence, or remote
+  acceptance operation;
+- remain optional and importable as a standalone library module.
+
 ## Autonomous-development requirements
 
 - the repository-owned gate runs only after secret isolation is installed;
