@@ -1,10 +1,11 @@
 # UML and Runtime Views
 
-**Status:** Accepted documentation baseline for the current inspection and
-value-free catalog-handoff slices; persisted ingestion boundaries remain future.
+**Status:** Accepted documentation baseline for current inspection, value-free
+catalog handoff, and transactional dynamic-table loading; persisted ingestion
+control entities remain future.
 **Last reviewed:** 2026-08-11
 
-This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box labelled **future** is target architecture, not a claim that the component is implemented or deployable today. Current production behavior includes value-free schema proposals and a caller-owned Semantic Data Portal manifest handoff; persisted ingestion services remain future.
+This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box labelled **future** is target architecture, not a claim that the component is implemented or deployable today. Current production behavior includes value-free schema proposals, a caller-owned Semantic Data Portal manifest handoff, and an optional transactional Psycopg sink; persisted ingestion control services remain future.
 
 ## Component view
 
@@ -36,7 +37,7 @@ flowchart LR
     SRC[Untrusted MHTML bytes] --> CLI
     INS --> REPORT[Value-free InspectionReport]
 
-    subgraph future[Future governed ingestion services]
+    subgraph future[Future governed ingestion control services]
         CUST[source_custody_service]
         SCHEMA[schema_governance_service]
         LOAD[postgres_load_service]
@@ -58,7 +59,7 @@ flowchart LR
 
 - Current parser code has no browser, JavaScript, network fetch, Office runtime, XML external-entity, shell, database, or connector capability.
 - Header/value disclosure is not added to `InspectionReport`; future schema work uses a separate authenticated source-custody boundary.
-- The future loader accepts only an approved, versioned schema artifact and scoped database authorization.
+- The current sink accepts a validated `TableSchema` and scoped database authorization; the future loader service additionally requires an approved, versioned schema artifact.
 - `pg-erd-cloud`, naruon, pg-llm-batch, and contextual-orchestrator are downstream/optional integration ports, not hidden runtime dependencies of the parser.
 
 ## Inspection sequence

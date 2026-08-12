@@ -279,11 +279,13 @@ class PsycopgSink:
         except Exception:
             raise LoadError("database operation failed") from None
 
-    def _executemany(self, query, params_seq: Sequence[Sequence[Any]]) -> None:
+    def _copy_rows(self, query, rows: Sequence[Sequence[Any]]) -> None:
+        """Stream adapted rows through PostgreSQL ``COPY FROM STDIN``."""
         try:
             with self._conn.cursor() as cur:
-                # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                cur.executemany(query, params_seq)
+                with cur.copy(query) as copy:
+                    for row in rows:
+                        copy.write_row(row)
         except Exception:
             raise LoadError("database operation failed") from None
 
@@ -508,11 +510,9 @@ class PsycopgSink:
             "source_row_number",
         ]
         col_idents = [pgsql.Identifier(n) for n in col_names]
-        placeholders = pgsql.SQL(", ").join(pgsql.Placeholder() * len(col_names))
-        insert_sql = pgsql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+        copy_sql = pgsql.SQL("COPY {} ({}) FROM STDIN").format(
             pgsql.Identifier(table),
             pgsql.SQL(", ").join(col_idents),
-            placeholders,
         )
         catalog_sql = (
             "INSERT INTO mhtml_ingest_artifact ("
@@ -562,7 +562,7 @@ class PsycopgSink:
                 ).format(pgsql.Identifier(table))
                 self._execute(del_q, (source_artifact_sha256,))
             if payloads:
-                self._executemany(insert_sql, payloads)
+                self._copy_rows(copy_sql, payloads)
             self._execute(
                 catalog_sql,
                 (

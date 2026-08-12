@@ -5,7 +5,7 @@
 - customer MHTML bytes and derived rows;
 - PII and confidential business fields;
 - source hashes, protected schema evidence, approvals, and lineage;
-- future PostgreSQL credentials and tenant keys;
+- scoped PostgreSQL credentials and future tenant keys;
 - scheduled-agent model credentials and repository write authority;
 - verified OpenCode executable identity and digest evidence;
 - current-head review, check, code-scanning, and branch-policy evidence;
@@ -16,9 +16,9 @@
 1. source file to MIME parser;
 2. decoded root HTML to table extractor;
 3. parser memory to public inspection artifact;
-4. inspection evidence to future protected schema governance;
-5. approved schema to future loader;
-6. future loader to PostgreSQL;
+4. inspection evidence to protected schema governance;
+5. approved or caller-authorized schema to the current loader;
+6. current loader to PostgreSQL;
 7. GitHub schedule to versioned OpenCode archive download and digest verification;
 8. verified OpenCode executable and model credential to privileged agent control plane;
 9. untrusted repository/review/log/artifact material to privileged agent reasoning;
@@ -54,7 +54,7 @@
 | public header-value switch | unaudited data disclosure | no public API or CLI header path |
 | schema injection | arbitrary DDL | future versioned approved artifact and identifier allowlist |
 | duplicate import | duplicate business records | future source hash plus tenant-scoped idempotency |
-| partial PostgreSQL load | inconsistent target | future transaction, staging, reconciliation, and rollback |
+| partial PostgreSQL load | inconsistent target | atomic transaction, streamed `COPY FROM STDIN`, rollback, and opaque lineage; future staging/reconciliation controls |
 | cross-tenant access | confidentiality breach | future tenant keys, RLS, scoped service identity, and audit |
 | public OpenCode session | source leakage | direct `SHARE: "false"` plus repository `share: disabled` tests |
 | mutable nested OpenCode action | privileged code changes without repository review | upstream composite removed; direct verified binary execution |

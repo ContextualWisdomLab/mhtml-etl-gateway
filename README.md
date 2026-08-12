@@ -12,7 +12,8 @@ references as `COMMENT ON COLUMN`, and load rows with opaque artifact lineage.
   row, column, cell, nesting, and source-size budgets.
 - Validation of headers, row shapes, required business fields, and empty inputs.
 - PostgreSQL type inference with multiword `snake_case` identifiers, idempotent
-  artifact cataloging, transactional type promotion, and row-level lineage.
+  artifact cataloging, transactional type promotion, streamed `COPY FROM STDIN`,
+  and row-level lineage.
 - JSON, CSV, and PPTX text-layer column mapping references for `COMMENT ON COLUMN`.
 - Value-free, deterministic schema proposals and a Semantic Data Portal graph
   manifest connector for dataset/column discovery without network side effects.
