@@ -11,6 +11,8 @@ untrusted enterprise MHTML exports plus an optional transactional PostgreSQL
 loader. It proves which MIME body is authoritative, extracts bounded top-level
 table structure without rendering or execution, applies explicit mapping
 comments, and preserves opaque artifact lineage through the live load path.
+The current development head additionally provides the local, value-free schema
+proposal workflow; that addition remains Unreleased until its release PR.
 
 The product is intended to evolve into an enterprise ingestion control plane
 that produces governed, queryable PostgreSQL assets. Staging schemas,

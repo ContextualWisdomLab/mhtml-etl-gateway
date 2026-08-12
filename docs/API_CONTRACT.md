@@ -2,9 +2,11 @@
 
 ## Current scope
 
-Version `0.3.2` exposes deterministic, synchronous, local inspection, schema
-proposal, mapping, value-free catalog-manifest, and governed handoff APIs. It
-performs no database write through the catalog connector, network request,
+Released version `0.3.2` exposes deterministic, synchronous, local inspection,
+mapping, value-free catalog-manifest, and governed handoff APIs. The current
+development head additionally exposes the local schema-proposal API documented
+below; it remains Unreleased until the release PR. The package performs no
+database write through the catalog connector, network request,
 browser rendering, office execution, or external-resource retrieval.
 
 ## Python API
