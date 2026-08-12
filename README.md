@@ -15,8 +15,9 @@ references as `COMMENT ON COLUMN`, and load rows with opaque artifact lineage.
   artifact cataloging, transactional type promotion, streamed `COPY FROM STDIN`,
   and row-level lineage.
 - JSON, CSV, and PPTX text-layer column mapping references for `COMMENT ON COLUMN`.
-- Value-free, deterministic schema proposals and a Semantic Data Portal graph
-  manifest connector for dataset/column discovery without network side effects.
+- Value-free, deterministic schema proposals, including a first-party `propose`
+  CLI command, and a Semantic Data Portal graph manifest connector for
+  dataset/column discovery without network side effects.
 - Explicit actor, tenant, approval, and per-request idempotency context for a
   caller-owned Semantic Data Portal submission handoff.
 - A value-free pg-erd-cloud DBML visualization handoff plan for opening reviewed
@@ -42,6 +43,20 @@ mhtml-etl-gateway inspect export.mhtml --pretty
 Inspection output is metadata-only: source identity, size, table dimensions,
 fixed diagnostics, and non-reflecting error codes. Cell and header values are
 not emitted by the public inspection API.
+
+## Propose a schema
+
+```bash
+mhtml-etl-gateway propose export.mhtml --pretty > schema-proposal.json
+```
+
+The proposal command is a local source-custody workflow. It reads the complete
+table in protected process memory and emits a deterministic JSON proposal with
+source/header fingerprints, normalized target names, conservative types,
+aggregate evidence, and review reasons. It never emits raw headers, cell values,
+decoded HTML, paths, or DDL. The proposal can be passed to the Semantic Data
+Portal and pg-erd-cloud connector APIs after the caller's own approval and
+authorization checks.
 
 ## Load one artifact
 

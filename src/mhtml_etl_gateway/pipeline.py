@@ -10,6 +10,7 @@ from mhtml_etl_gateway.html_table_extractor import (
     ExtractedTable,
     extract_primary_table,
 )
+from mhtml_etl_gateway.html_tables import extract_tables
 from mhtml_etl_gateway.column_mapping import (
     ColumnMappingReport,
     attach_column_comments,
@@ -21,7 +22,9 @@ from mhtml_etl_gateway.lineage import (
     sha256_bytes,
     write_lineage_json,
 )
+from mhtml_etl_gateway.mime_parser import parse_mhtml_bytes
 from mhtml_etl_gateway.mhtml_parser import extract_html_bytes, read_mhtml_file
+from mhtml_etl_gateway.models import ParseLimits
 from mhtml_etl_gateway.postgres_loader import (
     InMemorySink,
     LoadResult,
@@ -31,7 +34,16 @@ from mhtml_etl_gateway.postgres_loader import (
     load_table,
 )
 from mhtml_etl_gateway.schema_inference import TableSchema, infer_table_schema
-from mhtml_etl_gateway.validation_engine import validate_extracted_table
+from mhtml_etl_gateway.schema_proposal import (
+    ProtectedColumnInput,
+    SchemaProposal,
+    SchemaProposalError,
+    SchemaProposalErrorCode,
+    SchemaProposalPolicy,
+    propose_schema,
+)
+from mhtml_etl_gateway.source_reader import _read_bounded_source
+from mhtml_etl_gateway.validation_engine import ValidationError, validate_extracted_table
 
 
 @dataclass(frozen=True)
@@ -85,6 +97,93 @@ def infer_schema_for_extract(
     """Infer a database schema from an extracted table and optional table name."""
     name = table_name or _default_table_name(Path(extracted.source_path))
     return infer_table_schema(extracted.headers, extracted.rows, table_name=name)
+
+
+def propose_schema_for_extract(
+    extracted: ExtractResult,
+    *,
+    policy: SchemaProposalPolicy | None = None,
+) -> SchemaProposal:
+    """Create a value-free schema proposal from one validated table extract.
+
+    Header text and row values remain in the caller's protected process memory;
+    only the deterministic ``SchemaProposal`` crosses this function boundary.
+    A complete extract is marked ``complete=True`` so nullability evidence is
+    not weakened by a hidden sampling decision.
+    """
+    if not isinstance(extracted, ExtractResult):
+        raise SchemaProposalError(SchemaProposalErrorCode.INVALID_INPUT)
+    try:
+        validate_extracted_table(
+            extracted.headers,
+            extracted.rows,
+            required_headers=(),
+            require_data_rows=False,
+        )
+    except ValidationError:
+        raise SchemaProposalError(SchemaProposalErrorCode.INVALID_INPUT) from None
+
+    columns = tuple(
+        ProtectedColumnInput(
+            header=header,
+            values=tuple(row[index] for row in extracted.rows),
+            complete=True,
+        )
+        for index, header in enumerate(extracted.headers)
+    )
+    return propose_schema(extracted.source_sha256, columns, policy=policy)
+
+
+def _extract_proposal_table(
+    path: str | Path,
+    *,
+    data: bytes | None,
+    limits: ParseLimits,
+) -> ExtractResult:
+    """Extract a proposal table through the bounded, non-rendering parser path."""
+    raw = data if data is not None else _read_bounded_source(path, limits=limits)
+    document = parse_mhtml_bytes(raw, limits=limits)
+    tables = tuple(
+        table
+        for table in extract_tables(document, limits=limits)
+        if table.headers
+    )
+    if not tables:
+        raise SchemaProposalError(SchemaProposalErrorCode.INVALID_INPUT)
+    table = max(tables, key=lambda item: item.column_count * max(item.row_count, 1))
+    headers = list(table.headers)
+    rows = [
+        [cell.text for cell in row]
+        for index, row in enumerate(table.rows)
+        if index != table.header_row_index
+    ]
+    digest = sha256_bytes(raw)
+    return ExtractResult(
+        headers=headers,
+        rows=rows,
+        table=ExtractedTable(headers=headers, rows=rows),
+        source_path=artifact_reference(digest),
+        source_sha256=digest,
+        source_size=len(raw),
+    )
+
+
+def propose_schema_from_mhtml(
+    path: str | Path,
+    *,
+    data: bytes | None = None,
+    policy: SchemaProposalPolicy | None = None,
+    limits: ParseLimits | None = None,
+) -> SchemaProposal:
+    """Read one bounded MHTML source and return its value-free schema proposal."""
+    return propose_schema_for_extract(
+        _extract_proposal_table(
+            path,
+            data=data,
+            limits=limits or ParseLimits(),
+        ),
+        policy=policy,
+    )
 
 
 def convert_mhtml_to_postgres(

@@ -8,6 +8,9 @@
 - `ParseLimits`: explicit resource budgets.
 - `Diagnostic`: fixed-code nonfatal evidence.
 - `SchemaProposal`: ordered, content-addressed, value-free proposed columns.
+- `propose_schema_from_mhtml`: local source-custody wrapper that converts one
+  validated MHTML table into the existing `SchemaProposal` without a write or
+  network side effect.
 - `SemanticCatalogManifest`: deterministic dataset/column graph handoff with no
   network or persistence authority.
 - `CatalogSubmissionEnvelope`: deterministic, value-free actor/tenant/approval

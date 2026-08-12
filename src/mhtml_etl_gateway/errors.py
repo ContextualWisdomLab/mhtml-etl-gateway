@@ -26,6 +26,7 @@ class ErrorCode(str, Enum):
     CELL_TEXT_TOO_LARGE = "cell_text_too_large"
     NESTED_TABLE = "nested_table"
     INVALID_TABLE_SPAN = "invalid_table_span"
+    SCHEMA_PROPOSAL_FAILED = "schema_proposal_failed"
 
 
 _SAFE_MESSAGES: dict[ErrorCode, str] = {
@@ -47,6 +48,7 @@ _SAFE_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.CELL_TEXT_TOO_LARGE: "HTML table cell exceeds the configured text limit",
     ErrorCode.NESTED_TABLE: "Nested HTML tables are not supported",
     ErrorCode.INVALID_TABLE_SPAN: "HTML table span is invalid",
+    ErrorCode.SCHEMA_PROPOSAL_FAILED: "Schema proposal could not be produced",
 }
 
 

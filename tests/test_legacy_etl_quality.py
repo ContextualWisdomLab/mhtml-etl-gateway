@@ -54,6 +54,7 @@ from mhtml_etl_gateway.schema_inference import (
     unique_snake_names,
     values_require_text,
 )
+from mhtml_etl_gateway.schema_proposal import SchemaProposalError
 from mhtml_etl_gateway.sql_ident import UnsafeIdentifierError, quote_sql_literal, require_safe_ident
 from mhtml_etl_gateway.validation_engine import (
     DEFAULT_REQUIRED_HEADERS,
@@ -870,6 +871,34 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
     assert postgres_result["queryable"]["db_row_count"] == postgres_result["inserted_rows"]
     assert FakePsycopgSink.last is not None and FakePsycopgSink.last.closed
 
+
+def test_schema_proposal_from_mhtml_is_deterministic_and_fail_closed(
+    sample_mhtml_path: Path,
+) -> None:
+    """The first-party proposal boundary is reproducible and value-free."""
+    first = pipeline_module.propose_schema_from_mhtml(sample_mhtml_path)
+    second = pipeline_module.propose_schema_from_mhtml(
+        sample_mhtml_path,
+        data=sample_mhtml_path.read_bytes(),
+    )
+    assert first == second
+    serialized = repr(first.to_dict())
+    assert "018f0c44" not in serialized
+    assert "schema_proposal_" in serialized
+
+    with pytest.raises(SchemaProposalError):
+        pipeline_module.propose_schema_for_extract(object())  # type: ignore[arg-type]
+
+    malformed = pipeline_module.ExtractResult(
+        headers=["first_header", "second_header"],
+        rows=[["only_one_value"]],
+        table=pipeline_module.extract_table(sample_mhtml_path).table,
+        source_path="artifact:" + "a" * 16,
+        source_sha256="b" * 64,
+        source_size=1,
+    )
+    with pytest.raises(SchemaProposalError):
+        pipeline_module.propose_schema_for_extract(malformed)
 
 def test_validation_and_identifier_contracts() -> None:
     """Required headers, ragged rows, and database identifiers fail closed."""

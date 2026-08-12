@@ -39,6 +39,7 @@ flowchart TB
 | `inspection` | value-free structural evidence | no data values |
 | `validation_engine` | required headers and row-shape contracts | fail closed |
 | `schema_inference` / `schema_proposal` | safe types and versioned proposals | approval boundary |
+| `pipeline.propose_schema_from_mhtml` / `cli propose` | protected local table-to-proposal boundary | caller custody, approval, and export |
 | `semantic_catalog_connector` | value-free dataset/column graph manifest | no network or approval bypass |
 | `semantic_catalog_handoff` | actor/tenant/approval-bound request plan and idempotency keys | no credentials or transport |
 | `semantic_catalog_publisher` | one-shot caller-owned transport and bounded remote-acceptance receipt | no auth, retry, persistence, or source values |

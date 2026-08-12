@@ -94,6 +94,11 @@ nullability, and never includes samples, comments, notes, records, or guessed
 relationships. Authentication, approval, persistence, and remote acceptance
 remain caller-owned.
 
+The local proposal slice now closes the operator workflow gap: a bounded
+`propose` command and Python wrapper turn one validated MHTML table into the
+same value-free `SchemaProposal` contract. The command is source-custody local,
+not an authenticated service, and emits no raw header, cell, path, HTML, or DDL.
+
 ## P2: PostgreSQL loading
 
 Every generated database object must use descriptive lowercase multiword

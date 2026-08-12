@@ -48,6 +48,9 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 
 ### Schema proposals and semantic catalog handoff
 
+- the local `propose` CLI and `propose_schema_from_mhtml` wrapper produce the
+  same proposal for identical bytes and keep raw headers, cells, paths, and
+  decoded HTML out of serialized output;
 - realistic SAP-shaped protected columns become normalized multiword names and
   value-free proposal evidence;
 - identical proposals produce identical catalog manifest IDs;

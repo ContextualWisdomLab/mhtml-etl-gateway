@@ -28,6 +28,7 @@
 13. governance-bound catalog handoff envelope to caller-owned authenticated publisher.
 14. caller-owned catalog publisher to remote response and acceptance evidence.
 15. value-free schema proposal to caller-owned pg-erd-cloud visualization transport.
+16. local protected MHTML table extraction to the value-free proposal serializer.
 
 ## Principal threats and mitigations
 
@@ -53,6 +54,7 @@
 | charset confusion | data corruption | registered charset, BOM, then strict UTF-8 |
 | nonstandard transfer encoding | silent corruption | identity compatibility diagnostic without relaxing other controls |
 | public header-value switch | unaudited data disclosure | no public API or CLI header path |
+| local proposal output discloses headers or cells | PII or confidential-data breach | keep source headers/rows in process memory, serialize only the existing value-free proposal, and test protected-value absence in CLI and Python wrapper output |
 | schema injection | arbitrary DDL | future versioned approved artifact and identifier allowlist |
 | duplicate import | duplicate business records | future source hash plus tenant-scoped idempotency |
 | partial PostgreSQL load | inconsistent target | atomic transaction, streamed `COPY FROM STDIN`, rollback, and opaque lineage; future staging/reconciliation controls |

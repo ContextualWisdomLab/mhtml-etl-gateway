@@ -101,7 +101,12 @@ The public report contains only:
 
 It does not contain table identifiers, decoded HTML, data rows, header values, raw Content-ID or Content-Location, Content-Location scheme, source-controlled media type, charset, transfer encoding, resource payload, or local path.
 
-The Python API and CLI provide no header-value option. Future schema governance must access headers through a separate authenticated source-custody contract with authorization, audit, protected output, retention, and export controls.
+The inspection Python API and CLI provide no header-value option. The local
+`propose` command and `propose_schema_from_mhtml` wrapper are a separate
+source-custody workflow: they hold headers and rows in protected process memory
+only and emit the existing value-free `SchemaProposal`. They are not an
+authenticated service; callers must provide authorization, audit, retention,
+and export controls before sharing the proposal with downstream connectors.
 
 ## Error and nonreflection requirements
 

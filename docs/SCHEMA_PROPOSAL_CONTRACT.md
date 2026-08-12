@@ -1,12 +1,12 @@
 # Value-Free Schema Proposal Contract
 
 **Version:** 1.0.0  
-**Status:** Draft implementation slice  
+**Status:** Implemented library and local CLI slice
 **Issue:** #4
 
 ## Purpose
 
-The deterministic inspection layer proves table shape without exposing source values. The next controlled step is a reviewable PostgreSQL schema proposal: a protected in-process caller supplies headers and bounded representative values, and the proposal engine emits only fingerprints, normalized target names, conservative types, aggregate evidence, and explicit review reasons.
+The deterministic inspection layer proves table shape without exposing source values. The implemented proposal slice adds a reviewable PostgreSQL schema proposal: a protected in-process caller may supply headers and bounded representative values, or the local `propose` command may derive them from one validated MHTML table. The engine emits only fingerprints, normalized target names, conservative types, aggregate evidence, and explicit review reasons.
 
 The proposal is not DDL. It does not connect to PostgreSQL, write a migration, fetch a resource, invoke an LLM, or persist source values.
 
@@ -27,7 +27,7 @@ flowchart LR
 
 `ProtectedColumnInput` is protected process memory. Its `header` and `values` may contain PII, customer identifiers, internal field names, document codes, and confidential business values. They never appear in `SchemaProposal.to_dict()` or error messages.
 
-The current module has no CLI and is not exported from the package root. A caller must import it explicitly from `mhtml_etl_gateway.schema_proposal` inside an authorized source-custody workflow.
+The local CLI is not an authenticated service. It must run inside an operator-controlled source-custody workflow with authorization, access, retention, and export controls. It emits only the value-free proposal; transport, approval, and persistence remain caller-owned.
 
 ## Python API
 
@@ -50,6 +50,19 @@ proposal = propose_schema(
     policy=SchemaProposalPolicy(algorithm_version="1.0.0"),
 )
 ```
+
+For a complete local MHTML table, the first-party wrapper keeps protected
+headers and rows in process memory and returns the same value-free contract:
+
+```python
+from mhtml_etl_gateway import propose_schema_from_mhtml
+
+proposal = propose_schema_from_mhtml("export.mhtml")
+```
+
+The equivalent CLI output is one JSON object and follows RFC 8259's portable
+structured-data interchange rules. Raw source values are not part of that
+object.
 
 ### Inputs
 

@@ -14,8 +14,9 @@ from .batch import run_batch
 from .errors import ErrorCode, MhtmlGatewayError
 from .inspection import inspect_mhtml_file
 from .models import ParseLimits
-from .pipeline import convert_mhtml_to_postgres
+from .pipeline import convert_mhtml_to_postgres, propose_schema_from_mhtml
 from .postgres_loader import OnDuplicate
+from .schema_proposal import SchemaProposalError
 
 
 class _ArgumentParserError(Exception):
@@ -108,6 +109,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default=ParseLimits().max_source_bytes,
     )
 
+    propose_parser = subparsers.add_parser(
+        "propose",
+        help="emit a value-free PostgreSQL schema proposal from an MHTML source",
+    )
+    propose_parser.add_argument("mhtml_path", type=str)
+    propose_parser.add_argument("--pretty", action="store_true")
+    propose_parser.add_argument(
+        "--max-source-bytes",
+        type=int,
+        default=ParseLimits().max_source_bytes,
+    )
+
     load_parser = subparsers.add_parser("load", help="load one MHTML artifact")
     load_parser.add_argument("mhtml_path", type=str)
     _add_common_args(load_parser)
@@ -179,6 +192,33 @@ def _run_inspect(args: argparse.Namespace) -> int:
             ensure_ascii=False,
             sort_keys=True,
             indent=indent,
+            separators=None if args.pretty else (",", ":"),
+        )
+    )
+    return 0
+
+
+def _run_propose(args: argparse.Namespace) -> int:
+    """Run the protected local proposal workflow without emitting source values."""
+    path = Path(args.mhtml_path)
+    if not path.is_file():
+        return _write_error(MhtmlGatewayError(ErrorCode.SOURCE_READ_FAILED))
+    try:
+        limits = ParseLimits(max_source_bytes=args.max_source_bytes)
+        proposal = propose_schema_from_mhtml(path, limits=limits)
+    except ValueError:
+        return _write_error(MhtmlGatewayError(ErrorCode.INVALID_ARGUMENT))
+    except MhtmlGatewayError as error:
+        return _write_error(error)
+    except SchemaProposalError:
+        return _write_error(MhtmlGatewayError(ErrorCode.SCHEMA_PROPOSAL_FAILED))
+
+    print(
+        json.dumps(
+            proposal.to_dict(),
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2 if args.pretty else None,
             separators=None if args.pretty else (",", ":"),
         )
     )
@@ -284,6 +324,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
     if args.command == "inspect":
         return _run_inspect(args)
+    if args.command == "propose":
+        return _run_propose(args)
     if args.command == "load":
         return _run_load(args)
     if args.command == "batch":

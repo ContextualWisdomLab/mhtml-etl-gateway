@@ -21,6 +21,7 @@ Exit criteria:
 - conservative type evidence;
 - leading-zero identifier protection;
 - proposal JSON Schema;
+- bounded local `propose` CLI and Python wrapper from validated MHTML tables;
 - human/policy approval and immutable decision artifact;
 - value-free Semantic Data Portal graph-manifest handoff;
 - actor/tenant/approval-bound Semantic Data Portal request envelope;

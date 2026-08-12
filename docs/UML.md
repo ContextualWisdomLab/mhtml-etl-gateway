@@ -1,11 +1,12 @@
 # UML and Runtime Views
 
-**Status:** Accepted documentation baseline for current inspection, value-free
+**Status:** Accepted documentation baseline for current inspection, local schema proposal,
+value-free
 catalog and pg-erd-cloud handoffs, and transactional dynamic-table loading; persisted ingestion
 control entities remain future.
 **Last reviewed:** 2026-08-12
 
-This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box labelled **future** is target architecture, not a claim that the component is implemented or deployable today. Current production behavior includes value-free schema proposals, a caller-owned Semantic Data Portal manifest handoff, and an optional transactional Psycopg sink; persisted ingestion control services remain future.
+This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box labelled **future** is target architecture, not a claim that the component is implemented or deployable today. Current production behavior includes a local `propose` CLI/Python wrapper that derives value-free schema proposals, a caller-owned Semantic Data Portal manifest handoff, and an optional transactional Psycopg sink; persisted ingestion control services remain future.
 
 ## Component view
 
@@ -27,6 +28,7 @@ flowchart LR
         HTML --> ERR
     INS --> MOD
         PROPOSAL[schema_proposal]
+        PROPOSE[propose CLI / pipeline wrapper]
         CATALOG[semantic_catalog_connector]
         HANDOFF[semantic_catalog_handoff]
         PG_ERD[pg_erd_connector]
@@ -35,6 +37,8 @@ flowchart LR
         LOADER[postgres_loader / PsycopgSink]
         TARGET[(caller PostgreSQL)]
         INS --> PROPOSAL
+        CLI --> PROPOSE
+        PROPOSE --> PROPOSAL
         PROPOSAL --> CATALOG
         CATALOG --> HANDOFF
         PROPOSAL --> PG_ERD
