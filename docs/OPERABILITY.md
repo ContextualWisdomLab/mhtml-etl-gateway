@@ -2,9 +2,11 @@
 
 ## Current library operation
 
-Version `0.3.2` is a synchronous local inspection, schema-governance,
-catalog-manifest, and optional PostgreSQL-load library/CLI. It has no listening
-port or background worker. A caller may supply a DSN, in which case the
+The released baseline is version `0.3.2`, a synchronous local inspection,
+schema-governance, catalog-manifest, and optional PostgreSQL-load library/CLI.
+The current development head additionally contains the local schema-proposal
+workflow; that addition remains Unreleased until its release PR. It has no
+listening port or background worker. A caller may supply a DSN, in which case the
 pipeline creates and closes a scoped sink for that call, or supply a
 caller-created sink, whose credential and lifecycle remain caller-owned. The
 parser and catalog connector have no database access, browser runtime, office
@@ -60,6 +62,14 @@ diagnostics, but must not copy DSNs, SQL text, identifiers, row values, or
 provider exception bodies into logs or metrics.
 
 The public package emits no operational logs by itself. The CLI writes one success JSON object to stdout or one fixed-message error JSON object to stderr.
+
+The `propose` command is a local protected source-custody operation. It reads
+one complete table into process memory and emits only the deterministic proposal
+artifact. Operators must treat proposal JSON as sensitive equality-correlating
+metadata, apply their own access/retention/export approval, and never publish
+the source path, header values, or rows in logs. A malformed source returns the
+fixed parser or `schema_proposal_failed` error; the proposal command performs no retry,
+database write, connector submission, or remote acceptance.
 
 ## Current health and capacity model
 

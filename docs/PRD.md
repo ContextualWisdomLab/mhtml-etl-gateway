@@ -11,6 +11,8 @@ untrusted enterprise MHTML exports plus an optional transactional PostgreSQL
 loader. It proves which MIME body is authoritative, extracts bounded top-level
 table structure without rendering or execution, applies explicit mapping
 comments, and preserves opaque artifact lineage through the live load path.
+The current development head additionally provides the local, value-free schema
+proposal workflow; that addition remains Unreleased until its release PR.
 
 The product is intended to evolve into an enterprise ingestion control plane
 that produces governed, queryable PostgreSQL assets. Staging schemas,
@@ -93,6 +95,11 @@ DBML visualization plan for the same proposal. The plan targets
 nullability, and never includes samples, comments, notes, records, or guessed
 relationships. Authentication, approval, persistence, and remote acceptance
 remain caller-owned.
+
+The local proposal slice now closes the operator workflow gap: a bounded
+`propose` command and Python wrapper turn one validated MHTML table into the
+same value-free `SchemaProposal` contract. The command is source-custody local,
+not an authenticated service, and emits no raw header, cell, path, HTML, or DDL.
 
 ## P2: PostgreSQL loading
 

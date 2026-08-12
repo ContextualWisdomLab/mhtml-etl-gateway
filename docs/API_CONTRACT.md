@@ -2,9 +2,11 @@
 
 ## Current scope
 
-Version `0.3.2` exposes deterministic, synchronous, local inspection, schema
-proposal, mapping, value-free catalog-manifest, and governed handoff APIs. It
-performs no database write through the catalog connector, network request,
+Released version `0.3.2` exposes deterministic, synchronous, local inspection,
+mapping, value-free catalog-manifest, and governed handoff APIs. The current
+development head additionally exposes the local schema-proposal API documented
+below; it remains Unreleased until the release PR. The package performs no
+database write through the catalog connector, network request,
 browser rendering, office execution, or external-resource retrieval.
 
 ## Python API
@@ -54,6 +56,27 @@ inspect_mhtml_file(
 ```
 
 The file wrapper reads one local path and delegates to the byte API. Source-read failures produce `source_read_failed` without reflecting the path.
+
+### `propose_schema_from_mhtml`
+
+```python
+propose_schema_from_mhtml(
+    source_path: str | pathlib.Path,
+    *,
+    data: bytes | None = None,
+    policy: SchemaProposalPolicy | None = None,
+    limits: ParseLimits | None = None,
+) -> SchemaProposal
+```
+
+This local source-custody wrapper extracts one validated table and converts its
+protected headers and rows into the existing deterministic, value-free
+`SchemaProposal`. Complete extracted columns are marked `complete=True` for
+nullability evidence. The returned proposal contains only fingerprints,
+normalized names, allow-listed types, aggregate counts, and review reasons.
+It performs no database, network, authentication, LLM, or file-write operation.
+Callers remain responsible for source authorization, access, retention, and
+approval before sharing the proposal with a connector.
 
 ### `build_semantic_catalog_manifest`
 
@@ -132,11 +155,17 @@ W3C Trace Context independently at the application boundary.
 ```text
 mhtml-etl-gateway inspect SOURCE_PATH [--pretty]
                           [--max-source-bytes INTEGER]
+mhtml-etl-gateway propose SOURCE_PATH [--pretty]
+                          [--max-source-bytes INTEGER]
 ```
 
 Successful inspection writes exactly one JSON object to stdout and returns status `0`. Expected argument, source, MIME, decoding, or table failures write exactly one fixed-message JSON object to stderr and return status `2`. Unexpected programming defects are not reclassified as argument errors.
 
-The public CLI has no header-value disclosure flag. Header access requires a future authenticated source-custody and schema-governance workflow; it is not an inspection-report feature.
+`propose` writes one RFC 8259-compatible JSON object containing the value-free
+schema proposal and returns status `0`. Its source/header values are read only
+inside the local protected workflow; malformed sources use the fixed parser or
+`schema_proposal_failed` error. The inspection CLI still has no header-value
+disclosure flag, and neither command emits raw headers or cells.
 
 ## Public report schema
 

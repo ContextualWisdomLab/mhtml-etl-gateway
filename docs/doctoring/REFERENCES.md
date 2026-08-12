@@ -12,6 +12,8 @@ DBML. (n.d.). *DBML syntax—Core database markup*. Retrieved August 12, 2026, f
 
 ContextualWisdomLab. (2026). *pg-erd-cloud DBML conversion API* [Source code, commit 72afe6db712b145baaba084f64a1ff4fb36d9fd0]. GitHub. https://github.com/ContextualWisdomLab/pg-erd-cloud/blob/72afe6db712b145baaba084f64a1ff4fb36d9fd0/backend/app/api/dbml.py
 
+Bray, T. (Ed.). (2017). *The JavaScript Object Notation (JSON) Data Interchange Format* (RFC 8259). Internet Engineering Task Force. https://doi.org/10.17487/RFC8259
+
 Anomaly. (2026). *OpenCode release publisher for version 1.18.15* [Source code]. GitHub. https://github.com/anomalyco/opencode/blob/v1.18.15/packages/opencode/script/publish.ts
 
 Anomaly. (2026). *OpenCode Homebrew formula for version 1.18.15 at revision a72a2bfe3b4114ca10a9012c23f1b3f31924b22e* [Software distribution metadata]. GitHub. https://github.com/anomalyco/homebrew-tap/blob/a72a2bfe3b4114ca10a9012c23f1b3f31924b22e/opencode.rb

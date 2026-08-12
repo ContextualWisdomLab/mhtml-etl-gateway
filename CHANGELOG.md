@@ -4,6 +4,12 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- A first-party `propose` CLI and Python wrapper that turn one validated MHTML
+  table into a deterministic, value-free schema proposal for steward review and
+  Semantic Data Portal or pg-erd-cloud handoff.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware

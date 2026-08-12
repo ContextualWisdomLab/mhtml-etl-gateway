@@ -26,6 +26,7 @@ The **status declared inside each ADR is authoritative**. This index deliberatel
 | [ADR-0017](0017-governed-catalog-publisher.md) | Publish governed request plans through a caller-owned transport and record bounded remote-acceptance receipts without source values. |
 | [ADR-0018](0018-streamed-postgresql-copy.md) | Stream typed PostgreSQL rows with `COPY FROM STDIN` inside the existing atomic load transaction. |
 | [ADR-0019](0019-pg-erd-visualization-handoff.md) | Convert value-free schema proposals into transport-neutral pg-erd-cloud DBML visualization plans. |
+| [ADR-0020](0020-local-schema-proposal-boundary.md) | Expose a local protected MHTML-to-schema-proposal boundary without adding value disclosure or downstream transport authority. |
 
 ## Status vocabulary
 

@@ -101,13 +101,28 @@ The public report contains only:
 
 It does not contain table identifiers, decoded HTML, data rows, header values, raw Content-ID or Content-Location, Content-Location scheme, source-controlled media type, charset, transfer encoding, resource payload, or local path.
 
-The Python API and CLI provide no header-value option. Future schema governance must access headers through a separate authenticated source-custody contract with authorization, audit, protected output, retention, and export controls.
+The inspection Python API and CLI provide no header-value option. The local
+`propose` command and `propose_schema_from_mhtml` wrapper are a separate
+source-custody workflow: they hold headers and rows in protected process memory
+only and emit the existing value-free `SchemaProposal`. They are not an
+authenticated service; callers must provide authorization, audit, retention,
+and export controls before sharing the proposal with downstream connectors.
 
 ## Error and nonreflection requirements
 
-Every expected failure raises `MhtmlGatewayError` with a stable `ErrorCode`. Public serialization exposes only the code and its approved fixed message. Caller-supplied details, configured limits, source paths, MIME metadata, headers, cells, and payload text must never appear in public errors or diagnostics.
+Inspection and load failures raise `MhtmlGatewayError` with a stable
+`ErrorCode`. The Python `propose_schema_from_mhtml` boundary additionally may
+raise `SchemaProposalError` for protected-input or proposal-policy failures;
+the CLI converts that exception to `MhtmlGatewayError` with
+`schema_proposal_failed`. Argparse failures and invalid `ParseLimits`
+construction map to `invalid_argument`. Unexpected programming exceptions are
+not reclassified as user errors.
 
-Argparse failures and invalid `ParseLimits` construction map to `invalid_argument`. Unexpected programming exceptions are not reclassified as user errors.
+Public serialization exposes only the stable error code and its approved fixed
+message. Caller-supplied details, configured limits, source paths, MIME
+metadata, headers, cells, and payload text must never appear in public errors
+or diagnostics. The CLI writes this fixed JSON contract to stderr and never
+serializes a `SchemaProposalError` body or exception chain.
 
 ## PostgreSQL requirements and remaining future controls
 
