@@ -2,11 +2,10 @@
 
 ## Current library operation
 
-The released baseline is version `0.3.2`, a synchronous local inspection,
-schema-governance, catalog-manifest, and optional PostgreSQL-load library/CLI.
-The current development head additionally contains the local schema-proposal
-workflow; that addition remains Unreleased until its release PR. It has no
-listening port or background worker. A caller may supply a DSN, in which case the
+The released baseline is version `0.4.0`, a synchronous local inspection,
+schema-proposal, schema-governance, catalog-manifest, and optional
+PostgreSQL-load library/CLI. It has no listening port or background worker. A
+caller may supply a DSN, in which case the
 pipeline creates and closes a scoped sink for that call, or supply a
 caller-created sink, whose credential and lifecycle remain caller-owned. The
 parser and catalog connector have no database access, browser runtime, office
