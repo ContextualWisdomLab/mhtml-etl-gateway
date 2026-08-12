@@ -25,7 +25,7 @@ from .semantic_catalog_publisher import (
     publish_catalog_submission,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "ErrorCode",
