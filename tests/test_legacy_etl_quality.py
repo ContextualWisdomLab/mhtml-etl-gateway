@@ -676,6 +676,8 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         )
     assert "copy failed" not in str(error.value)
     assert failing_connection.rollbacks == 1
+    assert failing_connection.commits == 0
+    assert not any(call[0] == "execute" for call in failing_connection.calls)
 
     rollback_failure_connection = Connection()
     rollback_failure_connection.fail_copy = True
@@ -693,6 +695,8 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             replace_existing=False,
         )
     assert rollback_failure_connection.rollbacks == 1
+    assert rollback_failure_connection.commits == 0
+    assert not any(call[0] == "execute" for call in rollback_failure_connection.calls)
 
 
 def test_inmemory_sink_and_load_edge_contracts() -> None:
@@ -862,6 +866,8 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
             dsn="postgresql://example",
         )
     assert "sample" not in postgres_result["queryable"]
+    assert postgres_result["queryable"]["table_name"] == postgres_result["table_name"]
+    assert postgres_result["queryable"]["db_row_count"] == postgres_result["inserted_rows"]
     assert FakePsycopgSink.last is not None and FakePsycopgSink.last.closed
 
 

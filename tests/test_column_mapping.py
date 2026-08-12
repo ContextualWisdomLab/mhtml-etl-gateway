@@ -158,6 +158,8 @@ def test_pipeline_redacts_input_path_and_filename_derived_table_name(sample_mhtm
     assert result["table_name"] == "mhtml_extracted_rows"
     assert result["lineage"]["source_artifact_path"].startswith("artifact:")
     assert "sample" not in result["queryable"]
+    assert result["queryable"]["table_name"] == result["table_name"]
+    assert result["queryable"]["db_row_count"] == result["inserted_rows"]
 
 
 def test_artifact_reference_is_opaque_and_validated() -> None:

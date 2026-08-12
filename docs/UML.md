@@ -30,15 +30,15 @@ flowchart LR
         CATALOG[semantic_catalog_connector]
         HANDOFF[semantic_catalog_handoff]
         PIPE[pipeline]
-        SCHEMA[schema_inference]
+        CURRENT_SCHEMA[schema_inference]
         LOADER[postgres_loader / PsycopgSink]
         TARGET[(caller PostgreSQL)]
         INS --> PROPOSAL
         PROPOSAL --> CATALOG
         CATALOG --> HANDOFF
         CLI --> PIPE
-        PIPE --> SCHEMA
-        SCHEMA --> LOADER
+        PIPE --> CURRENT_SCHEMA
+        CURRENT_SCHEMA --> LOADER
         LOADER -->|per-artifact COPY transaction| TARGET
     end
 
@@ -47,7 +47,7 @@ flowchart LR
 
     subgraph future[Future governed ingestion control services]
         CUST[source_custody_service]
-        SCHEMA[schema_governance_service]
+        FUTURE_SCHEMA[schema_governance_service]
         LOAD[postgres_load_service]
         AUDIT[audit_and_observability]
         STORE[(PostgreSQL)]
@@ -55,11 +55,11 @@ flowchart LR
 
     REPORT -. protected evidence reference .-> CUST
     HANDOFF -. actor/tenant/approval-bound requests .-> PORTAL[semantic-data-portal]
-    CUST -. authenticated header/value evidence .-> SCHEMA
-    SCHEMA -. approved schema artifact .-> LOAD
+    CUST -. authenticated header/value evidence .-> FUTURE_SCHEMA
+    FUTURE_SCHEMA -. approved schema artifact .-> LOAD
     LOAD -. staging and reconciliation .-> STORE
     CUST -. audit .-> AUDIT
-    SCHEMA -. audit .-> AUDIT
+    FUTURE_SCHEMA -. audit .-> AUDIT
     LOAD -. reconciliation .-> AUDIT
 ```
 
