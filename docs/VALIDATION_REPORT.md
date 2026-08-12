@@ -24,6 +24,14 @@ The release candidate reports package version `0.3.1`; `uv build --wheel`
 produced `mhtml_etl_gateway-0.3.1-py3-none-any.whl`. Build artifacts remain
 outside the repository.
 
+The pg-erd-cloud implementation slice was validated with
+`tests/test_pg_erd_connector.py` and the full suite: 369 tests passed, 3 were
+skipped, 30 subtests passed, and 2,919 production statements plus 1,012
+production branches reached 100%. The tests cover all five proposal type
+mappings, nullability, deterministic plans, malformed-input rejection, direct
+constructor contract enforcement, and absence of DBML data blocks. GitHub
+current-head Checks remain the merge authority for the implementation PR.
+
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
 graph manifests, endpoint-compatible node/edge shapes, order-sensitive identity,
 raw-value absence, and caller-owned transport boundaries. The connector creates

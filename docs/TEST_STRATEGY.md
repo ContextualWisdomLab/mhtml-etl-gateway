@@ -65,6 +65,19 @@ The extreme nesting regression uses 2,000 nested multipart entities with one HTM
 - invalid governance references and control characters fail closed;
 - connector generation performs no HTTP, database, LLM, or file operation.
 
+### pg-erd-cloud visualization handoff
+
+- realistic SAP-shaped proposals map to DBML `text`, `boolean`, `date`,
+  `bigint`, and `numeric` columns with explicit non-null settings;
+- the `/api/dbml/convert` request shape is deterministic, PostgreSQL-specific,
+  and keeps `include_ddl=false`;
+- empty proposals remain serializable while malformed proposals, table names,
+  column names, types, and nullability flags fail closed;
+- raw headers, sample values, comments, notes, records, and guessed
+  relationships are absent from the DBML;
+- plan creation performs no HTTP, database, authentication, file, or LLM
+  operation and reaches 100% statement and branch coverage.
+
 ### Database identifier and mapping contract
 
 - single-token headers become stable `_field` names and single-token table

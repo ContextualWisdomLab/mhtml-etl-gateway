@@ -1,7 +1,7 @@
 # Entity Relationship and Evidence Model
 
 **Status:** Accepted model for current transactional artifact loads and future governed ingestion entities.
-**Last reviewed:** 2026-08-09
+**Last reviewed:** 2026-08-12
 
 This ERD intentionally separates **current in-memory inspection objects and
 transactional dynamic load tables** from **future persisted ingestion control
@@ -98,18 +98,30 @@ classDiagram
       +idempotency_key
       +body
     }
+    class PgErdVisualizationPlan {
+      +contract_version
+      +target_system
+      +source_hash_sha256
+      +schema_proposal_id
+      +dbml
+      +include_ddl = false
+      +dialect = postgresql
+    }
 
     SchemaProposal --> SemanticCatalogManifest : deterministic conversion
     SemanticCatalogManifest "1" --> "1..*" CatalogNode : emits
     SemanticCatalogManifest "1" --> "0..*" CatalogEdge : emits
     SemanticCatalogManifest --> CatalogSubmissionEnvelope : governed handoff
     CatalogSubmissionEnvelope "1" --> "1..*" CatalogWriteRequest : plans
+    SchemaProposal --> PgErdVisualizationPlan : DBML conversion plan
 ```
 
 This is an in-memory contract, not a database migration. The manifest can be
 submitted by a caller to the Semantic Data Portal graph API only after the
 caller performs authentication, tenant authorization, and steward approval.
 The submission envelope is still a plan: remote acceptance is not represented.
+The pg-erd visualization plan is a parallel value-free request boundary. It
+does not persist a snapshot, call the service, or invent relationships.
 
 ## Future conceptual PostgreSQL ERD
 

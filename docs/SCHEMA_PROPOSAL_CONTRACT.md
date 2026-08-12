@@ -195,7 +195,8 @@ A later schema-governance service will add:
 - proposal review state and immutable decisions;
 - protected field-label display;
 - type overrides with reasons;
-- pg-erd-cloud visualization;
+- The current connector emits a value-free one-table DBML visualization plan
+  for pg-erd-cloud. Multi-table relationships still require reviewed evidence.
 - compatibility and schema-drift comparison;
 - signed approved artifact;
 - migration generation separated from execution;

@@ -4,6 +4,11 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- A value-free pg-erd-cloud DBML visualization handoff plan for reviewed schema
+  proposals, without network, authentication, or diagram persistence authority.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware

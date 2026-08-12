@@ -1,9 +1,9 @@
 # UML and Runtime Views
 
 **Status:** Accepted documentation baseline for current inspection, value-free
-catalog handoff, and transactional dynamic-table loading; persisted ingestion
+catalog and pg-erd-cloud handoffs, and transactional dynamic-table loading; persisted ingestion
 control entities remain future.
-**Last reviewed:** 2026-08-11
+**Last reviewed:** 2026-08-12
 
 This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box labelled **future** is target architecture, not a claim that the component is implemented or deployable today. Current production behavior includes value-free schema proposals, a caller-owned Semantic Data Portal manifest handoff, and an optional transactional Psycopg sink; persisted ingestion control services remain future.
 
@@ -29,6 +29,7 @@ flowchart LR
         PROPOSAL[schema_proposal]
         CATALOG[semantic_catalog_connector]
         HANDOFF[semantic_catalog_handoff]
+        PG_ERD[pg_erd_connector]
         PIPE[pipeline]
         CURRENT_SCHEMA[schema_inference]
         LOADER[postgres_loader / PsycopgSink]
@@ -36,6 +37,7 @@ flowchart LR
         INS --> PROPOSAL
         PROPOSAL --> CATALOG
         CATALOG --> HANDOFF
+        PROPOSAL --> PG_ERD
         CLI --> PIPE
         PIPE --> CURRENT_SCHEMA
         CURRENT_SCHEMA --> LOADER
@@ -55,6 +57,7 @@ flowchart LR
 
     REPORT -. protected evidence reference .-> CUST
     HANDOFF -. actor/tenant/approval-bound requests .-> PORTAL[semantic-data-portal]
+    PG_ERD -. caller-owned DBML request .-> PG_ERD_CLOUD[pg-erd-cloud]
     CUST -. authenticated header/value evidence .-> FUTURE_SCHEMA
     FUTURE_SCHEMA -. approved schema artifact .-> LOAD
     LOAD -. staging and reconciliation .-> STORE
@@ -68,7 +71,7 @@ flowchart LR
 - Current parser code has no browser, JavaScript, network fetch, Office runtime, XML external-entity, shell, database, or connector capability.
 - Header/value disclosure is not added to `InspectionReport`; future schema work uses a separate authenticated source-custody boundary.
 - The current sink accepts a validated `TableSchema` and scoped database authorization; the future loader service additionally requires an approved, versioned schema artifact.
-- `pg-erd-cloud`, naruon, pg-llm-batch, and contextual-orchestrator are downstream/optional integration ports, not hidden runtime dependencies of the parser.
+- naruon, pg-llm-batch, and contextual-orchestrator remain downstream/optional integration ports, not hidden runtime dependencies of the parser; pg-erd-cloud has a transport-neutral optional DBML plan.
 
 ## Inspection sequence
 

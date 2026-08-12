@@ -2,7 +2,7 @@
 
 **Version:** 0.3
 **Status:** Accepted implementation baseline with explicit future service boundaries
-**Date:** 2026-08-11
+**Date:** 2026-08-12
 
 ## Product vision
 
@@ -87,6 +87,13 @@ caller-owned publisher now provides a value-free receipt only after each
 request receives explicit remote 2xx acceptance and an opaque remote request ID;
 partial outcomes remain reconciliation work rather than false success.
 
+The next ecosystem slice also emits a deterministic, value-free pg-erd-cloud
+DBML visualization plan for the same proposal. The plan targets
+`/api/dbml/convert`, carries one proposed table's allow-listed types and
+nullability, and never includes samples, comments, notes, records, or guessed
+relationships. Authentication, approval, persistence, and remote acceptance
+remain caller-owned.
+
 ## P2: PostgreSQL loading
 
 Every generated database object must use descriptive lowercase multiword
@@ -122,7 +129,8 @@ The product shall not apply destructive default masking when an authorized workf
 
 1. `ContextualWisdomLab/.github`: inherited review, security, supply-chain, and merge governance.
 2. `semantic-data-portal`: current value-free schema-proposal catalog handoff; future steward and ontology workflow.
-3. `pg-erd-cloud`: future reviewed schema proposal and lineage visualization contracts.
+3. `pg-erd-cloud`: current one-table DBML visualization handoff for proposed
+   schemas; future multi-table lineage and relationship contracts.
 4. `naruon`: future authenticated ingestion notifications and governed handoff artifacts.
 5. `pg-llm-batch`: optional post-ingestion enrichment, never in the trusted parser path.
 6. `contextual-orchestrator`: optional policy/review orchestration after deterministic evidence exists.

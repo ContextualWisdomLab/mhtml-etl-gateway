@@ -5,6 +5,10 @@ from .errors import ErrorCode, MhtmlGatewayError
 from .inspection import inspect_mhtml_bytes, inspect_mhtml_file
 from .models import InspectionReport, ParseLimits
 from .pipeline import convert_mhtml_to_postgres, extract_table
+from .pg_erd_connector import (
+    PgErdVisualizationPlan,
+    build_pg_erd_visualization_plan,
+)
 from .semantic_catalog_connector import (
     CatalogEdge,
     CatalogNode,
@@ -35,6 +39,8 @@ __all__ = [
     "__version__",
     "convert_mhtml_to_postgres",
     "extract_table",
+    "PgErdVisualizationPlan",
+    "build_pg_erd_visualization_plan",
     "inspect_mhtml_bytes",
     "inspect_mhtml_file",
     "run_batch",
