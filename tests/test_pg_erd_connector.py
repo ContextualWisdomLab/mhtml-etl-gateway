@@ -83,6 +83,14 @@ def test_plan_is_deterministic_and_supports_empty_proposal() -> None:
     )
 
     assert first.to_dict() == second.to_dict()
+    nullable_proposal = replace(
+        proposal,
+        columns=(replace(proposal.columns[0], nullable=True),),
+    )
+    assert build_pg_erd_visualization_plan(
+        nullable_proposal,
+        catalog_name="VOC",
+    ).dbml == "Table voc_table {\n  client_code text\n}"
     assert build_pg_erd_visualization_plan(empty, catalog_name="Empty source").dbml == (
         "Table empty_source {\n\n}"
     )
