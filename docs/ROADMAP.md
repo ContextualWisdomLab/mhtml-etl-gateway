@@ -29,18 +29,17 @@ Exit criteria:
 
 ## M2 — Transactional PostgreSQL loading
 
-The current `PsycopgSink` implements the atomic typed-row
-`COPY FROM STDIN` transport and opaque row lineage. The remaining milestones
-below require separate migrations, reconciliation, and service evidence.
+The current `PsycopgSink` implements the atomic per-artifact typed-row
+`COPY FROM STDIN` transport, multiword identifier enforcement, replay-safe
+catalog migration, catalog-based skip/replace replay, and opaque row lineage.
+The remaining milestones below require separate migrations, reconciliation, and
+service evidence.
 
-- multiword database-object enforcement and replay-safe catalog-name migration;
 - `raw_import`, `staging_data`, `normalized_data`, and `audit_log` migrations;
 - UUIDv7 IDs;
-- streamed `COPY FROM STDIN`;
 - rejection quarantine;
-- row-level lineage;
 - exact reconciliation and rollback;
-- idempotent replay.
+- concurrent job exclusion and service-level replay/recovery evidence.
 
 ## M3 — Service plane
 

@@ -189,8 +189,8 @@ Synthetic fixtures model SAP-style codes with leading zeroes, compact dates, Kor
 ## Loader tests
 
 The current unit contract verifies Psycopg row adaptation through
-`COPY FROM STDIN`, inclusion of lineage columns, and rollback-safe fixed
-errors. A PostgreSQL test container shall additionally verify:
+`COPY FROM STDIN`, exact typed row payloads and lineage-column order, and
+rollback-safe fixed errors. A PostgreSQL test container shall additionally verify:
 
 - migration up/down behavior;
 - multiword naming contract;

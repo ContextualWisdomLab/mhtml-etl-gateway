@@ -6,7 +6,7 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Literal, Protocol, Sequence
+from typing import Any, Iterable, Literal, Protocol, Sequence
 
 from mhtml_etl_gateway.ingest_catalog import (
     CATALOG_DDL,
@@ -279,7 +279,7 @@ class PsycopgSink:
         except Exception:
             raise LoadError("database operation failed") from None
 
-    def _copy_rows(self, query, rows: Sequence[Sequence[Any]]) -> None:
+    def _copy_rows(self, query, rows: Iterable[Sequence[Any]]) -> None:
         """Stream adapted rows through PostgreSQL ``COPY FROM STDIN``."""
         try:
             with self._conn.cursor() as cur:
@@ -526,23 +526,25 @@ class PsycopgSink:
             "load_status_code = EXCLUDED.load_status_code, "
             "loaded_at = EXCLUDED.loaded_at"
         )
-        payloads: list[tuple[Any, ...]] = []
-        for offset, row in enumerate(rows):
-            values: list[Any] = []
-            for i, col in enumerate(schema.columns):
-                raw = row[i] if i < len(row) else None
-                if isinstance(raw, str):
-                    values.append(coerce_value(raw, col.pg_type))
-                else:
-                    values.append(raw)
-            values.extend(
-                [
-                    source_artifact_path,
-                    source_artifact_sha256,
-                    start_row_number + offset,
-                ]
-            )
-            payloads.append(tuple(values))
+        row_count = len(rows)
+
+        def adapted_rows() -> Iterable[tuple[Any, ...]]:
+            for offset, row in enumerate(rows):
+                values: list[Any] = []
+                for i, col in enumerate(schema.columns):
+                    raw = row[i] if i < len(row) else None
+                    if isinstance(raw, str):
+                        values.append(coerce_value(raw, col.pg_type))
+                    else:
+                        values.append(raw)
+                values.extend(
+                    [
+                        source_artifact_path,
+                        source_artifact_sha256,
+                        start_row_number + offset,
+                    ]
+                )
+                yield tuple(values)
 
         try:
             # DDL + DML share one transaction so promote rolls back with insert failure.
@@ -561,8 +563,8 @@ class PsycopgSink:
                     "DELETE FROM {} WHERE source_artifact_sha256 = %s"
                 ).format(pgsql.Identifier(table))
                 self._execute(del_q, (source_artifact_sha256,))
-            if payloads:
-                self._copy_rows(copy_sql, payloads)
+            if row_count:
+                self._copy_rows(copy_sql, adapted_rows())
             self._execute(
                 catalog_sql,
                 (
@@ -576,7 +578,7 @@ class PsycopgSink:
                 ),
             )
             self._conn.commit()
-            return len(payloads)
+            return row_count
         except Exception:
             try:
                 self._conn.rollback()
@@ -590,7 +592,7 @@ class PsycopgSink:
         return self.count_rows(table_name)
 
     def query_sample(self, table_name: str, limit: int = 5) -> list[tuple]:
-        """Return a bounded sample from a validated PostgreSQL relation."""
+        """Return a bounded sample for an explicit caller-owned query."""
         from psycopg import sql as pgsql
 
         ident = require_safe_ident(table_name)

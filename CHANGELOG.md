@@ -9,6 +9,11 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 - Stream typed live PostgreSQL rows through Psycopg `COPY FROM STDIN` while
   preserving the existing atomic catalog and lineage transaction.
 
+### Changed
+
+- Load results now expose queryable counts and table identity without row
+  samples; value queries remain an explicit caller-authorized database action.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware

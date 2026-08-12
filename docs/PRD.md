@@ -94,8 +94,10 @@ Every generated database object must use descriptive lowercase multiword
 and unsafe direct names are rejected before DDL. Catalog upgrades must preserve
 idempotency and use replay-safe migrations when an object name changes.
 
-The current loader uses an atomic transaction and streamed `COPY FROM STDIN` for
-validated typed rows. The complete P2 loader shall add transaction-safe staging
+The current loader uses an atomic per-artifact transaction and streamed `COPY
+FROM STDIN` for validated typed rows. Its default result exposes queryable
+counts and table identity, not row samples; callers that need values must use
+their own authorized database query. The complete P2 loader shall add transaction-safe staging
 and reconcile:
 
 - extracted source row count;

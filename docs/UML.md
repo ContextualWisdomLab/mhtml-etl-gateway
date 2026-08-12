@@ -11,7 +11,7 @@ This document is the canonical diagram-as-code view of MHTML ETL Gateway. A box 
 
 ```mermaid
 flowchart LR
-    subgraph current[Current deterministic inspection package]
+    subgraph current[Current embedded package]
         CLI[cli]
         MOD[models]
         ERR[errors]
@@ -27,11 +27,19 @@ flowchart LR
         HTML --> ERR
     INS --> MOD
         PROPOSAL[schema_proposal]
-    CATALOG[semantic_catalog_connector]
-    HANDOFF[semantic_catalog_handoff]
+        CATALOG[semantic_catalog_connector]
+        HANDOFF[semantic_catalog_handoff]
+        PIPE[pipeline]
+        SCHEMA[schema_inference]
+        LOADER[postgres_loader / PsycopgSink]
+        TARGET[(caller PostgreSQL)]
         INS --> PROPOSAL
-    PROPOSAL --> CATALOG
-    CATALOG --> HANDOFF
+        PROPOSAL --> CATALOG
+        CATALOG --> HANDOFF
+        CLI --> PIPE
+        PIPE --> SCHEMA
+        SCHEMA --> LOADER
+        LOADER -->|per-artifact COPY transaction| TARGET
     end
 
     SRC[Untrusted MHTML bytes] --> CLI
@@ -49,7 +57,7 @@ flowchart LR
     HANDOFF -. actor/tenant/approval-bound requests .-> PORTAL[semantic-data-portal]
     CUST -. authenticated header/value evidence .-> SCHEMA
     SCHEMA -. approved schema artifact .-> LOAD
-    LOAD -. transaction and COPY .-> STORE
+    LOAD -. staging and reconciliation .-> STORE
     CUST -. audit .-> AUDIT
     SCHEMA -. audit .-> AUDIT
     LOAD -. reconciliation .-> AUDIT
@@ -198,6 +206,7 @@ flowchart LR
     GOV -->|signed/versioned approved schema| LOAD[Loader authority]
     DBROLE[Scoped tenant DB role] -->|least-privilege credential| LOAD
     LOAD -->|staging + COPY + reconcile| DB[(Tenant PostgreSQL)]
+    CURRENT[Caller-authorized PsycopgSink] -->|per-artifact COPY| CURRENT_DB[(Caller PostgreSQL)]
     CUST --> AUDIT[Audit evidence]
     GOV --> AUDIT
     LOAD --> AUDIT

@@ -496,7 +496,9 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     sink._execute("SELECT 1")
     sink._execute("SELECT %s", (1,))
     sink._copy_rows("COPY rows (value_field) FROM STDIN", [(1,), (2,)])
-    assert [call[0] for call in connection.calls].count("copy") == 2
+    copy_calls = [call for call in connection.calls if call[0] == "copy"]
+    assert len(copy_calls) == 2
+    assert [call[2] for call in copy_calls] == [(1,), (2,)]
     connection.fetchone_result = (1,)
     assert sink._fetchone("SELECT 1")[0] == 1
     assert sink._fetchone("SELECT %s", (1,))[0] == 1
@@ -611,6 +613,12 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     assert len(copy_calls) == 1
     assert "COPY" in str(copy_calls[0][1])
     assert "source_artifact_sha256" in str(copy_calls[0][1])
+    assert copy_calls[0][2] == (
+        "x",
+        "artifact:aaaaaaaaaaaaaaaa",
+        "a" * 64,
+        4,
+    )
     write_sink._columns_to_promote = lambda schema, rows: []
     assert write_sink.write_artifact_rows(
         schema,
@@ -620,6 +628,29 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         catalog_entry=catalog_entry,
         replace_existing=False,
     ) == 1
+    copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
+    assert copy_calls[1][2] == (1, "artifact:aaaaaaaaaaaaaaaa", "a" * 64, 1)
+    bigint_schema = TableSchema(
+        table_name="bigint_rows",
+        columns=[ColumnSpec("ID", "id_field", PG_BIGINT)],
+    )
+    bigint_entry = make_catalog_entry(
+        sha256="b" * 64,
+        table_name="bigint_rows",
+        path="artifact:bbbbbbbbbbbbbbbb",
+        size=1,
+        row_count=1,
+    )
+    assert write_sink.write_artifact_rows(
+        bigint_schema,
+        [["0007"]],
+        source_artifact_path="artifact:bbbbbbbbbbbbbbbb",
+        source_artifact_sha256="b" * 64,
+        catalog_entry=bigint_entry,
+        replace_existing=False,
+    ) == 1
+    copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
+    assert copy_calls[2][2] == (7, "artifact:bbbbbbbbbbbbbbbb", "b" * 64, 1)
     assert write_sink.write_artifact_rows(
         schema,
         [],
@@ -821,9 +852,6 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         def write_artifact_rows(self, schema, rows, **kwargs):
             return self.inner.write_artifact_rows(schema, rows, **kwargs)
 
-        def query_sample(self, table_name, limit=3):
-            return [("opaque-sample",)]
-
         def close(self) -> None:
             self.closed = True
 
@@ -833,7 +861,7 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
             data=data,
             dsn="postgresql://example",
         )
-    assert postgres_result["queryable"]["sample"] == [["opaque-sample"]]
+    assert "sample" not in postgres_result["queryable"]
     assert FakePsycopgSink.last is not None and FakePsycopgSink.last.closed
 
 

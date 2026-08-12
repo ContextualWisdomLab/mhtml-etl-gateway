@@ -309,6 +309,4 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     )
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
-    sample = result["queryable"]["sample"]
-    assert sample
     assert result.get("catalog")
