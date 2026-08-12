@@ -2,7 +2,7 @@
 
 ## Current library operation
 
-Version `0.3.0` is a synchronous local inspection, schema-governance,
+Version `0.3.1` is a synchronous local inspection, schema-governance,
 catalog-manifest, and optional PostgreSQL-load library/CLI. It has no listening
 port or background worker. A caller may supply a DSN, in which case the
 pipeline creates and closes a scoped sink for that call, or supply a

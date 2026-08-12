@@ -2,7 +2,7 @@
 
 ## Current scope
 
-Version `0.3.0` exposes deterministic, synchronous, local inspection, schema
+Version `0.3.1` exposes deterministic, synchronous, local inspection, schema
 proposal, mapping, value-free catalog-manifest, and governed handoff APIs. It
 performs no database write through the catalog connector, network request,
 browser rendering, office execution, or external-resource retrieval.

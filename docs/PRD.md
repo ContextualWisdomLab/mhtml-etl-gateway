@@ -6,7 +6,7 @@
 
 ## Product vision
 
-Version `0.3.0` provides deterministic, privacy-preserving inspection of
+Version `0.3.1` provides deterministic, privacy-preserving inspection of
 untrusted enterprise MHTML exports plus an optional transactional PostgreSQL
 loader. It proves which MIME body is authoritative, extracts bounded top-level
 table structure without rendering or execution, applies explicit mapping
