@@ -4,21 +4,25 @@
 **Product version:** 0.1.0  
 **Scope:** deterministic value-free MHTML inspection, work-conserving autonomous maintenance, and verified OpenCode runner delivery
 
-## Current 0.3.0 implementation addendum
+## Current 0.3.1 implementation addendum
 
 The historical evidence below remains preserved for the original inspection
 baseline. The current merged main implementation also includes versioned
 value-free schema proposals, `COMMENT ON COLUMN` mapping support, and the
-Semantic Data Portal connector boundary. The current integration worktree on
-2026-08-12 is validated with Python 3.14 as follows:
+Semantic Data Portal connector boundary. The current release-candidate
+worktree on 2026-08-12 is validated with Python 3.14 as follows:
 
 ```text
 357 tests passed
 3 tests skipped
 30 subtests passed
-2,672 production statements: 100%
-918 production branches: 100%
+2,855 production statements: 100%
+1,000 production branches: 100%
 ```
+
+The release candidate reports package version `0.3.1`; `uv build --wheel`
+produced `mhtml_etl_gateway-0.3.1-py3-none-any.whl`. Build artifacts remain
+outside the repository.
 
 `tests/test_semantic_catalog_connector.py` proves deterministic dataset/column
 graph manifests, endpoint-compatible node/edge shapes, order-sensitive identity,
@@ -225,6 +229,16 @@ The current public report contract includes no raw path, location scheme, media 
 
 ## Release assessment
 
-The implementation is a reviewable first pre-1.0 inspection slice. It is not yet a complete MHTML-to-PostgreSQL ETL product. Versioned protected schema proposals, approval, database migrations, transactional streamed `COPY FROM STDIN`, rejection quarantine, reconciliation, idempotent replay, tenancy, service APIs, deployment evidence, SBOM, and signed provenance remain future milestones.
+The implementation is a reviewable pre-1.0 inspection and first transactional
+loading slice. The live Psycopg sink now streams validated rows through
+`COPY FROM STDIN` inside the existing per-artifact atomic transaction, with unit
+evidence for typed row adaptation, lineage order, and rollback. The default
+load result exposes counts rather than row samples. It is not yet a complete
+MHTML-to-PostgreSQL ETL
+product: versioned protected schema approval, staging migrations, rejection
+quarantine, accepted/rejected reconciliation, tenancy, service APIs, deployment
+evidence, SBOM, and signed provenance remain future milestones.
 
-Version `0.1.0` must not be released until the live exact PR head passes every organization-required check, independent approval, unresolved-thread policy, protected-branch merge, and release supply-chain gate.
+A future release must not be published until the live exact PR head passes
+every organization-required check, independent approval, unresolved-thread
+policy, protected-branch merge, and release supply-chain gate.

@@ -11,7 +11,8 @@
 | root `start`, first-direct-body default, and required type | RFC 2387 plus verified erratum 5578 | deterministic root; diagnose enterprise missing type; reject mismatch and nested substitution |
 | opaque time-ordered external IDs | RFC 9562 | future service/database UUIDv7 contract |
 | API description | OpenAPI 3.2.0 | future authenticated service contract baseline |
-| PostgreSQL baseline | PostgreSQL 18.4 release notes | patched deployment baseline for future loader |
+| PostgreSQL baseline | PostgreSQL 18.4 release notes | patched deployment baseline for the current loader and future persisted services |
+| streamed PostgreSQL loading | PostgreSQL 18.4 `COPY` documentation; Psycopg 3 `COPY` documentation; ADR-0018 | send validated typed rows over `COPY FROM STDIN` inside the existing transaction without server-side file or program execution |
 | PostgreSQL type and error boundary | PostgreSQL Global Development Group. (2026). *PostgreSQL 18 documentation*; NIST SSDF 1.1 | keep generated types allow-listed, classify out-of-range integers as `NUMERIC`, and prevent DSN/SQL/provider details from public errors |
 | database identifier boundary | PostgreSQL Global Development Group. (2026). *4.1. Lexical structure*. PostgreSQL 18 documentation. https://www.postgresql.org/docs/current/sql-syntax-lexical.html | keep generated names lowercase, bounded to 63 bytes, and stricter multiword `snake_case` at every SQL boundary |
 | secure development | NIST SP 800-218 SSDF 1.1 | design decisions, provenance, vulnerability, least privilege, and isolated build/test environments |

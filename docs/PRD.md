@@ -6,9 +6,17 @@
 
 ## Product vision
 
-Version `0.1.0` currently provides deterministic, privacy-preserving inspection of untrusted enterprise MHTML exports. It proves which MIME body is authoritative, extracts bounded top-level table structure without rendering or execution, and emits a value-free structural report tied to the immutable source bytes.
+Version `0.3.1` provides deterministic, privacy-preserving inspection of
+untrusted enterprise MHTML exports plus an optional transactional PostgreSQL
+loader. It proves which MIME body is authoritative, extracts bounded top-level
+table structure without rendering or execution, applies explicit mapping
+comments, and preserves opaque artifact lineage through the live load path.
 
-The product is intended to evolve into an enterprise ingestion control plane that produces governed, queryable PostgreSQL assets. Schema governance, validation, transactional loading, reconciliation, service APIs, tenant storage, and external connectors remain future slices until exact-head implementation evidence exists.
+The product is intended to evolve into an enterprise ingestion control plane
+that produces governed, queryable PostgreSQL assets. Staging schemas,
+rejection quarantine, exact accepted/rejected reconciliation, service APIs,
+tenant storage, and external connectors remain future slices until exact-head
+implementation evidence exists.
 
 ## Buyer problem
 
@@ -24,7 +32,7 @@ Enterprise teams regularly receive SAP ALV, spreadsheet web-archive, browser-sav
 
 - **Data engineer:** inspects exports deterministically today and will later import approved mappings without a bespoke parser per report.
 - **Data steward:** will review proposed names, types, constraints, and sensitive-data policies before activation.
-- **Business analyst:** will receive stable PostgreSQL assets with documented provenance and validation outcomes after the loader milestone.
+- **Business analyst:** receives stable PostgreSQL assets with documented provenance and validation outcomes; full reconciliation remains a later milestone.
 - **Security/compliance operator:** proves source custody, data minimization, change approval, retention, and incident evidence.
 - **Platform integrator:** embeds the current parser and inspection contract or future loader as independent modules.
 
@@ -86,7 +94,11 @@ Every generated database object must use descriptive lowercase multiword
 and unsafe direct names are rejected before DDL. Catalog upgrades must preserve
 idempotency and use replay-safe migrations when an object name changes.
 
-The loader shall use transaction-safe staging and streamed `COPY FROM STDIN`, then reconcile:
+The current loader uses an atomic per-artifact transaction and streamed `COPY
+FROM STDIN` for validated typed rows. Its default result exposes queryable
+counts and table identity, not row samples; callers that need values must use
+their own authorized database query. The complete P2 loader shall add transaction-safe staging
+and reconcile:
 
 - extracted source row count;
 - accepted and rejected row counts;

@@ -422,6 +422,22 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
 def test_postgres_sink_sql_and_transaction_contracts() -> None:
     """The live sink binds values, validates identifiers, and rolls back failures."""
 
+    class Copy:
+        def __init__(self, connection, query) -> None:
+            self.connection = connection
+            self.query = query
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            return None
+
+        def write_row(self, row) -> None:
+            self.connection.calls.append(("copy", self.query, tuple(row)))
+            if self.connection.fail_copy:
+                raise RuntimeError("copy failed")
+
     class Cursor:
         def __init__(self, connection) -> None:
             self.connection = connection
@@ -437,10 +453,8 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             if self.connection.fail_execute:
                 raise RuntimeError("execute failed")
 
-        def executemany(self, query, params) -> None:
-            self.connection.calls.append(("executemany", query, params))
-            if self.connection.fail_executemany:
-                raise RuntimeError("executemany failed")
+        def copy(self, query):
+            return Copy(self.connection, query)
 
         def fetchone(self):
             return self.connection.fetchone_result
@@ -458,7 +472,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             self.fetchone_result = None
             self.fetchall_result: list[tuple[object, ...]] = []
             self.fail_execute = False
-            self.fail_executemany = False
+            self.fail_copy = False
             self.fail_rollback = False
 
         def cursor(self):
@@ -481,7 +495,10 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     assert connection.autocommit is False
     sink._execute("SELECT 1")
     sink._execute("SELECT %s", (1,))
-    sink._executemany("INSERT", [(1,), (2,)])
+    sink._copy_rows("COPY rows (value_field) FROM STDIN", [(1,), (2,)])
+    copy_calls = [call for call in connection.calls if call[0] == "copy"]
+    assert len(copy_calls) == 2
+    assert [call[2] for call in copy_calls] == [(1,), (2,)]
     connection.fetchone_result = (1,)
     assert sink._fetchone("SELECT 1")[0] == 1
     assert sink._fetchone("SELECT %s", (1,))[0] == 1
@@ -497,10 +514,10 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     with pytest.raises(LoadError, match="database operation failed"):
         sink._fetchall("SELECT secret")
     connection.fail_execute = False
-    connection.fail_executemany = True
+    connection.fail_copy = True
     with pytest.raises(LoadError, match="database operation failed"):
-        sink._executemany("INSERT", [("secret",)])
-    connection.fail_executemany = False
+        sink._copy_rows("COPY rows (value_field) FROM STDIN", [("secret",)])
+    connection.fail_copy = False
 
     sink.rollback()
     assert connection.rollbacks == 1
@@ -592,7 +609,16 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         start_row_number=4,
     ) == 1
     assert write_connection.commits == 1
-    assert any(call[0] == "executemany" for call in write_connection.calls)
+    copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
+    assert len(copy_calls) == 1
+    assert "COPY" in str(copy_calls[0][1])
+    assert "source_artifact_sha256" in str(copy_calls[0][1])
+    assert copy_calls[0][2] == (
+        "x",
+        "artifact:aaaaaaaaaaaaaaaa",
+        "a" * 64,
+        4,
+    )
     write_sink._columns_to_promote = lambda schema, rows: []
     assert write_sink.write_artifact_rows(
         schema,
@@ -602,6 +628,29 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         catalog_entry=catalog_entry,
         replace_existing=False,
     ) == 1
+    copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
+    assert copy_calls[1][2] == (1, "artifact:aaaaaaaaaaaaaaaa", "a" * 64, 1)
+    bigint_schema = TableSchema(
+        table_name="bigint_rows",
+        columns=[ColumnSpec("ID", "id_field", PG_BIGINT)],
+    )
+    bigint_entry = make_catalog_entry(
+        sha256="b" * 64,
+        table_name="bigint_rows",
+        path="artifact:bbbbbbbbbbbbbbbb",
+        size=1,
+        row_count=1,
+    )
+    assert write_sink.write_artifact_rows(
+        bigint_schema,
+        [["0007"]],
+        source_artifact_path="artifact:bbbbbbbbbbbbbbbb",
+        source_artifact_sha256="b" * 64,
+        catalog_entry=bigint_entry,
+        replace_existing=False,
+    ) == 1
+    copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
+    assert copy_calls[2][2] == (7, "artifact:bbbbbbbbbbbbbbbb", "b" * 64, 1)
     assert write_sink.write_artifact_rows(
         schema,
         [],
@@ -612,7 +661,7 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     ) == 0
 
     failing_connection = Connection()
-    failing_connection.fail_executemany = True
+    failing_connection.fail_copy = True
     failing_sink = object.__new__(PsycopgSink)
     failing_sink._conn = failing_connection
     failing_sink._columns_to_promote = lambda schema, rows: []
@@ -625,11 +674,13 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             catalog_entry=catalog_entry,
             replace_existing=False,
         )
-    assert "executemany failed" not in str(error.value)
+    assert "copy failed" not in str(error.value)
     assert failing_connection.rollbacks == 1
+    assert failing_connection.commits == 0
+    assert not any(call[0] == "execute" for call in failing_connection.calls)
 
     rollback_failure_connection = Connection()
-    rollback_failure_connection.fail_executemany = True
+    rollback_failure_connection.fail_copy = True
     rollback_failure_connection.fail_rollback = True
     rollback_failure_sink = object.__new__(PsycopgSink)
     rollback_failure_sink._conn = rollback_failure_connection
@@ -644,6 +695,8 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             replace_existing=False,
         )
     assert rollback_failure_connection.rollbacks == 1
+    assert rollback_failure_connection.commits == 0
+    assert not any(call[0] == "execute" for call in rollback_failure_connection.calls)
 
 
 def test_inmemory_sink_and_load_edge_contracts() -> None:
@@ -803,9 +856,6 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         def write_artifact_rows(self, schema, rows, **kwargs):
             return self.inner.write_artifact_rows(schema, rows, **kwargs)
 
-        def query_sample(self, table_name, limit=3):
-            return [("opaque-sample",)]
-
         def close(self) -> None:
             self.closed = True
 
@@ -815,7 +865,9 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
             data=data,
             dsn="postgresql://example",
         )
-    assert postgres_result["queryable"]["sample"] == [["opaque-sample"]]
+    assert "sample" not in postgres_result["queryable"]
+    assert postgres_result["queryable"]["table_name"] == postgres_result["table_name"]
+    assert postgres_result["queryable"]["db_row_count"] == postgres_result["inserted_rows"]
     assert FakePsycopgSink.last is not None and FakePsycopgSink.last.closed
 
 

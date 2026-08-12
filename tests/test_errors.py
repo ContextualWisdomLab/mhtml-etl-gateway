@@ -33,7 +33,7 @@ class ErrorContractTests(unittest.TestCase):
 
     def test_package_version_is_semantic(self) -> None:
         """The package exports the current release's semantic version."""
-        self.assertEqual(__version__, "0.3.0")
+        self.assertEqual(__version__, "0.3.1")
 
 
 if __name__ == "__main__":
