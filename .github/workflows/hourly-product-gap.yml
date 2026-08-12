@@ -180,10 +180,11 @@ jobs:
           set -euo pipefail
           gate_output=".agent/evidence/loop-output.txt"
           install -m 0660 /dev/null "$gate_output"
-          cwl-safe-exec python scripts/hourly_product_gap.py \
+          cwl-safe-exec python - \
             --pull-requests-json ".agent/evidence/open-pulls.json" \
             --issues-json ".agent/evidence/agent-issues.json" \
-            --github-output "$gate_output"
+            --github-output "$gate_output" \
+            < scripts/hourly_product_gap.py
           cat "$gate_output" >> "$GITHUB_OUTPUT"
 
       - name: Record fail-closed gate reason
