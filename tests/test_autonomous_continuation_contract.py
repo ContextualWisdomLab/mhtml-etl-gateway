@@ -53,6 +53,14 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         self.assertIn('".agent/evidence/open-pulls.json"', gate_section)
         self.assertIn('".agent/evidence/agent-issues.json"', gate_section)
         self.assertIn('gate_output=".agent/evidence/loop-output.txt"', gate_section)
+        self.assertIn(
+            '--pull-requests-json ".agent/evidence/open-pulls.json"',
+            gate_section,
+        )
+        self.assertIn(
+            '--issues-json ".agent/evidence/agent-issues.json"',
+            gate_section,
+        )
         self.assertIn('cat "$gate_output" >> "$GITHUB_OUTPUT"', gate_section)
         self.assertNotIn("GITHUB_WORKSPACE", gate_section)
 
