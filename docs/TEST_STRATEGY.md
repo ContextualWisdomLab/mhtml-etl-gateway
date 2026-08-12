@@ -186,14 +186,16 @@ The rehearsal uses sentinel variable names and set/unset checks only. It never p
 
 Synthetic fixtures model SAP-style codes with leading zeroes, compact dates, Korean text, rich cell content, nonstandard transfer encoding, and positional headers. A protected real export can be used in local/operator validation but is never committed and no value is printed. Its regression evidence is limited to exact source hash, byte size, aggregate table dimensions, diagnostic codes, and absence of raw protected metadata.
 
-## Future loader tests
+## Loader tests
 
-A PostgreSQL test container shall verify:
+The current unit contract verifies Psycopg row adaptation through
+`COPY FROM STDIN`, exact typed row payloads and lineage-column order, and
+rollback-safe fixed errors. A PostgreSQL test container shall additionally verify:
 
 - migration up/down behavior;
 - multiword naming contract;
 - tenant RLS;
-- streamed COPY;
+- streamed COPY against a real PostgreSQL server;
 - source/accepted/rejected/target count reconciliation;
 - conversion-error quarantine;
 - transaction rollback after injected failure;

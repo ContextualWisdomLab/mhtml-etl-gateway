@@ -2,10 +2,13 @@
 
 ## Current library operation
 
-Version `0.3.0` is a synchronous local inspection, schema-governance, and
-catalog-manifest library/CLI. It has no listening port, database credential,
-background worker, browser runtime, office dependency, or network egress in
-the catalog connector.
+Version `0.3.0` is a synchronous local inspection, schema-governance,
+catalog-manifest, and optional PostgreSQL-load library/CLI. It has no listening
+port or background worker. A caller may supply a DSN, in which case the
+pipeline creates and closes a scoped sink for that call, or supply a
+caller-created sink, whose credential and lifecycle remain caller-owned. The
+parser and catalog connector have no database access, browser runtime, office
+dependency, or network egress.
 
 Operators control resource budgets through `ParseLimits` and the CLI source-byte limit. Programmatic budgets cover source bytes, all descendant MIME entities, MIME depth, decoded HTML, tables, rows, columns, raw cells, projected and realized normalized cells, and cell text. Every budget is a positive non-boolean integer.
 
@@ -45,6 +48,13 @@ Applications may log stable error and diagnostic codes, source SHA-256, source b
 
 Database adapters must preserve this boundary: connection, SQL-operation,
 transaction, and type-conversion failures are surfaced as fixed load errors.
+The live Psycopg sink sends validated typed rows through `COPY FROM STDIN` and
+commits the copy and artifact-catalog upsert atomically per artifact/load
+operation. In batch mode each file has its own commit boundary, so
+`continue_on_error` preserves earlier successful files when a later file fails.
+A copy failure rolls back the current transaction; server-side filenames and
+`PROGRAM` execution are not used. Rejection quarantine and
+accepted/rejected reconciliation remain future operational controls.
 Operational systems may correlate the error code with protected server-side
 diagnostics, but must not copy DSNs, SQL text, identifiers, row values, or
 provider exception bodies into logs or metrics.

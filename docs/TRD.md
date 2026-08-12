@@ -109,9 +109,19 @@ Every expected failure raises `MhtmlGatewayError` with a stable `ErrorCode`. Pub
 
 Argparse failures and invalid `ParseLimits` construction map to `invalid_argument`. Unexpected programming exceptions are not reclassified as user errors.
 
-## Future PostgreSQL requirements
+## PostgreSQL requirements and remaining future controls
 
-The loader architecture shall use separate `raw_import`, `staging_data`, `normalized_data`, and `audit_log` schemas. Every object name contains at least two lowercase `snake_case` words and fits PostgreSQL's 63-byte unquoted-identifier limit. Single-token generated columns and tables receive `_field` and `_table` suffixes respectively; direct unsafe identifiers fail closed. Loads use explicit transactions and streamed `COPY FROM STDIN`; dynamic identifiers are selected only from an approved schema artifact and never concatenated from source text. Legacy catalog `status` is renamed to `load_status_code` by a constant replay-safe migration.
+The current live sink uses explicit transactions and streamed `COPY FROM STDIN`
+for validated typed rows; dynamic identifiers are selected only from an
+approved schema artifact and never concatenated from source text. Every
+database object contains at least two lowercase `snake_case` words and fits
+PostgreSQL's 63-byte unquoted-identifier limit. Single-token generated columns
+and tables receive `_field` and `_table` suffixes respectively; direct unsafe
+names fail closed. The legacy catalog `status` is renamed to
+`load_status_code` by a constant replay-safe migration. Separate
+`raw_import`, `staging_data`, `normalized_data`, and `audit_log` schemas,
+rejection quarantine, exact accepted/rejected reconciliation, and tenant
+controls remain future requirements.
 
 ## Semantic catalog connector requirements
 

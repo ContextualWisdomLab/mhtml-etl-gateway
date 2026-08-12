@@ -1,9 +1,13 @@
 # Entity Relationship and Evidence Model
 
-**Status:** Accepted conceptual target model; current release has no PostgreSQL persistence.  
+**Status:** Accepted model for current transactional artifact loads and future governed ingestion entities.
 **Last reviewed:** 2026-08-09
 
-This ERD intentionally separates **current in-memory inspection objects** from **future persisted ingestion entities**. Nothing in the future section is evidence that a migration, table, RLS policy, loader, or service already exists.
+This ERD intentionally separates **current in-memory inspection objects and
+transactional dynamic load tables** from **future persisted ingestion control
+entities**. The current loader creates the artifact catalog and caller-selected
+business table; the future section is not evidence that staging migrations,
+RLS policies, or an asynchronous service already exists.
 
 ## Current in-memory model
 

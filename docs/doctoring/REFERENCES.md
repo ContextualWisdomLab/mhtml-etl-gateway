@@ -40,6 +40,10 @@ Palme, J., Hopmann, A., & Shelness, N. (1999). *MIME encapsulation of aggregate 
 
 PostgreSQL Global Development Group. (2026). *PostgreSQL 18.4 release notes*. https://www.postgresql.org/docs/release/18.4/
 
+PostgreSQL Global Development Group. (2026). *COPY*. PostgreSQL 18.4 documentation. https://www.postgresql.org/docs/18/sql-copy.html
+
+Psycopg Authors. (n.d.). *Using COPY TO and COPY FROM*. Psycopg 3 documentation. Retrieved August 12, 2026, from https://www.psycopg.org/psycopg3/docs/basic/copy.html
+
 Python Packaging Authority. (2026). *Requirements file format*. pip documentation (Version 26.1.2). https://pip.pypa.io/en/stable/reference/requirements-file-format/
 
 Python Packaging Authority. (2026). *Secure installs*. pip documentation (Version 26.1.2). https://pip.pypa.io/en/stable/topics/secure-installs/

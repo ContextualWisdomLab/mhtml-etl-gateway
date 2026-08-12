@@ -225,6 +225,16 @@ The current public report contract includes no raw path, location scheme, media 
 
 ## Release assessment
 
-The implementation is a reviewable first pre-1.0 inspection slice. It is not yet a complete MHTML-to-PostgreSQL ETL product. Versioned protected schema proposals, approval, database migrations, transactional streamed `COPY FROM STDIN`, rejection quarantine, reconciliation, idempotent replay, tenancy, service APIs, deployment evidence, SBOM, and signed provenance remain future milestones.
+The implementation is a reviewable pre-1.0 inspection and first transactional
+loading slice. The live Psycopg sink now streams validated rows through
+`COPY FROM STDIN` inside the existing per-artifact atomic transaction, with unit
+evidence for typed row adaptation, lineage order, and rollback. The default
+load result exposes counts rather than row samples. It is not yet a complete
+MHTML-to-PostgreSQL ETL
+product: versioned protected schema approval, staging migrations, rejection
+quarantine, accepted/rejected reconciliation, tenancy, service APIs, deployment
+evidence, SBOM, and signed provenance remain future milestones.
 
-Version `0.1.0` must not be released until the live exact PR head passes every organization-required check, independent approval, unresolved-thread policy, protected-branch merge, and release supply-chain gate.
+A future release must not be published until the live exact PR head passes
+every organization-required check, independent approval, unresolved-thread
+policy, protected-branch merge, and release supply-chain gate.

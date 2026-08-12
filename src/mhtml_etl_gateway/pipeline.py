@@ -171,13 +171,6 @@ def convert_mhtml_to_postgres(
             "table_name": result.table_name,
             "db_row_count": db_count,
         }
-        if isinstance(active, PsycopgSink):
-            sample = active.query_sample(result.table_name, limit=3)
-            queryable["sample"] = [list(r) for r in sample]
-        elif isinstance(active, InMemorySink):
-            stored = active.rows.get(result.table_name, [])
-            queryable["sample"] = stored[:3]
-
         return {
             "headers": extracted.headers,
             "data_row_count": len(extracted.rows),

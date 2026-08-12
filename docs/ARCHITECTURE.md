@@ -41,7 +41,7 @@ flowchart TB
 | `semantic_catalog_handoff` | actor/tenant/approval-bound request plan and idempotency keys | no credentials or transport |
 | `semantic_catalog_publisher` | one-shot caller-owned transport and bounded remote-acceptance receipt | no auth, retry, persistence, or source values |
 | `column_mapping` | JSON/CSV/PPTX text-layer mapping | explicit comments only |
-| `postgres_loader` | DDL, comments, rows, catalog, lineage | scoped database DSN |
+| `postgres_loader` | DDL, comments, streamed rows, catalog, lineage | scoped database DSN |
 | `batch` / `pipeline` | single-file and multi-file orchestration | opaque reporting |
 | `cli` | inspect, load, and batch commands | fixed errors and summaries |
 | `scripts/hourly_product_gap` | guarded development-loop evidence | central workflow authority |
@@ -93,9 +93,12 @@ and applies `COMMENT ON COLUMN` from an explicit mapping reference in the same
 setup transaction. A constant compatibility migration renames the legacy
 catalog `status` column to `load_status_code`; no caller value is interpolated.
 A later artifact can trigger safe type promotion to `TEXT`; incompatible live
-types are detected before insertion. Schema proposals are versioned and must
-be approved before a future service exposes them outside the source-custody
-boundary.
+types are detected before insertion. Validated typed rows now cross the live
+Psycopg sink through `COPY FROM STDIN` in the same transaction as the catalog
+upsert. Rejection quarantine, staging schemas, and accepted/rejected
+reconciliation remain separate future controls. Schema proposals are versioned
+and must be approved before a future service exposes them outside the
+source-custody boundary.
 
 ## Resource and failure model
 
