@@ -1,10 +1,10 @@
 # Validation Report
 
-**Validated:** 2026-08-09  
-**Product version:** 0.1.0  
+**Validated:** 2026-08-12
+**Product version:** 0.3.2
 **Scope:** deterministic value-free MHTML inspection, work-conserving autonomous maintenance, and verified OpenCode runner delivery
 
-## Current 0.3.1 implementation addendum
+## Current 0.3.2 implementation addendum
 
 The historical evidence below remains preserved for the original inspection
 baseline. The current merged main implementation also includes versioned
@@ -13,15 +13,15 @@ Semantic Data Portal connector boundary. The current release-candidate
 worktree on 2026-08-12 is validated with Python 3.14 as follows:
 
 ```text
-357 tests passed
+369 tests passed
 3 tests skipped
 30 subtests passed
-2,855 production statements: 100%
-1,000 production branches: 100%
+2,919 production statements: 100%
+1,012 production branches: 100%
 ```
 
-The release candidate reports package version `0.3.1`; `uv build --wheel`
-produced `mhtml_etl_gateway-0.3.1-py3-none-any.whl`. Build artifacts remain
+The release candidate reports package version `0.3.2`; `uv build --wheel`
+produced `mhtml_etl_gateway-0.3.2-py3-none-any.whl`. Build artifacts remain
 outside the repository.
 
 The pg-erd-cloud implementation slice was validated with
