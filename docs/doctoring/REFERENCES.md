@@ -10,7 +10,7 @@ Anomaly. (2026). *OpenCode permissions*. https://opencode.ai/docs/permissions/
 
 DBML. (n.d.). *DBML syntax—Core database markup*. Retrieved August 12, 2026, from https://dbml.dbdiagram.io/docs/
 
-ContextualWisdomLab. (2026). *pg-erd-cloud DBML conversion API* [Source code]. GitHub. https://github.com/ContextualWisdomLab/pg-erd-cloud/blob/main/backend/app/api/dbml.py
+ContextualWisdomLab. (2026). *pg-erd-cloud DBML conversion API* [Source code, commit 72afe6db712b145baaba084f64a1ff4fb36d9fd0]. GitHub. https://github.com/ContextualWisdomLab/pg-erd-cloud/blob/72afe6db712b145baaba084f64a1ff4fb36d9fd0/backend/app/api/dbml.py
 
 Anomaly. (2026). *OpenCode release publisher for version 1.18.15* [Source code]. GitHub. https://github.com/anomalyco/opencode/blob/v1.18.15/packages/opencode/script/publish.ts
 

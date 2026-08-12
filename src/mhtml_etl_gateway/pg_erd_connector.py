@@ -27,7 +27,7 @@ _DBML_TYPES = {
 }
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class PgErdVisualizationPlan:
     """Transport-neutral, value-free request plan for pg-erd-cloud."""
 
@@ -38,6 +38,13 @@ class PgErdVisualizationPlan:
     dbml: str
     include_ddl: bool = False
     dialect: str = "postgresql"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Reject direct construction so callers cannot override the contract."""
+        raise TypeError(
+            "PgErdVisualizationPlan must be built with "
+            "build_pg_erd_visualization_plan"
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Return the request shape accepted by pg-erd-cloud's DBML route."""
@@ -109,10 +116,12 @@ def build_pg_erd_visualization_plan(
         columns.append(_dbml_column(column))
     column_lines = "\n".join(columns)
     dbml = f"Table {table_name} {{\n{column_lines}\n}}"
-    return PgErdVisualizationPlan(
-        contract_version=PG_ERD_CONTRACT_VERSION,
-        target_system=PG_ERD_TARGET_SYSTEM,
-        source_hash_sha256=proposal.source_hash_sha256,
-        schema_proposal_id=proposal.schema_proposal_id,
-        dbml=dbml,
-    )
+    plan = object.__new__(PgErdVisualizationPlan)
+    object.__setattr__(plan, "contract_version", PG_ERD_CONTRACT_VERSION)
+    object.__setattr__(plan, "target_system", PG_ERD_TARGET_SYSTEM)
+    object.__setattr__(plan, "source_hash_sha256", proposal.source_hash_sha256)
+    object.__setattr__(plan, "schema_proposal_id", proposal.schema_proposal_id)
+    object.__setattr__(plan, "dbml", dbml)
+    object.__setattr__(plan, "include_ddl", False)
+    object.__setattr__(plan, "dialect", "postgresql")
+    return plan

@@ -115,6 +115,20 @@ def test_plan_rejects_non_proposal_input() -> None:
         build_pg_erd_visualization_plan(object(), catalog_name="VOC")  # type: ignore[arg-type]
 
 
+def test_plan_direct_construction_cannot_override_contract() -> None:
+    """Plans cannot bypass the builder's value-free fixed request contract."""
+    with pytest.raises(TypeError, match="build_pg_erd_visualization_plan"):
+        PgErdVisualizationPlan(
+            contract_version="attacker-controlled",
+            target_system="other-service",
+            source_hash_sha256="a" * 64,
+            schema_proposal_id="schema_proposal_demo",
+            dbml="Table unsafe_table { secret_text text [note: 'raw'] }",
+            include_ddl=True,
+            dialect="snowflake",
+        )
+
+
 def test_plan_rejects_invalid_column_objects() -> None:
     """Malformed manually constructed proposals cannot reach DBML output."""
     proposal = replace(_proposal(), columns=(object(),))  # type: ignore[arg-type]
@@ -137,6 +151,6 @@ def test_plan_rejects_invalid_column_definitions(column: ColumnProposal) -> None
 
     with pytest.raises(
         ValueError,
-        match="unsafe column definition|nullable flag",
+        match=r"unsafe column definition|nullable flag",
     ):
         build_pg_erd_visualization_plan(proposal, catalog_name="VOC")

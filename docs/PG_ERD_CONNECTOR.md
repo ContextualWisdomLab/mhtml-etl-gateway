@@ -34,9 +34,11 @@ allow-list: `text`, `boolean`, `date`, `bigint`, and `numeric`.
 
 ## Privacy and authority boundary
 
-The connector accepts only a `SchemaProposal`, so raw source headers and
-sample values are unavailable at this boundary. It emits normalized target
-names, allow-listed types, nullability, proposal identity, and source hashes.
+The builder receives a `SchemaProposal` and a steward-provided `catalog_name`.
+The proposal contains no raw source headers or sample values at this boundary.
+The catalog name is used only to generate a safe table identifier. The builder
+emits normalized target names, allow-listed types, nullability, proposal
+identity, and source hashes.
 It deliberately emits no DBML comments, notes, defaults, indexes, records,
 relationship definitions, or example data.
 
