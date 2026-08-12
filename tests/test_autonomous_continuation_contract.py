@@ -42,7 +42,8 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         )
         self.assertIn("NVIDIA_NIM_API_KEY_CONFIGURED", gate_section)
         self.assertNotIn("NVIDIA_NIM_API_KEY: ${{", gate_section)
-        self.assertIn("cwl-safe-exec python scripts/hourly_product_gap.py", gate_section)
+        self.assertIn("cwl-safe-exec python -", gate_section)
+        self.assertIn("< scripts/hourly_product_gap.py", gate_section)
 
     def test_gate_uses_workspace_evidence_instead_of_privileged_temp_paths(self) -> None:
         """The unprivileged gate reads and writes only relative workspace files."""
@@ -74,7 +75,7 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         self.assertNotIn(': > "$gate_output"', gate_section)
         self.assertLess(
             gate_section.index('install -m 0660 /dev/null "$gate_output"'),
-            gate_section.index("cwl-safe-exec python scripts/hourly_product_gap.py"),
+            gate_section.index("cwl-safe-exec python -"),
         )
 
     def test_wrapper_uses_a_dedicated_workspace_group(self) -> None:
