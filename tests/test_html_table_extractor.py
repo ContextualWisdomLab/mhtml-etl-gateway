@@ -67,3 +67,18 @@ def test_colspan_dos_protection() -> None:
     """
     with pytest.raises(TableExtractError, match="colspan too large"):
         extract_primary_table(html)
+
+
+def test_active_content_and_resource_attributes_are_ignored() -> None:
+    html = """
+    <table><tr><th>BODY</th></tr><tr><td>
+    visible
+    <script>steal()</script><style>.x{display:none}</style>
+    <noscript>fallback secret</noscript><template>template secret</template>
+    <img src="data:image/png;base64,QUJDREVGRw==" alt="embedded payload">
+    </td></tr></table>
+    """
+    table = extract_primary_table(html)
+    assert table.rows[0][0] == "visible"
+    assert "steal()" not in table.rows[0][0]
+    assert "secret" not in table.rows[0][0]

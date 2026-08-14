@@ -11,6 +11,17 @@ class TableExtractError(ValueError):
     """Fail-closed error when no usable table can be extracted."""
 
 
+_SUPPRESSED_CONTAINER_TAGS = {
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "iframe",
+    "object",
+}
+
+_IGNORED_VOID_RESOURCE_TAGS = {"embed"}
+
 # Chunk size for incremental HTMLParser.feed (memory-bounded incremental parse).
 _FEED_CHUNK = 256 * 1024
 
@@ -46,8 +57,20 @@ class _TopLevelTableParser(HTMLParser):
         self._cur_row: list[str] | None = None
         self._cur_cell: list[str] = []
         self._cell_attrs: dict[str, str] = {}
+        self._suppression_stack: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized = tag.lower()
+        if self._suppression_stack:
+            if normalized in _SUPPRESSED_CONTAINER_TAGS:
+                self._suppression_stack.append(normalized)
+            return
+        if normalized in _SUPPRESSED_CONTAINER_TAGS:
+            self._suppression_stack.append(normalized)
+            return
+        if normalized in _IGNORED_VOID_RESOURCE_TAGS:
+            return
+
         ad = {k: (v or "") for k, v in attrs}
         if tag == "table":
             self._table_depth += 1
@@ -71,6 +94,11 @@ class _TopLevelTableParser(HTMLParser):
             self._cur_cell.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        normalized = tag.lower()
+        if self._suppression_stack:
+            if normalized == self._suppression_stack[-1]:
+                self._suppression_stack.pop()
+            return
         if tag == "table":
             if self._table_depth == 1 and self._cur_table is not None:
                 self.tables.append(self._cur_table)
@@ -111,7 +139,7 @@ class _TopLevelTableParser(HTMLParser):
             self._cur_row = None
 
     def handle_data(self, data: str) -> None:
-        if self._in_td and self._table_depth >= 1:
+        if self._in_td and self._table_depth >= 1 and not self._suppression_stack:
             self._cur_cell.append(data)
 
 
