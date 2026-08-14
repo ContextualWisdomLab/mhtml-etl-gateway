@@ -82,3 +82,45 @@ def test_active_content_and_resource_attributes_are_ignored() -> None:
     assert table.rows[0][0] == "visible"
     assert "steal()" not in table.rows[0][0]
     assert "secret" not in table.rows[0][0]
+
+
+def test_nested_suppression_recovers_visible_text_after_resources() -> None:
+    html = """
+    <table><tr><th>BODY</th></tr><tr><td>visible-before
+    <template>hidden<div>ignored markup</div><iframe>nested hidden</iframe></template>
+    <object>object hidden</object><embed src="data:text/plain,hidden">
+    visible-after</td></tr></table>
+    """
+
+    table = extract_primary_table(html)
+    value = table.rows[0][0]
+    assert "visible-before" in value
+    assert "visible-after" in value
+    assert "hidden" not in value
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<table><tr><td><template><object>hidden</template></td></tr></table>",
+        "<table><tr><td><object>hidden</td></tr></table>",
+    ],
+)
+def test_malformed_suppression_fails_closed(html: str) -> None:
+    with pytest.raises(TableExtractError, match="suppression container"):
+        extract_primary_table(html)
+
+
+def test_decoded_markup_remains_internal_table_data() -> None:
+    html = """
+    <table>
+      <tr><th>&lt;script&gt;header()&lt;/script&gt;</th>
+          <th x:str="&lt;script&gt;xheader()&lt;/script&gt;"></th></tr>
+      <tr><td>&lt;script&gt;row()&lt;/script&gt;</td>
+          <td x:str="&lt;script&gt;xrow()&lt;/script&gt;"></td></tr>
+    </table>
+    """
+
+    table = extract_primary_table(html)
+    assert table.headers == ["<script>header()</script>", "<script>xheader()</script>"]
+    assert table.rows == [["<script>row()</script>", "<script>xrow()</script>"]]

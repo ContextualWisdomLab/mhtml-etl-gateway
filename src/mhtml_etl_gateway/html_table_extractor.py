@@ -96,8 +96,14 @@ class _TopLevelTableParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         normalized = tag.lower()
         if self._suppression_stack:
-            if normalized == self._suppression_stack[-1]:
-                self._suppression_stack.pop()
+            if normalized not in _SUPPRESSED_CONTAINER_TAGS:
+                return
+            expected = self._suppression_stack[-1]
+            if normalized != expected:
+                raise TableExtractError(
+                    f"mismatched suppression container: expected </{expected}>"
+                )
+            self._suppression_stack.pop()
             return
         if tag == "table":
             if self._table_depth == 1 and self._cur_table is not None:
@@ -148,11 +154,12 @@ def _feed_parser_chunked(parser: _TopLevelTableParser, text: str) -> None:
     n = len(text)
     if n <= _FEED_CHUNK:
         parser.feed(text)
-        parser.close()
-        return
-    for i in range(0, n, _FEED_CHUNK):
-        parser.feed(text[i : i + _FEED_CHUNK])
+    else:
+        for i in range(0, n, _FEED_CHUNK):
+            parser.feed(text[i : i + _FEED_CHUNK])
     parser.close()
+    if parser._suppression_stack:
+        raise TableExtractError("unclosed suppression container")
 
 
 def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:

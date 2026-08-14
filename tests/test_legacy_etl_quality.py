@@ -335,6 +335,12 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
     assert cli_module._parse_required_headers("NONE") == []
     assert cli_module._parse_required_headers(" A, B ") == ["A", "B"]
     assert cli_module._safe_load_summary({"queryable": "not-a-map", "lineage": []})["artifact_ref"] is None
+    sensitive_summary = cli_module._safe_load_summary(
+        {"headers": ["<script>header()</script>", "<script>xheader()</script>"]}
+    )
+    assert sensitive_summary["header_count"] == 2
+    assert "headers" not in sensitive_summary
+    assert "script" not in json.dumps(sensitive_summary)
 
     source = tmp_path / "source.MHTML"
     source.write_bytes(sample_mhtml_path.read_bytes())
@@ -367,6 +373,8 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
         ) == 0
     load_summary = json.loads(stdout.getvalue())
     assert load_summary["artifact_ref"].startswith("artifact:")
+    assert load_summary["header_count"] >= 2
+    assert "headers" not in load_summary
     assert ddl_path.is_file()
     assert lineage_path.is_file()
     assert str(source) not in stdout.getvalue()
@@ -375,6 +383,8 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
     with redirect_stdout(stdout):
         assert cli_module.main(["load", str(source), "--dry-run"]) == 0
     assert "artifact_ref:" in stdout.getvalue()
+    assert "header_count:" in stdout.getvalue()
+    assert "headers (" not in stdout.getvalue()
 
     with patch.object(cli_module, "convert_mhtml_to_postgres", side_effect=RuntimeError("private")):
         with redirect_stderr(stderr := StringIO()):
