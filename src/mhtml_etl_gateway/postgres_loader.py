@@ -475,7 +475,7 @@ class PsycopgSink:
                 }.get(col.pg_type, {col.pg_type.lower()})
                 # Keep validation lazy so large batches can short-circuit.
                 prepared = (
-                    coerce_value(str(row[i]), col.pg_type)
+                    (coerce_value(row[i], col.pg_type) if type(row[i]) is str else row[i])
                     if i < len(row) and row[i] is not None
                     else None
                     for row in rows
@@ -529,12 +529,14 @@ class PsycopgSink:
         row_count = len(rows)
 
         def adapted_rows() -> Iterable[tuple[Any, ...]]:
+            cols = tuple((col.pg_type, i) for i, col in enumerate(schema.columns))
             for offset, row in enumerate(rows):
+                r_len = len(row)
                 values: list[Any] = []
-                for i, col in enumerate(schema.columns):
-                    raw = row[i] if i < len(row) else None
-                    if isinstance(raw, str):
-                        values.append(coerce_value(raw, col.pg_type))
+                for pg_type, i in cols:
+                    raw = row[i] if i < r_len else None
+                    if type(raw) is str:
+                        values.append(coerce_value(raw, pg_type))
                     else:
                         values.append(raw)
                 values.extend(
@@ -602,12 +604,14 @@ class PsycopgSink:
 
 def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
     """Coerce string rows to Python types according to schema."""
+    cols = tuple((col.pg_type, i) for i, col in enumerate(schema.columns))
     prepared: list[list[Any]] = []
     for row in rows:
+        r_len = len(row)
         prepared.append(
             [
-                coerce_value(str(row[i]) if i < len(row) else "", col.pg_type)
-                for i, col in enumerate(schema.columns)
+                (coerce_value(row[i], pg_type) if type(row[i]) is str else row[i]) if i < r_len else None
+                for pg_type, i in cols
             ]
         )
     return prepared
