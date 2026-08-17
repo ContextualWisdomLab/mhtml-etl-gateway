@@ -66,7 +66,13 @@ class _TopLevelTableParser(HTMLParser):
                 self._suppression_stack.append(normalized)
             return
         if normalized in _SUPPRESSED_CONTAINER_TAGS:
-            self._suppression_stack.append(normalized)
+            # Outside a table none of this content can become extracted data or
+            # structure, so do not let malformed document chrome suppress a
+            # later valid table. Once a table is open, suppress the complete
+            # active-content subtree so script/template markup cannot create
+            # fake rows, cells, or nested tables.
+            if self._table_depth >= 1:
+                self._suppression_stack.append(normalized)
             return
         if normalized in _IGNORED_VOID_RESOURCE_TAGS:
             return
@@ -100,9 +106,10 @@ class _TopLevelTableParser(HTMLParser):
                 return
             expected = self._suppression_stack[-1]
             if normalized != expected:
-                raise TableExtractError(
-                    f"mismatched suppression container: expected </{expected}>"
-                )
+                # A stray closer must not pop the still-open outer boundary or
+                # expose text that remains inside it. Tolerate the malformed
+                # closer and wait for the matching container end tag.
+                return
             self._suppression_stack.pop()
             return
         if tag == "table":
