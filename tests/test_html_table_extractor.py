@@ -99,16 +99,40 @@ def test_nested_suppression_recovers_visible_text_after_resources() -> None:
     assert "hidden" not in value
 
 
-@pytest.mark.parametrize(
-    "html",
-    [
-        "<table><tr><td><template><object>hidden</template></td></tr></table>",
-        "<table><tr><td><object>hidden</td></tr></table>",
-    ],
-)
-def test_malformed_suppression_fails_closed(html: str) -> None:
+def test_mismatched_suppression_closer_keeps_outer_boundary() -> None:
+    """A stray closer must not expose text that remains inside a template."""
+
+    html = (
+        "<table><tr><th>BODY</th></tr><tr><td>visible"
+        "<template><style></style></style>secret</template>after"
+        "</td></tr></table>"
+    )
+
+    table = extract_primary_table(html)
+    assert table.rows == [["visibleafter"]]
+    assert "secret" not in table.rows[0][0]
+
+
+def test_unclosed_suppression_inside_table_fails_closed() -> None:
+    """An unclosed active-content boundary inside a table remains an error."""
+
+    html = "<table><tr><th>BODY</th></tr><tr><td>visible<object>hidden</td></tr></table>"
     with pytest.raises(TableExtractError, match="suppression container"):
         extract_primary_table(html)
+
+
+def test_unclosed_suppression_outside_table_does_not_hide_following_table() -> None:
+    """Malformed non-table markup must not deny extraction of a later table."""
+
+    html = (
+        "<html><head><style>body{display:none}</head><body>"
+        "<table><tr><th>BODY</th></tr><tr><td>visible</td></tr></table>"
+        "</body></html>"
+    )
+
+    table = extract_primary_table(html)
+    assert table.headers == ["BODY"]
+    assert table.rows == [["visible"]]
 
 
 def test_decoded_markup_remains_internal_table_data() -> None:
