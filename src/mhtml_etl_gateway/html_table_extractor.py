@@ -11,6 +11,17 @@ class TableExtractError(ValueError):
     """Fail-closed error when no usable table can be extracted."""
 
 
+_SUPPRESSED_CONTAINER_TAGS = {
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "iframe",
+    "object",
+}
+
+_IGNORED_VOID_RESOURCE_TAGS = {"embed"}
+
 # Chunk size for incremental HTMLParser.feed (memory-bounded incremental parse).
 _FEED_CHUNK = 256 * 1024
 
@@ -38,6 +49,9 @@ class _TopLevelTableParser(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
+        # Prevent HTMLParser from treating script, style, etc as CDATA elements,
+        # so it recursively extracts nested elements inside them instead of swallowing them.
+        self.CDATA_CONTENT_ELEMENTS = ()
         self.tables: list[list[list[str]]] = []
         self._table_depth = 0
         self._in_tr = False
@@ -46,8 +60,26 @@ class _TopLevelTableParser(HTMLParser):
         self._cur_row: list[str] | None = None
         self._cur_cell: list[str] = []
         self._cell_attrs: dict[str, str] = {}
+        self._suppression_stack: list[str] = []
+
+    def set_cdata_mode(self, elem: str, *, escapable: bool = False) -> None: # pragma: no cover
+        # Override set_cdata_mode to handle different signatures in older Python versions
+        # Since CDATA_CONTENT_ELEMENTS is empty, this should not be called, but we
+        # implement it for compatibility.
+        pass
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized = tag.lower()
+        if self._suppression_stack:
+            if normalized in _SUPPRESSED_CONTAINER_TAGS:
+                self._suppression_stack.append(normalized)
+            return
+        if normalized in _SUPPRESSED_CONTAINER_TAGS:
+            self._suppression_stack.append(normalized)
+            return
+        if normalized in _IGNORED_VOID_RESOURCE_TAGS:
+            return
+
         ad = {k: (v or "") for k, v in attrs}
         if tag == "table":
             self._table_depth += 1
@@ -71,6 +103,17 @@ class _TopLevelTableParser(HTMLParser):
             self._cur_cell.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        normalized = tag.lower()
+        if self._suppression_stack:
+            if normalized not in _SUPPRESSED_CONTAINER_TAGS:
+                return
+            expected = self._suppression_stack[-1]
+            if normalized != expected:
+                raise TableExtractError(
+                    f"mismatched suppression container: expected </{expected}>"
+                )
+            self._suppression_stack.pop()
+            return
         if tag == "table":
             if self._table_depth == 1 and self._cur_table is not None:
                 self.tables.append(self._cur_table)
@@ -111,7 +154,7 @@ class _TopLevelTableParser(HTMLParser):
             self._cur_row = None
 
     def handle_data(self, data: str) -> None:
-        if self._in_td and self._table_depth >= 1:
+        if self._in_td and self._table_depth >= 1 and not self._suppression_stack:
             self._cur_cell.append(data)
 
 
@@ -121,10 +164,14 @@ def _feed_parser_chunked(parser: _TopLevelTableParser, text: str) -> None:
     if n <= _FEED_CHUNK:
         parser.feed(text)
         parser.close()
+        if parser._suppression_stack:
+            raise TableExtractError("unclosed suppression container")
         return
     for i in range(0, n, _FEED_CHUNK):
         parser.feed(text[i : i + _FEED_CHUNK])
     parser.close()
+    if parser._suppression_stack:
+        raise TableExtractError("unclosed suppression container")
 
 
 def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:

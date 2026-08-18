@@ -67,3 +67,74 @@ def test_colspan_dos_protection() -> None:
     """
     with pytest.raises(TableExtractError, match="colspan too large"):
         extract_primary_table(html)
+
+
+def test_active_content_and_resource_attributes_are_ignored() -> None:
+    html = """
+    <table><tr><th>BODY</th></tr><tr><td>
+    visible
+    <script>steal()</script><style>.x{display:none}</style>
+    <noscript>fallback secret</noscript><template>template secret</template>
+    <img src="data:image/png;base64,QUJDREVGRw==" alt="embedded payload">
+    </td></tr></table>
+    """
+    table = extract_primary_table(html)
+    assert table.rows[0][0] == "visible"
+    assert "steal()" not in table.rows[0][0]
+    assert "secret" not in table.rows[0][0]
+
+def test_suppressed_tags_stack() -> None:
+    html = """
+    <table><tr><th>BODY</th></tr><tr><td>visible
+    <script>outer<script>inner</script>outer</script>
+    <template>
+        <template>
+            text
+        </template>
+    </template>
+    after</td></tr></table>
+    """
+    table = extract_primary_table(html)
+    assert table.rows[0][0] == "visible\n    \n    \n    after"
+
+
+
+
+def test_mismatched_suppression_closer_keeps_outer_boundary() -> None:
+    html = (
+        "<table><tr><th>BODY</th></tr><tr><td>visible"
+        "<template><style></style></style>secret</template>after"
+        "</td></tr></table>"
+    )
+    with pytest.raises(TableExtractError, match="mismatched suppression container"):
+        extract_primary_table(html)
+
+def test_unclosed_suppression_outside_table_does_not_hide_following_table() -> None:
+    html = (
+        "<html><head><style>body{display:none}</head><body>"
+        "<table><tr><th>BODY</th></tr><tr><td>visible</td></tr></table>"
+        "</body></html>"
+    )
+    with pytest.raises(TableExtractError, match="unclosed suppression container"):
+        extract_primary_table(html)
+
+
+def test_ignored_void_resource_tag() -> None:
+    html = (
+        "<table><tr><th>BODY</th></tr><tr><td>visible"
+        "<embed src='data:image/png;base64,QUJDREVGRw==' alt='embedded payload'>after"
+        "</td></tr></table>"
+    )
+    table = extract_primary_table(html)
+    assert table.rows[0][0] == "visibleafter"
+
+
+def test_unclosed_suppression_outside_table_does_not_hide_following_table_chunked() -> None:
+    html = (
+        "<html><head><style>body{display:none}</head><body>"
+        + ("x" * 256 * 1024) +
+        "<table><tr><th>BODY</th></tr><tr><td>visible</td></tr></table>"
+        "</body></html>"
+    )
+    with pytest.raises(TableExtractError, match="unclosed suppression container"):
+        extract_primary_table(html)
