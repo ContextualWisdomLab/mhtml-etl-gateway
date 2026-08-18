@@ -474,10 +474,10 @@ class PsycopgSink:
                     PG_TIMESTAMP: {"timestamp without time zone"},
                 }.get(col.pg_type, {col.pg_type.lower()})
                 # Keep validation lazy so large batches can short-circuit.
+                # The rows passed here are already typed Python objects
+                # (via prepare_typed_rows in load_table).
                 prepared = (
-                    coerce_value(str(row[i]), col.pg_type)
-                    if i < len(row) and row[i] is not None
-                    else None
+                    row[i] if i < len(row) else None
                     for row in rows
                 )
                 if (
