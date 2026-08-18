@@ -59,10 +59,10 @@ class _TopLevelTableParser(HTMLParser):
         self._cell_attrs: dict[str, str] = {}
         self._suppression_stack: list[str] = []
 
-    def set_cdata_mode(self, elem: str) -> None:
+    def set_cdata_mode(self, elem: str, *, escapable: bool = False) -> None:
         """Use HTMLParser CDATA mode only for active content inside a table."""
         if self._table_depth >= 1:
-            super().set_cdata_mode(elem)
+            super().set_cdata_mode(elem, escapable=escapable)
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         normalized = tag.lower()
