@@ -162,12 +162,10 @@ def _safe_load_summary(result: dict[str, object]) -> dict[str, object]:
     row_count = queryable.get("db_row_count") if isinstance(queryable, dict) else None
     lineage = result.get("lineage")
     artifact_ref = lineage.get("source_artifact_path") if isinstance(lineage, dict) else None
-    headers = result.get("headers")
-    header_count = len(headers) if isinstance(headers, (list, tuple)) else 0
     return {
         "artifact_ref": artifact_ref,
         "data_row_count": result.get("data_row_count"),
-        "header_count": header_count,
+        "headers": result.get("headers", []),
         "inserted_rows": result.get("inserted_rows"),
         "queryable_row_count": row_count,
         "sha256": result.get("source_sha256"),
@@ -263,7 +261,7 @@ def _run_load(args: argparse.Namespace) -> int:
         print(f"artifact_ref: {summary['artifact_ref']}")
         print(f"sha256: {summary['sha256']}")
         print(f"skipped: {summary['skipped']}")
-        print(f"header_count: {summary['header_count']}")
+        print(f"headers ({len(summary['headers'])}): {', '.join(summary['headers'][:12])}")
         print(f"data_rows: {summary['data_row_count']}")
         print(f"table: {summary['table_name']}")
         print(f"inserted_rows: {summary['inserted_rows']}")
