@@ -19,3 +19,9 @@ Two observed deviations remain available with diagnostics:
 ## Consequences
 
 Standards conformance and practical enterprise availability are distinguished explicitly. Compatibility never changes root selection, enables execution/fetch, or suppresses evidence.
+
+## References
+
+- Levinson, E. (1998). *The MIME Multipart/Related content-type* (RFC 2387). RFC
+  Editor. https://doi.org/10.17487/RFC2387
+  https://www.rfc-editor.org/rfc/rfc2387

@@ -4,6 +4,11 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+
+- ADR-0001, ADR-0003, and ADR-0008 now include APA 7th locators for RFC 2557
+  and RFC 2387.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware

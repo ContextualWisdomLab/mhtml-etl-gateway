@@ -27,3 +27,9 @@ For `multipart/related`:
 - Root selection is deterministic and independent of MIME part ordering after an explicit identifier becomes ambiguous.
 - Malformed producers require an explicit compatibility decision rather than an implicit HTML fallback.
 - Some documents a browser might render permissively are rejected because ingestion integrity takes precedence over visual recovery.
+
+## References
+
+- Levinson, E. (1998). *The MIME Multipart/Related content-type* (RFC 2387). RFC
+  Editor. https://doi.org/10.17487/RFC2387
+  https://www.rfc-editor.org/rfc/rfc2387
