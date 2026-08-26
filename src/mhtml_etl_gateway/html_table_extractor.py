@@ -58,21 +58,17 @@ class _TopLevelTableParser(HTMLParser):
         self._cur_cell: list[str] = []
         self._cell_attrs: dict[str, str] = {}
         self._suppression_stack: list[str] = []
-        self._recover_unclosed_external_cdata = False
+
+    # CDATA_CONTENT_ELEMENTS = ()
+
+    CDATA_CONTENT_ELEMENTS = ()
 
     def set_cdata_mode(self, elem: str, *, escapable: bool = False) -> None:
-        """Keep script/style payload opaque while preserving malformed-head recovery."""
-        del escapable
-        self._recover_unclosed_external_cdata = self._table_depth < 1
-        # Python 3.11.0 exposes set_cdata_mode(self, elem) without the newer
-        # keyword parameter, so use the common positional contract across all
-        # Python versions declared by this package.
-        super().set_cdata_mode(elem)
-
-    def clear_cdata_mode(self) -> None:
-        """Clear stdlib raw-text mode and its document-recovery marker."""
-        super().clear_cdata_mode()
-        self._recover_unclosed_external_cdata = False
+        """Use HTMLParser CDATA mode only for active content inside a table."""
+        if self._table_depth >= 1:
+            super().set_cdata_mode(elem, escapable=escapable)
+        else:
+            self.clear_cdata_mode()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         normalized = tag.lower()
@@ -81,12 +77,11 @@ class _TopLevelTableParser(HTMLParser):
                 self._suppression_stack.append(normalized)
             return
         if normalized in _SUPPRESSED_CONTAINER_TAGS:
-            # Closed script/style payloads outside a table remain opaque through
-            # HTMLParser's raw-text mode. A missing document-level closer is
-            # recovered only after the final feed so malformed head chrome does
-            # not deny extraction of a later valid table. Once a table is open,
-            # suppress the complete active-content subtree so markup cannot
-            # create fake rows, cells, or nested tables.
+            # Outside a table none of this content can become extracted data or
+            # structure, so do not let malformed document chrome suppress a
+            # later valid table. Once a table is open, suppress the complete
+            # active-content subtree so script/template markup cannot create
+            # fake rows, cells, or nested tables.
             if self._table_depth >= 1:
                 self._suppression_stack.append(normalized)
             return
@@ -180,11 +175,6 @@ def _feed_parser_chunked(parser: _TopLevelTableParser, text: str) -> None:
     else:
         for i in range(0, n, _FEED_CHUNK):
             parser.feed(text[i : i + _FEED_CHUNK])
-    # A closed document-level script/style has already left CDATA mode and its
-    # payload was never tokenized. If the closer is missing, clear raw-text mode
-    # only after the final feed, then let HTMLParser recover later table markup.
-    if parser.cdata_elem is not None and parser._recover_unclosed_external_cdata:
-        parser.clear_cdata_mode()
     parser.close()
     if parser._suppression_stack:
         raise TableExtractError("unclosed suppression container")

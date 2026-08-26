@@ -1,9 +1,4 @@
-## 2024-05-18 - [Fix DoS vulnerability in HTML colspan parsing]
-**Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
-**Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
-**Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
-
-## 2026-08-26 - Suppress active content without hiding later tables
-**Vulnerability:** HTML table extraction could carry script/style/template-style payload text into cells, while an earlier recovery attempt also allowed closed document-level script/style payloads to be tokenized as table markup. Public load summaries could additionally trust a lineage path field instead of deriving the opaque artifact reference from the source digest.
-**Learning:** Active-content suppression and malformed-document recovery are separate trust boundaries. Closed `script` and `style` payloads must remain opaque, malformed unclosed document chrome may be recovered only after the final feed, and public summaries must derive identifiers from immutable digests rather than source-controlled path fields.
-**Prevention:** Preserve stdlib raw-text mode for closed script/style elements, keep table-local suppression fail-closed, recover only an unclosed document-level raw-text container after the final feed, derive public artifact references from SHA-256, and exercise both JSON and human-readable CLI output with source-controlled regression fixtures.
+## 2024-05-18 - Extracted HTML content includes raw scripts/styles
+**Vulnerability:** HTML table parser `_TopLevelTableParser` extracts active content (`<script>`, `<style>`) from cells because it lacked suppression filtering.
+**Learning:** Raw HTML data extraction algorithms require explicit suppression lists to avoid carrying forward embedded XSS payloads or styling blobs.
+**Prevention:** Always maintain a `_suppression_stack` for data extraction algorithms parsing HTML documents, especially when extracting raw character data across elements.

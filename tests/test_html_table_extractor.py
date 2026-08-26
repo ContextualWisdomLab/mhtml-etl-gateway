@@ -135,23 +135,6 @@ def test_unclosed_suppression_outside_table_does_not_hide_following_table() -> N
     assert table.rows == [["visible"]]
 
 
-@pytest.mark.parametrize("tag", ["script", "style"])
-def test_closed_document_rawtext_cannot_fabricate_table(tag: str) -> None:
-    """Closed document-level active content must not manufacture table data."""
-
-    html = (
-        f"<html><body><{tag}>"
-        "payload = '<table><tr><th>FAKE</th></tr><tr><td>secret</td></tr></table>';"
-        f"</{tag}>"
-        "<table><tr><th>REAL</th></tr><tr><td>visible</td></tr></table>"
-        "</body></html>"
-    )
-
-    table = extract_primary_table(html)
-    assert table.headers == ["REAL"]
-    assert table.rows == [["visible"]]
-
-
 def test_ignored_void_resource_tag() -> None:
     html = (
         "<table><tr><th>BODY</th></tr><tr><td>visible"

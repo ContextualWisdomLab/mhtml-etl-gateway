@@ -13,7 +13,6 @@ from typing import NoReturn
 from .batch import run_batch
 from .errors import ErrorCode, MhtmlGatewayError
 from .inspection import inspect_mhtml_file
-from .lineage import artifact_reference
 from .models import ParseLimits
 from .pipeline import convert_mhtml_to_postgres, propose_schema_from_mhtml
 from .postgres_loader import OnDuplicate
@@ -161,10 +160,8 @@ def _safe_load_summary(result: dict[str, object]) -> dict[str, object]:
     """Return load fields that cannot expose row values or local paths."""
     queryable = result.get("queryable")
     row_count = queryable.get("db_row_count") if isinstance(queryable, dict) else None
-    source_sha256 = result.get("source_sha256")
-    artifact_ref = (
-        artifact_reference(source_sha256) if isinstance(source_sha256, str) else None
-    )
+    lineage = result.get("lineage")
+    artifact_ref = lineage.get("source_artifact_path") if isinstance(lineage, dict) else None
     headers = result.get("headers")
     header_count = len(headers) if isinstance(headers, (list, tuple)) else 0
     return {
@@ -173,7 +170,7 @@ def _safe_load_summary(result: dict[str, object]) -> dict[str, object]:
         "header_count": header_count,
         "inserted_rows": result.get("inserted_rows"),
         "queryable_row_count": row_count,
-        "sha256": source_sha256,
+        "sha256": result.get("source_sha256"),
         "skipped": result.get("skipped"),
         "table_name": result.get("table_name"),
     }
