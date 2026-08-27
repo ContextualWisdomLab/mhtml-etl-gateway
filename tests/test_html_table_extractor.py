@@ -84,6 +84,23 @@ def test_active_content_and_resource_attributes_are_ignored() -> None:
     assert "secret" not in table.rows[0][0]
 
 
+@pytest.mark.parametrize(
+    "tag",
+    ["script", "style", "noscript", "template", "iframe", "object"],
+)
+def test_document_active_content_cannot_fabricate_primary_table(tag: str) -> None:
+    """Closed document-level active content must not fabricate extracted tables."""
+
+    html = (
+        f"<{tag}><table><tr><th>FAKE</th></tr><tr><td>secret</td></tr></table></{tag}>"
+        "<table><tr><th>REAL</th></tr><tr><td>visible</td></tr></table>"
+    )
+
+    table = extract_primary_table(html)
+    assert table.headers == ["REAL"]
+    assert table.rows == [["visible"]]
+
+
 def test_nested_suppression_recovers_visible_text_after_resources() -> None:
     html = """
     <table><tr><th>BODY</th></tr><tr><td>visible-before
