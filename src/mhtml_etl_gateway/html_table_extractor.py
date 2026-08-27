@@ -21,6 +21,7 @@ _SUPPRESSED_CONTAINER_TAGS = {
 }
 
 _IGNORED_VOID_RESOURCE_TAGS = {"embed"}
+_DOCUMENT_RECOVERY_END_TAGS = {"head", "body", "html"}
 
 # Chunk size for incremental HTMLParser.feed (memory-bounded incremental parse).
 _FEED_CHUNK = 256 * 1024
@@ -59,8 +60,8 @@ class _TopLevelTableParser(HTMLParser):
         self._cell_attrs: dict[str, str] = {}
         self._suppression_stack: list[str] = []
 
-    # CDATA_CONTENT_ELEMENTS = ()
-
+    # Keep raw-text elements tokenized so the suppression stack, rather than
+    # HTMLParser's CDATA state, owns the active-content trust boundary.
     CDATA_CONTENT_ELEMENTS = ()
 
     def set_cdata_mode(self, elem: str, *, escapable: bool = False) -> None:
@@ -77,13 +78,12 @@ class _TopLevelTableParser(HTMLParser):
                 self._suppression_stack.append(normalized)
             return
         if normalized in _SUPPRESSED_CONTAINER_TAGS:
-            # Outside a table none of this content can become extracted data or
-            # structure, so do not let malformed document chrome suppress a
-            # later valid table. Once a table is open, suppress the complete
-            # active-content subtree so script/template markup cannot create
-            # fake rows, cells, or nested tables.
-            if self._table_depth >= 1:
-                self._suppression_stack.append(normalized)
+            # Suppress active-content subtrees at document scope as well as
+            # inside tables. Otherwise a closed template/script/style can
+            # fabricate a table that competes with the real business table.
+            # Malformed head chrome is recovered only at a structural document
+            # boundary; ambiguous unclosed body content remains fail-closed.
+            self._suppression_stack.append(normalized)
             return
         if normalized in _IGNORED_VOID_RESOURCE_TAGS:
             return
@@ -113,6 +113,12 @@ class _TopLevelTableParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         normalized = tag.lower()
         if self._suppression_stack:
+            if self._table_depth == 0 and normalized in _DOCUMENT_RECOVERY_END_TAGS:
+                # A malformed active-content tag in document chrome must not
+                # consume a later table after the enclosing structural region
+                # has ended. Inside a real table this recovery is forbidden.
+                self._suppression_stack.clear()
+                return
             if normalized not in _SUPPRESSED_CONTAINER_TAGS:
                 return
             expected = self._suppression_stack[-1]
