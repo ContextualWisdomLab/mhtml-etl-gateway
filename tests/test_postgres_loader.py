@@ -121,7 +121,7 @@ def test_live_type_promotion_checks_existing_relation_type() -> None:
         ],
     )
 
-    assert sink._columns_to_promote(schema, [["sample-text", "12", "2024-01-01"]]) == [
+    assert sink._columns_to_promote(schema, [["sample-text", 12, "2024-01-01"]]) == [
         "mixed_value",
         "typed_mismatch",
     ]
@@ -292,6 +292,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "RAISE EXCEPTION" in ddl
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
+
 
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
