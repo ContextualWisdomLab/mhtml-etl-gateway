@@ -329,10 +329,7 @@ class PsycopgSink:
         for column, legacy_name in zip(
             schema.columns, _legacy_column_names(schema), strict=True
         ):
-            if (
-                legacy_name != column.db_name
-                and legacy_name in existing_names
-            ):
+            if legacy_name != column.db_name and legacy_name in existing_names:
                 raise LoadError("legacy column requires explicit migration")
         from psycopg import sql as pgsql
 
@@ -602,8 +599,10 @@ class PsycopgSink:
         return self._fetchall(query, (limit,))
 
 
-def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
-    """Coerce string rows to Python types according to schema."""
+def prepare_typed_rows(
+    schema: TableSchema, rows: Sequence[Sequence[Any]]
+) -> list[list[Any]]:
+    """Coerce string cells, preserve native values, and fill missing cells with ``None``."""
     cols = tuple((col.pg_type, i) for i, col in enumerate(schema.columns))
     prepared: list[list[Any]] = []
     for row in rows:
