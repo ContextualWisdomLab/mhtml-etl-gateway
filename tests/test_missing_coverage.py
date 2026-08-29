@@ -1,3 +1,4 @@
+import datetime
 import pytest
 from mhtml_etl_gateway.postgres_loader import PsycopgSink, TableSchema
 from mhtml_etl_gateway.schema_inference import PG_TEXT, ColumnSpec, PG_BIGINT
