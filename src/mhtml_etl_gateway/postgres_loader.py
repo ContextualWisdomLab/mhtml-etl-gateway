@@ -138,10 +138,15 @@ def _build_row_records(
     loaded_at: datetime,
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
+    cols = schema.columns
+    db_names = [c.db_name for c in cols]
+    num_cols = len(cols)
+
     for offset, row in enumerate(rows):
-        record: dict[str, Any] = {}
-        for i, col in enumerate(schema.columns):
-            record[col.db_name] = row[i] if i < len(row) else None
+        row_len = len(row)
+        record: dict[str, Any] = {
+            db_names[i]: row[i] if i < row_len else None for i in range(num_cols)
+        }
         record["source_artifact_path"] = source_artifact_path
         record["source_artifact_sha256"] = source_artifact_sha256
         record["source_row_number"] = start_row_number + offset
@@ -218,9 +223,9 @@ class InMemorySink:
                     loaded_at=loaded_at,
                 )
             )
-            self.catalog[(catalog_entry.source_artifact_sha256, catalog_entry.table_name)] = (
-                catalog_entry
-            )
+            self.catalog[
+                (catalog_entry.source_artifact_sha256, catalog_entry.table_name)
+            ] = catalog_entry
             return len(rows)
         except Exception:
             self.rows[schema.table_name] = snap_rows
@@ -329,10 +334,7 @@ class PsycopgSink:
         for column, legacy_name in zip(
             schema.columns, _legacy_column_names(schema), strict=True
         ):
-            if (
-                legacy_name != column.db_name
-                and legacy_name in existing_names
-            ):
+            if legacy_name != column.db_name and legacy_name in existing_names:
                 raise LoadError("legacy column requires explicit migration")
         from psycopg import sql as pgsql
 
@@ -473,17 +475,21 @@ class PsycopgSink:
                     PG_TIME: {"time without time zone"},
                     PG_TIMESTAMP: {"timestamp without time zone"},
                 }.get(col.pg_type, {col.pg_type.lower()})
+                if existing_type not in compatible_types:
+                    to_promote.append(col.db_name)
+                    continue
+
                 # Keep validation lazy so large batches can short-circuit.
-                prepared = (
-                    coerce_value(str(row[i]), col.pg_type)
-                    if i < len(row) and row[i] is not None
-                    else None
-                    for row in rows
-                )
-                if (
-                    existing_type not in compatible_types
-                    or values_require_text(col.pg_type, prepared)
-                ):
+                # Use a generator function as it executes faster than a generator
+                # expression when iterating large numbers of rows.
+                def generate_prepared(i_idx, pg_type):
+                    for row in rows:
+                        if i_idx < len(row) and row[i_idx] is not None:
+                            yield coerce_value(str(row[i_idx]), pg_type)
+                        else:
+                            yield None
+
+                if values_require_text(col.pg_type, generate_prepared(i, col.pg_type)):
                     to_promote.append(col.db_name)
                 continue
         return to_promote
@@ -529,12 +535,17 @@ class PsycopgSink:
         row_count = len(rows)
 
         def adapted_rows() -> Iterable[tuple[Any, ...]]:
+            cols = schema.columns
+            num_cols = len(cols)
+            pg_types = [col.pg_type for col in cols]
+
             for offset, row in enumerate(rows):
-                values: list[Any] = []
-                for i, col in enumerate(schema.columns):
-                    raw = row[i] if i < len(row) else None
+                row_len = len(row)
+                values = []
+                for i in range(num_cols):
+                    raw = row[i] if i < row_len else None
                     if isinstance(raw, str):
-                        values.append(coerce_value(raw, col.pg_type))
+                        values.append(coerce_value(raw, pg_types[i]))
                     else:
                         values.append(raw)
                 values.extend(
@@ -600,16 +611,24 @@ class PsycopgSink:
         return self._fetchall(query, (limit,))
 
 
-def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
+def prepare_typed_rows(
+    schema: TableSchema, rows: Sequence[Sequence[str]]
+) -> list[list[Any]]:
     """Coerce string rows to Python types according to schema."""
-    prepared: list[list[Any]] = []
+    cols = schema.columns
+    num_cols = len(cols)
+    pg_types = [col.pg_type for col in cols]
+
+    prepared = []
     for row in rows:
-        prepared.append(
-            [
-                coerce_value(str(row[i]) if i < len(row) else "", col.pg_type)
-                for i, col in enumerate(schema.columns)
-            ]
-        )
+        row_len = len(row)
+        prepared_row = []
+        for i in range(num_cols):
+            raw = row[i] if i < row_len else ""
+            prepared_row.append(
+                coerce_value(raw, pg_types[i]) if type(raw) is str else raw
+            )
+        prepared.append(prepared_row)
     return prepared
 
 
