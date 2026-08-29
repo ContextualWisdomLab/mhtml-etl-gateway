@@ -626,7 +626,7 @@ def prepare_typed_rows(
         for i in range(num_cols):
             raw = row[i] if i < row_len else ""
             prepared_row.append(
-                coerce_value(raw, pg_types[i]) if type(raw) is str else raw
+                coerce_value(raw, pg_types[i]) if isinstance(raw, str) else raw
             )
         prepared.append(prepared_row)
     return prepared
