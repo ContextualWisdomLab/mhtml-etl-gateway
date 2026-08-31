@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
-
 _ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "hourly-product-gap.yml"
 
@@ -23,7 +22,9 @@ def _normalized_step(step_name: str) -> str:
 class SchedulerContinuationContractTests(unittest.TestCase):
     """Prevent status-only or single-action termination from returning."""
 
-    def test_pr_maintenance_defines_material_progress_and_strict_stop_conditions(self) -> None:
+    def test_pr_maintenance_defines_material_progress_and_strict_stop_conditions(
+        self,
+    ) -> None:
         """PR maintenance must keep taking safe work after each intermediate event."""
         prompt = _normalized_step("Run OpenCode PR maintenance")
         required_phrases = (
@@ -38,7 +39,9 @@ class SchedulerContinuationContractTests(unittest.TestCase):
         for phrase in required_phrases:
             self.assertIn(phrase, prompt)
 
-    def test_product_development_continues_after_prompt_issue_commit_and_pr_events(self) -> None:
+    def test_product_development_continues_after_prompt_issue_commit_and_pr_events(
+        self,
+    ) -> None:
         """Product development treats every artifact mutation as an intermediate event."""
         prompt = _normalized_step("Run OpenCode product development")
         required_phrases = (

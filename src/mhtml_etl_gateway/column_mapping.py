@@ -168,7 +168,9 @@ def _json_records(data: Any) -> list[Mapping[str, Any]]:
             if not isinstance(records, list) or not all(
                 isinstance(item, Mapping) for item in records
             ):
-                raise ColumnMappingError(f"JSON mapping {key!r} must be an array of objects")
+                raise ColumnMappingError(
+                    f"JSON mapping {key!r} must be an array of objects"
+                )
             return list(records)
 
     normalized_keys = {_key_name(key) for key in data}
@@ -228,12 +230,12 @@ def _xml_texts(raw_xml: bytes) -> list[str]:
     try:
         root = ElementTree.fromstring(raw_xml)
     except ElementTree.ParseError as exc:
-        raise ColumnMappingError(f"invalid PPTX slide XML: {type(exc).__name__}") from None
+        raise ColumnMappingError(
+            f"invalid PPTX slide XML: {type(exc).__name__}"
+        ) from None
     texts: list[str] = []
     paragraphs = [
-        element
-        for element in root.iter()
-        if element.tag.rsplit("}", 1)[-1] == "p"
+        element for element in root.iter() if element.tag.rsplit("}", 1)[-1] == "p"
     ]
     for paragraph in paragraphs:
         value = "".join(
@@ -387,7 +389,11 @@ def _target_candidates(schema: TableSchema, target_name: str) -> list[str]:
         normalized = to_snake_case(target_name).casefold()
     except ValueError:
         return []
-    return [column.db_name for column in schema.columns if column.db_name.casefold() == normalized]
+    return [
+        column.db_name
+        for column in schema.columns
+        if column.db_name.casefold() == normalized
+    ]
 
 
 def attach_column_comments(

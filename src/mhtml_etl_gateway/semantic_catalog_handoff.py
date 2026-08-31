@@ -22,7 +22,6 @@ from mhtml_etl_gateway.semantic_catalog_connector import (
     SemanticCatalogManifest,
 )
 
-
 HANDOFF_CONTRACT_VERSION = "1.0.0"
 _OPAQUE_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$")
 
@@ -58,7 +57,8 @@ def _require_opaque_reference(value: str, *, label: str) -> str:
     normalized = _require_context_text(value, label=label, maximum=128)
     if _OPAQUE_REFERENCE.fullmatch(normalized) is None:
         raise ValueError(
-            f"{label} must use letters, numbers, '.', ':', '/', '_' or '-'")
+            f"{label} must use letters, numbers, '.', ':', '/', '_' or '-'"
+        )
     return normalized
 
 

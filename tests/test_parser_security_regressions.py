@@ -73,10 +73,7 @@ class ParserSecurityRegressionTests(unittest.TestCase):
     def test_unrelated_elements_outside_tables_are_ignored(self) -> None:
         """Ordinary document elements outside tables do not create structure."""
         document = MhtmlDocument(
-            html_text=(
-                "<div>outside</div>"
-                "<table><tr><td>A</td></tr></table>"
-            ),
+            html_text=("<div>outside</div>" "<table><tr><td>A</td></tr></table>"),
             root_content_type="text/html",
             root_content_location=None,
             root_content_id=None,
@@ -97,8 +94,7 @@ class ParserSecurityRegressionTests(unittest.TestCase):
                 f"--{boundary}\r\n"
             )
         chunks.append(
-            "Content-Type: text/html; charset=utf-8\r\n\r\n"
-            "<html>root</html>\r\n"
+            "Content-Type: text/html; charset=utf-8\r\n\r\n" "<html>root</html>\r\n"
         )
         for index in reversed(range(depth)):
             chunks.append(f"--nested_{index}--\r\n")

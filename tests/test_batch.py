@@ -6,7 +6,9 @@ from mhtml_etl_gateway.batch import discover_mhtml_files, run_batch
 from mhtml_etl_gateway.postgres_loader import InMemorySink
 
 
-def test_discover_and_batch_multi_fixture(tmp_path: Path, sample_mhtml_path: Path) -> None:
+def test_discover_and_batch_multi_fixture(
+    tmp_path: Path, sample_mhtml_path: Path
+) -> None:
     # Create a mini multi-file corpus from the fixture (3 copies with distinct names)
     corpus = tmp_path / "corpus"
     corpus.mkdir()
@@ -35,7 +37,9 @@ def test_discover_and_batch_multi_fixture(tmp_path: Path, sample_mhtml_path: Pat
     assert all(fr.ok for fr in report.results)
 
 
-def test_batch_distinct_content_all_insert(tmp_path: Path, sample_mhtml_path: Path) -> None:
+def test_batch_distinct_content_all_insert(
+    tmp_path: Path, sample_mhtml_path: Path
+) -> None:
     corpus = tmp_path / "corpus2"
     corpus.mkdir()
     base = sample_mhtml_path.read_bytes()

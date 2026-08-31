@@ -47,7 +47,7 @@ def _looks_like_mhtml(data: bytes) -> bool:
         return True
     if b"multipart/" in head:
         return True
-    if re.search(br"<html[\s>]", head, re.I) and (
+    if re.search(rb"<html[\s>]", head, re.I) and (
         b"<table" in data[:65536].lower() or b"multipart" in head
     ):
         return True
@@ -85,7 +85,7 @@ def parse_mhtml_parts(data: bytes) -> list[MimePart]:
         )
 
     if not parts:
-        if re.search(br"<html[\s>]", data, re.I):
+        if re.search(rb"<html[\s>]", data, re.I):
             parts.append(
                 MimePart(
                     content_type="text/html",

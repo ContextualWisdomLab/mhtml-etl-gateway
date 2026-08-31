@@ -107,8 +107,7 @@ def _validate_mime_structure(
     if message.get_content_type().lower() == "multipart/related":
         parameter_names = _raw_content_type_parameter_names(message)
         if any(
-            parameter_names.count(name) > 1
-            for name in _CRITICAL_RELATED_PARAMETERS
+            parameter_names.count(name) > 1 for name in _CRITICAL_RELATED_PARAMETERS
         ):
             raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
 
@@ -154,10 +153,7 @@ def _bounded_body_parts(
             raise MhtmlGatewayError(ErrorCode.TOO_MANY_MIME_PARTS)
         child_payload = part.get_payload()
         if isinstance(child_payload, list):
-            stack.extend(
-                (child, depth + 1)
-                for child in reversed(child_payload)
-            )
+            stack.extend((child, depth + 1) for child in reversed(child_payload))
     return body_parts
 
 
@@ -173,10 +169,7 @@ def _is_empty_related_container(message: Message) -> bool:
 
 def _select_html_root(message: Message, parts: list[Message]) -> Message:
     """Select the authoritative HTML root using RFC 2387 semantics."""
-    if (
-        message.get_content_type().lower() == "text/html"
-        and not message.is_multipart()
-    ):
+    if message.get_content_type().lower() == "text/html" and not message.is_multipart():
         return message
     if message.get_content_type().lower() != "multipart/related":
         raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
@@ -265,9 +258,7 @@ def _decode_html(
     if len(text) > limits.max_html_chars:
         raise MhtmlGatewayError(ErrorCode.HTML_TOO_LARGE)
 
-    transfer_encoding = (
-        part.get("Content-Transfer-Encoding") or ""
-    ).strip().lower()
+    transfer_encoding = (part.get("Content-Transfer-Encoding") or "").strip().lower()
     diagnostics: tuple[Diagnostic, ...] = ()
     if transfer_encoding not in _KNOWN_TRANSFER_ENCODINGS:
         diagnostics = (

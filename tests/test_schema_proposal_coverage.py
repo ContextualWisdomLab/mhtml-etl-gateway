@@ -15,7 +15,6 @@ from mhtml_etl_gateway.schema_proposal import (
     propose_schema,
 )
 
-
 _SOURCE_HASH = "b" * 64
 
 
@@ -92,8 +91,7 @@ class SchemaProposalCoverageTests(unittest.TestCase):
         )
         self.assertTrue(
             all(
-                column.proposed_type is PostgresType.TEXT
-                for column in proposal.columns
+                column.proposed_type is PostgresType.TEXT for column in proposal.columns
             )
         )
 

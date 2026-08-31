@@ -31,9 +31,14 @@ class DocstringCoverageTests(unittest.TestCase):
             if not inspect.getdoc(module):
                 missing.append(module_name)
             for name, value in inspect.getmembers(module):
-                if name.startswith("_") or getattr(value, "__module__", None) != module_name:
+                if (
+                    name.startswith("_")
+                    or getattr(value, "__module__", None) != module_name
+                ):
                     continue
-                if (inspect.isclass(value) or inspect.isfunction(value)) and not inspect.getdoc(value):
+                if (
+                    inspect.isclass(value) or inspect.isfunction(value)
+                ) and not inspect.getdoc(value):
                     missing.append(f"{module_name}.{name}")
                 if inspect.isclass(value):
                     for member_name, member in inspect.getmembers(value):

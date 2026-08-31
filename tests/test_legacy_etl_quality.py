@@ -60,7 +60,11 @@ from mhtml_etl_gateway.schema_proposal import (
     SchemaProposalErrorCode,
     SchemaProposalPolicy,
 )
-from mhtml_etl_gateway.sql_ident import UnsafeIdentifierError, quote_sql_literal, require_safe_ident
+from mhtml_etl_gateway.sql_ident import (
+    UnsafeIdentifierError,
+    quote_sql_literal,
+    require_safe_ident,
+)
 from mhtml_etl_gateway.validation_engine import (
     DEFAULT_REQUIRED_HEADERS,
     ValidationError,
@@ -145,10 +149,18 @@ def test_mhtml_parser_supports_bare_html_and_defensive_payloads(tmp_path: Path) 
         def get_content_charset(self):
             return self.charset
 
-    assert mhtml_module._decode_part_payload(FakePart(b"decoded", "ignored")) == b"decoded"
+    assert (
+        mhtml_module._decode_part_payload(FakePart(b"decoded", "ignored")) == b"decoded"
+    )
     assert mhtml_module._decode_part_payload(FakePart(None, b"raw")) == b"raw"
-    assert mhtml_module._decode_part_payload(FakePart(None, "한글", "utf-8")) == "한글".encode()
-    assert mhtml_module._decode_part_payload(FakePart(None, "text", "not-a-charset")) == b"text"
+    assert (
+        mhtml_module._decode_part_payload(FakePart(None, "한글", "utf-8"))
+        == "한글".encode()
+    )
+    assert (
+        mhtml_module._decode_part_payload(FakePart(None, "text", "not-a-charset"))
+        == b"text"
+    )
     assert mhtml_module._decode_part_payload(FakePart(None, "")) is None
 
     with pytest.raises(mhtml_module.MhtmlParseError, match="no MIME parts"):
@@ -157,12 +169,19 @@ def test_mhtml_parser_supports_bare_html_and_defensive_payloads(tmp_path: Path) 
         fallback_parts = mhtml_module.parse_mhtml_parts(html)
     assert fallback_parts[0].payload == html
     no_html_parts = [mhtml_module.MimePart("text/plain", None, b"<table>ordinary text")]
-    with patch("mhtml_etl_gateway.mhtml_parser.parse_mhtml_parts", return_value=no_html_parts):
-        assert mhtml_module.extract_html_bytes(b"ignored") == b"<table>ordinary text"
     with patch(
-        "mhtml_etl_gateway.mhtml_parser.parse_mhtml_parts",
-        return_value=[mhtml_module.MimePart("application/octet-stream", None, b"binary")],
-    ), pytest.raises(mhtml_module.MhtmlParseError, match="no HTML part"):
+        "mhtml_etl_gateway.mhtml_parser.parse_mhtml_parts", return_value=no_html_parts
+    ):
+        assert mhtml_module.extract_html_bytes(b"ignored") == b"<table>ordinary text"
+    with (
+        patch(
+            "mhtml_etl_gateway.mhtml_parser.parse_mhtml_parts",
+            return_value=[
+                mhtml_module.MimePart("application/octet-stream", None, b"binary")
+            ],
+        ),
+        pytest.raises(mhtml_module.MhtmlParseError, match="no HTML part"),
+    ):
         mhtml_module.extract_html_bytes(b"ignored")
 
 
@@ -193,9 +212,13 @@ def test_html_table_extractor_handles_legacy_cells_and_fail_closed_inputs() -> N
         html_module.extract_primary_table("<p>no table</p>")
 
     with pytest.raises(html_module.TableExtractError, match="invalid colspan"):
-        html_module.extract_tables_from_html("<table><tr><th colspan='bad'>x</th></tr></table>")
+        html_module.extract_tables_from_html(
+            "<table><tr><th colspan='bad'>x</th></tr></table>"
+        )
     with pytest.raises(html_module.TableExtractError, match="colspan too large"):
-        html_module.extract_tables_from_html("<table><tr><th colspan='100001'>x</th></tr></table>")
+        html_module.extract_tables_from_html(
+            "<table><tr><th colspan='100001'>x</th></tr></table>"
+        )
 
     parser = html_module._TopLevelTableParser()
     parser._table_depth = 1
@@ -212,12 +235,17 @@ def test_html_table_extractor_handles_legacy_cells_and_fail_closed_inputs() -> N
     parser._cur_table = []
     parser.handle_endtag("tr")
 
-    large = "<table><tr><th>A</th></tr><tr><td>" + ("x" * 300_000) + "</td></tr></table>"
+    large = (
+        "<table><tr><th>A</th></tr><tr><td>" + ("x" * 300_000) + "</td></tr></table>"
+    )
     assert html_module.extract_tables_from_html(large)[0].row_count == 1
-    with patch.object(
-        html_module, "extract_tables_from_html", return_value=[html_module.ExtractedTable([], [])]
-    ), pytest.raises(
-        html_module.TableExtractError, match="primary table"
+    with (
+        patch.object(
+            html_module,
+            "extract_tables_from_html",
+            return_value=[html_module.ExtractedTable([], [])],
+        ),
+        pytest.raises(html_module.TableExtractError, match="primary table"),
     ):
         html_module.extract_primary_table("ignored")
 
@@ -264,13 +292,17 @@ def test_batch_discovery_and_sanitized_failure_paths(tmp_path: Path) -> None:
     files = [one, nested / "bad.MHTML"]
     (nested / "bad.MHTML").write_bytes(b"not mhtml")
     sink = RollbackSink()
+
     def fake_convert(path, **kwargs):
         if Path(path).name == "bad.MHTML":
             raise ValueError("private operator path")
         return success
 
-    with patch.object(batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert), patch.object(
-        batch_module, "discover_mhtml_files", return_value=files
+    with (
+        patch.object(
+            batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert
+        ),
+        patch.object(batch_module, "discover_mhtml_files", return_value=files),
     ):
         report = batch_module.run_batch(nested, sink=sink, limit=0)
         assert report.files_discovered == 0
@@ -281,15 +313,22 @@ def test_batch_discovery_and_sanitized_failure_paths(tmp_path: Path) -> None:
     assert sink.rollback_calls == 1
 
     rollback_error_sink = RollbackSink(rollback_error=True)
-    with patch.object(batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert), patch.object(
-        batch_module, "discover_mhtml_files", return_value=files
+    with (
+        patch.object(
+            batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert
+        ),
+        patch.object(batch_module, "discover_mhtml_files", return_value=files),
     ):
         failed_report = batch_module.run_batch(nested, sink=rollback_error_sink)
     assert "rollback_failed=RuntimeError" in failed_report.results[1].error
 
-    with patch.object(batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert), patch.object(
-        batch_module, "discover_mhtml_files", return_value=files
-    ), pytest.raises(batch_module.BatchError, match="batch ingestion failed"):
+    with (
+        patch.object(
+            batch_module, "convert_mhtml_to_postgres", side_effect=fake_convert
+        ),
+        patch.object(batch_module, "discover_mhtml_files", return_value=files),
+        pytest.raises(batch_module.BatchError, match="batch ingestion failed"),
+    ):
         batch_module.run_batch(nested, sink=sink, continue_on_error=False)
 
 
@@ -312,9 +351,11 @@ def test_batch_owns_and_closes_a_postgres_sink(tmp_path: Path) -> None:
         "skipped": False,
         "table_name": "batch_rows",
     }
-    with patch("mhtml_etl_gateway.postgres_loader.PsycopgSink", return_value=fake_sink), patch.object(
-        batch_module, "convert_mhtml_to_postgres", return_value=result
-    ), patch.object(batch_module, "discover_mhtml_files", return_value=[source]):
+    with (
+        patch("mhtml_etl_gateway.postgres_loader.PsycopgSink", return_value=fake_sink),
+        patch.object(batch_module, "convert_mhtml_to_postgres", return_value=result),
+        patch.object(batch_module, "discover_mhtml_files", return_value=[source]),
+    ):
         report = batch_module.run_batch(tmp_path, dsn="postgresql://redacted")
     assert report.success_count == 1
     assert fake_sink.closed
@@ -322,25 +363,41 @@ def test_batch_owns_and_closes_a_postgres_sink(tmp_path: Path) -> None:
     class NoCloseSink:
         pass
 
-    with patch("mhtml_etl_gateway.postgres_loader.PsycopgSink", return_value=NoCloseSink()), patch.object(
-        batch_module, "convert_mhtml_to_postgres", return_value=result
-    ), patch.object(batch_module, "discover_mhtml_files", return_value=[source]):
-        assert batch_module.run_batch(tmp_path, dsn="postgresql://redacted").success_count == 1
+    with (
+        patch(
+            "mhtml_etl_gateway.postgres_loader.PsycopgSink", return_value=NoCloseSink()
+        ),
+        patch.object(batch_module, "convert_mhtml_to_postgres", return_value=result),
+        patch.object(batch_module, "discover_mhtml_files", return_value=[source]),
+    ):
+        assert (
+            batch_module.run_batch(tmp_path, dsn="postgresql://redacted").success_count
+            == 1
+        )
 
 
-def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path: Path) -> None:
+def test_cli_load_batch_and_summary_contracts(
+    tmp_path: Path, sample_mhtml_path: Path
+) -> None:
     """Load and batch commands expose only aggregate, privacy-safe result fields."""
     assert cli_module._parse_required_headers(None) is None
     assert cli_module._parse_required_headers("") == []
     assert cli_module._parse_required_headers("NONE") == []
     assert cli_module._parse_required_headers(" A, B ") == ["A", "B"]
-    assert cli_module._safe_load_summary({"queryable": "not-a-map", "lineage": []})["artifact_ref"] is None
+    assert (
+        cli_module._safe_load_summary({"queryable": "not-a-map", "lineage": []})[
+            "artifact_ref"
+        ]
+        is None
+    )
 
     source = tmp_path / "source.MHTML"
     source.write_bytes(sample_mhtml_path.read_bytes())
     stderr = StringIO()
     with redirect_stderr(stderr):
-        assert cli_module.main(["load", str(tmp_path / "missing.MHTML"), "--dry-run"]) == 2
+        assert (
+            cli_module.main(["load", str(tmp_path / "missing.MHTML"), "--dry-run"]) == 2
+        )
     assert "unavailable" in stderr.getvalue()
     stderr = StringIO()
     with redirect_stderr(stderr):
@@ -351,20 +408,23 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
     lineage_path = tmp_path / "load-lineage.json"
     stdout = StringIO()
     with redirect_stdout(stdout):
-        assert cli_module.main(
-            [
-                "load",
-                str(source),
-                "--dry-run",
-                "--json",
-                "--ddl-out",
-                str(ddl_path),
-                "--lineage-json",
-                str(lineage_path),
-                "--required-headers",
-                "none",
-            ]
-        ) == 0
+        assert (
+            cli_module.main(
+                [
+                    "load",
+                    str(source),
+                    "--dry-run",
+                    "--json",
+                    "--ddl-out",
+                    str(ddl_path),
+                    "--lineage-json",
+                    str(lineage_path),
+                    "--required-headers",
+                    "none",
+                ]
+            )
+            == 0
+        )
     load_summary = json.loads(stdout.getvalue())
     assert load_summary["artifact_ref"].startswith("artifact:")
     assert ddl_path.is_file()
@@ -376,7 +436,9 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
         assert cli_module.main(["load", str(source), "--dry-run"]) == 0
     assert "artifact_ref:" in stdout.getvalue()
 
-    with patch.object(cli_module, "convert_mhtml_to_postgres", side_effect=RuntimeError("private")):
+    with patch.object(
+        cli_module, "convert_mhtml_to_postgres", side_effect=RuntimeError("private")
+    ):
         with redirect_stderr(stderr := StringIO()):
             assert cli_module.main(["load", str(source), "--dry-run"]) == 1
     assert "artifact load failed" in stderr.getvalue()
@@ -418,8 +480,9 @@ def test_cli_load_batch_and_summary_contracts(tmp_path: Path, sample_mhtml_path:
         def parse_args(self, arguments):
             return argparse.Namespace(command="unknown")
 
-    with patch.object(cli_module, "_build_parser", return_value=UnknownParser()), redirect_stderr(
-        stderr := StringIO()
+    with (
+        patch.object(cli_module, "_build_parser", return_value=UnknownParser()),
+        redirect_stderr(stderr := StringIO()),
     ):
         assert cli_module.main([]) == 2
     assert "invalid_argument" in stderr.getvalue()
@@ -554,7 +617,15 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
     )
     connection.fetchone_result = None
     assert sink.catalog_get("a" * 64, "mapped_rows") is None
-    connection.fetchone_result = ("a" * 64, "mapped_rows", "artifact:aaaaaaaaaaaaaaaa", 1, 1, "loaded", None)
+    connection.fetchone_result = (
+        "a" * 64,
+        "mapped_rows",
+        "artifact:aaaaaaaaaaaaaaaa",
+        1,
+        1,
+        "loaded",
+        None,
+    )
     entry = sink.catalog_get("a" * 64, "mapped_rows")
     assert entry is not None and entry.row_count == 1
     connection.fetchone_result = (7,)
@@ -605,15 +676,18 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         size=1,
         row_count=1,
     )
-    assert write_sink.write_artifact_rows(
-        schema,
-        [["x"]],
-        source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
-        source_artifact_sha256="a" * 64,
-        catalog_entry=catalog_entry,
-        replace_existing=True,
-        start_row_number=4,
-    ) == 1
+    assert (
+        write_sink.write_artifact_rows(
+            schema,
+            [["x"]],
+            source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
+            source_artifact_sha256="a" * 64,
+            catalog_entry=catalog_entry,
+            replace_existing=True,
+            start_row_number=4,
+        )
+        == 1
+    )
     assert write_connection.commits == 1
     copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
     assert len(copy_calls) == 1
@@ -626,14 +700,17 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         4,
     )
     write_sink._columns_to_promote = lambda schema, rows: []
-    assert write_sink.write_artifact_rows(
-        schema,
-        [[1]],
-        source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
-        source_artifact_sha256="a" * 64,
-        catalog_entry=catalog_entry,
-        replace_existing=False,
-    ) == 1
+    assert (
+        write_sink.write_artifact_rows(
+            schema,
+            [[1]],
+            source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
+            source_artifact_sha256="a" * 64,
+            catalog_entry=catalog_entry,
+            replace_existing=False,
+        )
+        == 1
+    )
     copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
     assert copy_calls[1][2] == (1, "artifact:aaaaaaaaaaaaaaaa", "a" * 64, 1)
     bigint_schema = TableSchema(
@@ -647,24 +724,30 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
         size=1,
         row_count=1,
     )
-    assert write_sink.write_artifact_rows(
-        bigint_schema,
-        [["0007"]],
-        source_artifact_path="artifact:bbbbbbbbbbbbbbbb",
-        source_artifact_sha256="b" * 64,
-        catalog_entry=bigint_entry,
-        replace_existing=False,
-    ) == 1
+    assert (
+        write_sink.write_artifact_rows(
+            bigint_schema,
+            [["0007"]],
+            source_artifact_path="artifact:bbbbbbbbbbbbbbbb",
+            source_artifact_sha256="b" * 64,
+            catalog_entry=bigint_entry,
+            replace_existing=False,
+        )
+        == 1
+    )
     copy_calls = [call for call in write_connection.calls if call[0] == "copy"]
     assert copy_calls[2][2] == (7, "artifact:bbbbbbbbbbbbbbbb", "b" * 64, 1)
-    assert write_sink.write_artifact_rows(
-        schema,
-        [],
-        source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
-        source_artifact_sha256="a" * 64,
-        catalog_entry=catalog_entry,
-        replace_existing=False,
-    ) == 0
+    assert (
+        write_sink.write_artifact_rows(
+            schema,
+            [],
+            source_artifact_path="artifact:aaaaaaaaaaaaaaaa",
+            source_artifact_sha256="a" * 64,
+            catalog_entry=catalog_entry,
+            replace_existing=False,
+        )
+        == 0
+    )
 
     failing_connection = Connection()
     failing_connection.fail_copy = True
@@ -788,7 +871,9 @@ def test_inmemory_sink_and_load_edge_contracts() -> None:
     )
 
 
-def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_path: Path) -> None:
+def test_pipeline_data_mapping_and_sink_variants(
+    tmp_path: Path, sample_mhtml_path: Path
+) -> None:
     """The pipeline accepts pre-read bytes and keeps sink-specific output bounded."""
     data = sample_mhtml_path.read_bytes()
     mapping_path = tmp_path / "mapping.json"
@@ -798,7 +883,10 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
     )
     extracted = pipeline_module.extract_table(tmp_path / "memory.MHTML", data=data)
     assert extracted.source_size == len(data)
-    assert pipeline_module.infer_schema_for_extract(extracted).table_name == "mhtml_extracted_rows"
+    assert (
+        pipeline_module.infer_schema_for_extract(extracted).table_name
+        == "mhtml_extracted_rows"
+    )
     result = pipeline_module.convert_mhtml_to_postgres(
         tmp_path / "memory.MHTML",
         data=data,
@@ -873,7 +961,9 @@ def test_pipeline_data_mapping_and_sink_variants(tmp_path: Path, sample_mhtml_pa
         )
     assert "sample" not in postgres_result["queryable"]
     assert postgres_result["queryable"]["table_name"] == postgres_result["table_name"]
-    assert postgres_result["queryable"]["db_row_count"] == postgres_result["inserted_rows"]
+    assert (
+        postgres_result["queryable"]["db_row_count"] == postgres_result["inserted_rows"]
+    )
     assert FakePsycopgSink.last is not None and FakePsycopgSink.last.closed
 
 
@@ -903,14 +993,10 @@ def test_schema_proposal_from_mhtml_is_deterministic_and_fail_closed(
         )
     assert sample_limit.value.code is SchemaProposalErrorCode.TOO_MANY_SAMPLES
 
-    large_rows = "".join(
-        f"<tr><td>{index}</td></tr>" for index in range(10_001)
-    )
+    large_rows = "".join(f"<tr><td>{index}</td></tr>" for index in range(10_001))
     large = pipeline_module.propose_schema_from_mhtml(
         sample_mhtml_path,
-        data=make_mhtml(
-            f"<table><tr><th>EVENT_ID</th></tr>{large_rows}</table>"
-        ),
+        data=make_mhtml(f"<table><tr><th>EVENT_ID</th></tr>{large_rows}</table>"),
         limits=ParseLimits(max_rows_per_table=10_002),
     )
     assert large.columns[0].non_null_count == 10_001
@@ -956,8 +1042,12 @@ def test_validation_and_identifier_contracts() -> None:
     assert resolve_required_headers(["A"]) == ()
     valid = validate_extracted_table([" A ", ""], [["1", "2"]], required_headers=[])
     assert valid.messages == ("blank header name(s) present",)
-    assert validate_extracted_table(["A"], [], required_headers=[], require_data_rows=False).ok
-    assert validate_extracted_table(["A"], [["1", "2"]], required_headers=[], allow_ragged=True).ok
+    assert validate_extracted_table(
+        ["A"], [], required_headers=[], require_data_rows=False
+    ).ok
+    assert validate_extracted_table(
+        ["A"], [["1", "2"]], required_headers=[], allow_ragged=True
+    ).ok
     with pytest.raises(ValidationError, match="no headers"):
         validate_extracted_table([], [])
     with pytest.raises(ValidationError, match="no headers"):
@@ -1021,7 +1111,10 @@ def test_schema_inference_and_coercion_contracts() -> None:
     assert infer_pg_type(["11.08.2026"]) == PG_DATE
     assert infer_pg_type(["12:34:56"]) == PG_TIME
     assert infer_pg_type(["mixed", "1"]) == PG_TEXT
-    assert infer_table_schema(["A"], [["1"], []], sample_limit=1).columns[0].pg_type == PG_BIGINT
+    assert (
+        infer_table_schema(["A"], [["1"], []], sample_limit=1).columns[0].pg_type
+        == PG_BIGINT
+    )
     simple_schema = infer_table_schema(["A"], [["1"]], table_name="simple_rows")
     assert "source_row_number" not in simple_schema.create_ddl(include_lineage=False)
     assert "COMMENT ON" not in simple_schema.ddl(include_comments=False)
@@ -1040,7 +1133,9 @@ def test_schema_inference_and_coercion_contracts() -> None:
     assert coerce_value("bad", PG_DATE) == "bad"
     assert coerce_value("123456", PG_TIME) == time(12, 34, 56)
     assert coerce_value("bad", PG_TIME) == "bad"
-    assert coerce_value("2026/08/11 12:30:00", PG_TIMESTAMP) == datetime(2026, 8, 11, 12, 30)
+    assert coerce_value("2026/08/11 12:30:00", PG_TIMESTAMP) == datetime(
+        2026, 8, 11, 12, 30
+    )
     assert coerce_value("bad", PG_TIMESTAMP) == "bad"
     assert coerce_value("value", "UNKNOWN") == "value"
 
@@ -1073,11 +1168,14 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
         mapping_module._mapping_from_record({"comment": "x"}, location="test")
     with pytest.raises(mapping_module.ColumnMappingError, match="missing comment"):
         mapping_module._mapping_from_record({"source": "A"}, location="test")
-    with patch.object(
-        mapping_module,
-        "_first_value",
-        side_effect=["A", " ", None, None],
-    ), pytest.raises(mapping_module.ColumnMappingError, match="empty comment"):
+    with (
+        patch.object(
+            mapping_module,
+            "_first_value",
+            side_effect=["A", " ", None, None],
+        ),
+        pytest.raises(mapping_module.ColumnMappingError, match="empty comment"),
+    ):
         mapping_module._mapping_from_record({"source": "A"}, location="test")
     assert mapping_module._dedupe_mappings([]) == ()
     duplicate = mapping_module.ColumnMapping("A", "same")
@@ -1092,7 +1190,9 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
     with pytest.raises(mapping_module.ColumnMappingError, match="array"):
         mapping_module._json_records({"columns": {}})
     assert mapping_module._json_records({"source": "A", "comment": "x"})
-    compact = mapping_module._json_records({"TABLE.ONE": {"comment": "x"}, "TABLE.TWO": "y"})
+    compact = mapping_module._json_records(
+        {"TABLE.ONE": {"comment": "x"}, "TABLE.TWO": "y"}
+    )
     assert len(compact) == 2
 
     bad_json = tmp_path / "bad.json"
@@ -1118,14 +1218,13 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
     no_rows_csv.write_text("source,comment\n", encoding="utf-8")
     with pytest.raises(mapping_module.ColumnMappingError, match="no mapping records"):
         mapping_module.load_column_mapping(no_rows_csv)
-    with patch.object(Path, "open", side_effect=OSError("private")), pytest.raises(
-        mapping_module.ColumnMappingError, match="cannot read CSV"
+    with (
+        patch.object(Path, "open", side_effect=OSError("private")),
+        pytest.raises(mapping_module.ColumnMappingError, match="cannot read CSV"),
     ):
         mapping_module._load_csv(no_rows_csv)
 
-    assert mapping_module._xml_texts(
-        b"<root><p><t>A</t><t>B</t></p></root>"
-    ) == ["AB"]
+    assert mapping_module._xml_texts(b"<root><p><t>A</t><t>B</t></p></root>") == ["AB"]
     assert mapping_module._xml_texts(b"<root><t>fallback</t></root>") == ["fallback"]
     assert mapping_module._xml_texts(b"<root><p><t></t></p><t> </t></root>") == []
     with pytest.raises(mapping_module.ColumnMappingError, match="invalid PPTX"):
@@ -1170,9 +1269,7 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
         table_name="normalized_rows",
         columns=[ColumnSpec("ORIGINAL", "a_b", PG_TEXT)],
     )
-    assert mapping_module._source_candidates(normalized_schema, "A B") == [
-        "a_b"
-    ]
+    assert mapping_module._source_candidates(normalized_schema, "A B") == ["a_b"]
     assert mapping_module._source_candidates(schema, "not valid !!!") == []
     assert mapping_module._target_candidates(schema, "title_field") == ["title_field"]
     assert mapping_module._target_candidates(schema, "title") == ["title_field"]
@@ -1199,7 +1296,9 @@ def test_column_mapping_fail_closed_and_resolution_edges(tmp_path: Path) -> None
             mapping_module.ColumnMapping("missing", "two"),
         ),
     )
-    _, duplicate_report = mapping_module.attach_column_comments(schema, duplicate_unmatched)
+    _, duplicate_report = mapping_module.attach_column_comments(
+        schema, duplicate_unmatched
+    )
     assert duplicate_report.unmatched == ("missing",)
     ambiguous_schema = infer_table_schema(
         ["A.ONE", "B.ONE"], [["1", "2"]], table_name="ambiguous_rows"
@@ -1234,7 +1333,8 @@ def test_mapping_reference_handles_unreadable_artifact(tmp_path: Path) -> None:
     """Unreadable mapping bytes are reported without leaking the source path."""
     path = tmp_path / "mapping.json"
     path.write_text("{}", encoding="utf-8")
-    with patch.object(Path, "read_bytes", side_effect=OSError("private")), pytest.raises(
-        mapping_module.ColumnMappingError, match="fingerprint"
+    with (
+        patch.object(Path, "read_bytes", side_effect=OSError("private")),
+        pytest.raises(mapping_module.ColumnMappingError, match="fingerprint"),
     ):
         mapping_module._mapping_reference(path)

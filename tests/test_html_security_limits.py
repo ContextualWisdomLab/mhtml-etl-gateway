@@ -29,8 +29,7 @@ class HtmlSecurityLimitTests(unittest.TestCase):
             max_total_cells=64,
         )
         html_text = (
-            "<table><tr><td rowspan='1000000' colspan='4096'>"
-            "x</td></tr></table>"
+            "<table><tr><td rowspan='1000000' colspan='4096'>" "x</td></tr></table>"
         )
         with patch(
             "mhtml_etl_gateway.html_tables.TableCell",

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
-
 _ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "hourly-product-gap.yml"
 
@@ -32,9 +31,7 @@ class AutonomousContinuationContractTests(unittest.TestCase):
         wrapper_position = self.workflow_text.index(
             "- name: Install secret-stripping execution wrapper"
         )
-        gate_position = self.workflow_text.index(
-            "- name: Select exact-head loop mode"
-        )
+        gate_position = self.workflow_text.index("- name: Select exact-head loop mode")
         self.assertLess(wrapper_position, gate_position)
         gate_section = _step_section(
             self.workflow_text,
@@ -55,7 +52,9 @@ class AutonomousContinuationContractTests(unittest.TestCase):
             gate_section,
         )
 
-    def test_gate_uses_workspace_evidence_instead_of_privileged_temp_paths(self) -> None:
+    def test_gate_uses_workspace_evidence_instead_of_privileged_temp_paths(
+        self,
+    ) -> None:
         """The unprivileged gate reads and writes only relative workspace files."""
         gate_section = _step_section(
             self.workflow_text,
@@ -119,11 +118,11 @@ class AutonomousContinuationContractTests(unittest.TestCase):
                 "NoNewPrivs",
                 "for capability in Inh Prm Eff Bnd Amb",
                 'source_file="scripts/hourly_product_gap.py"',
-                "stat -c \"%U:%G:%a\" \"$source_file\" >&2",
-                "namei -l \"$source_file\"",
+                'stat -c "%U:%G:%a" "$source_file" >&2',
+                'namei -l "$source_file"',
                 'for readable_file in "$source_file" ".agent/evidence/open-pulls.json" ".agent/evidence/agent-issues.json"',
-                "test -r \"$readable_file\"",
-                "head -c 1 \"$readable_file\" >/dev/null",
+                'test -r "$readable_file"',
+                'head -c 1 "$readable_file" >/dev/null',
             ):
                 self.assertIn(fragment, wrapper_flat)
             self.assertLess(

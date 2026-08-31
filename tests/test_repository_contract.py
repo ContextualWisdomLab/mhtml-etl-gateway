@@ -28,11 +28,15 @@ def _working_directory(path: Path):
 def _run_validator(root: Path, required_documents: tuple[Path, ...] = ()):
     """Run the repository validator in an isolated synthetic repository."""
     stdout = StringIO()
-    with _working_directory(root), patch.object(
-        repository_validator,
-        "REQUIRED_DOCUMENTS",
-        required_documents,
-    ), redirect_stdout(stdout):
+    with (
+        _working_directory(root),
+        patch.object(
+            repository_validator,
+            "REQUIRED_DOCUMENTS",
+            required_documents,
+        ),
+        redirect_stdout(stdout),
+    ):
         return_code = repository_validator.main([])
     return return_code, json.loads(stdout.getvalue())
 
@@ -133,8 +137,7 @@ class RepositoryContractTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (nested / "unsafe.yaml").write_text(
-                "uses: actions/checkout@v7\n"
-                "env:\n  TOKEN: COPILOT_GITHUB_TOKEN\n",
+                "uses: actions/checkout@v7\n" "env:\n  TOKEN: COPILOT_GITHUB_TOKEN\n",
                 encoding="utf-8",
             )
             return_code, payload = _run_validator(root)

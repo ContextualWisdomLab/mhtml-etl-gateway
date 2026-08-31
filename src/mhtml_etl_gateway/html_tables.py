@@ -63,9 +63,7 @@ class _TableParser(HTMLParser):
         name: str,
     ) -> int:
         """Parse a positive rowspan or colspan attribute."""
-        values = [
-            value for key, value in attributes if key.lower() == name
-        ]
+        values = [value for key, value in attributes if key.lower() == name]
         if len(values) > 1:
             raise MhtmlGatewayError(ErrorCode.INVALID_TABLE_SPAN)
         raw = values[0] if values else None
@@ -108,8 +106,7 @@ class _TableParser(HTMLParser):
             return
         if normalized == "tr":
             if (
-                len(self._current_table.rows)
-                >= self.limits.max_rows_per_table
+                len(self._current_table.rows) >= self.limits.max_rows_per_table
             ):  # type: ignore[union-attr]
                 raise MhtmlGatewayError(ErrorCode.TOO_MANY_ROWS)
             self._current_row = []
@@ -168,10 +165,7 @@ class _TableParser(HTMLParser):
             self._current_cell = None
         elif normalized == "tr":
             self._current_row = None
-        elif (
-            normalized in _BLOCK_BREAK_TAGS
-            and self._current_cell is not None
-        ):
+        elif normalized in _BLOCK_BREAK_TAGS and self._current_cell is not None:
             self._append_fragment(" ")
 
     def handle_data(self, data: str) -> None:
@@ -346,9 +340,7 @@ def _expand_table(
         normalized_rows.append(row)
 
     for row in normalized_rows:
-        row.extend(
-            TableCell("", False) for _ in range(max_width - len(row))
-        )
+        row.extend(TableCell("", False) for _ in range(max_width - len(row)))
 
     normalized_cell_count = len(normalized_rows) * max_width
     if len(normalized_rows) != projected_rows or max_width != projected_width:
