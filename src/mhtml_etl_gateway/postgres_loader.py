@@ -474,7 +474,8 @@ class PsycopgSink:
                     PG_TIMESTAMP: {"timestamp without time zone"},
                 }.get(col.pg_type, {col.pg_type.lower()})
                 # Keep validation lazy so large batches can short-circuit.
-                # The rows passed here are already typed Python objects.
+                # The rows passed here are already typed Python objects
+                # (via prepare_typed_rows in load_table).
                 prepared = (
                     row[i] if i < len(row) else None
                     for row in rows
@@ -498,21 +499,11 @@ class PsycopgSink:
         replace_existing: bool,
         start_row_number: int = 1,
     ) -> int:
-        """Single transaction: normalize, promote, write, and catalog atomically."""
+        """Single transaction: promote-if-needed + delete-if-replace + insert + catalog."""
         from psycopg import sql as pgsql
 
         table = require_safe_ident(schema.table_name)
-        normalized_rows: list[list[Any]] = []
-        for row in rows:
-            normalized_row: list[Any] = []
-            for i, col in enumerate(schema.columns):
-                raw = row[i] if i < len(row) else None
-                normalized_row.append(
-                    coerce_value(raw, col.pg_type) if isinstance(raw, str) else raw
-                )
-            normalized_rows.append(normalized_row)
-
-        to_promote = self._columns_to_promote(schema, normalized_rows)
+        to_promote = self._columns_to_promote(schema, rows)
         col_names = [require_safe_ident(c.db_name) for c in schema.columns] + [
             "source_artifact_path",
             "source_artifact_sha256",
@@ -535,11 +526,17 @@ class PsycopgSink:
             "load_status_code = EXCLUDED.load_status_code, "
             "loaded_at = EXCLUDED.loaded_at"
         )
-        row_count = len(normalized_rows)
+        row_count = len(rows)
 
         def adapted_rows() -> Iterable[tuple[Any, ...]]:
-            for offset, row in enumerate(normalized_rows):
-                values = list(row)
+            for offset, row in enumerate(rows):
+                values: list[Any] = []
+                for i, col in enumerate(schema.columns):
+                    raw = row[i] if i < len(row) else None
+                    if isinstance(raw, str):
+                        values.append(coerce_value(raw, col.pg_type))
+                    else:
+                        values.append(raw)
                 values.extend(
                     [
                         source_artifact_path,
