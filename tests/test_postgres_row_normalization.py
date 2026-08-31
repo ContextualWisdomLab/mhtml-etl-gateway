@@ -8,7 +8,6 @@ import pytest
 
 import mhtml_etl_gateway.postgres_loader as postgres_loader
 from mhtml_etl_gateway.ingest_catalog import make_catalog_entry
-from mhtml_etl_gateway.postgres_loader import PsycopgSink
 from mhtml_etl_gateway.schema_inference import ColumnSpec, PG_BIGINT, TableSchema
 
 
@@ -47,7 +46,7 @@ def test_write_artifact_rows_uses_one_normalized_view_for_promotion_and_copy() -
         row_count=1,
     )
     connection = _CommitConnection()
-    sink = object.__new__(PsycopgSink)
+    sink = object.__new__(postgres_loader.PsycopgSink)
     sink._conn = connection
 
     promotion_rows: list[list[Any]] = []
@@ -79,7 +78,7 @@ def test_write_artifact_rows_uses_one_normalized_view_for_promotion_and_copy() -
 def test_columns_to_promote_never_recoerces_prepared_values(monkeypatch: pytest.MonkeyPatch) -> None:
     """Prepared values must reach the promotion predicate without reparsing."""
     schema = _bigint_schema()
-    sink = object.__new__(PsycopgSink)
+    sink = object.__new__(postgres_loader.PsycopgSink)
     sink._fetchall = lambda *_args, **_kwargs: [("id_field", "bigint")]
 
     def fail_recoercion(*_args, **_kwargs):
