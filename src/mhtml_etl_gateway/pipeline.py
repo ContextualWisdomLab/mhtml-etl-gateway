@@ -43,10 +43,7 @@ from mhtml_etl_gateway.schema_proposal import (
     propose_schema,
 )
 from mhtml_etl_gateway.source_reader import _read_bounded_source
-from mhtml_etl_gateway.validation_engine import (
-    ValidationError,
-    validate_extracted_table,
-)
+from mhtml_etl_gateway.validation_engine import ValidationError, validate_extracted_table
 
 
 @dataclass(frozen=True)

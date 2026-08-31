@@ -22,14 +22,18 @@ class HtmlParserInputBudgetTests(unittest.TestCase):
             "colspan='2' COLSPAN='3'",
         ):
             with self.subTest(attributes=attributes):
-                source = make_mhtml(f"<table><tr><td {attributes}>x</td></tr></table>")
+                source = make_mhtml(
+                    f"<table><tr><td {attributes}>x</td></tr></table>"
+                )
                 with self.assertRaises(MhtmlGatewayError) as caught:
                     extract_tables(parse_mhtml_bytes(source))
                 self.assertEqual(caught.exception.code, ErrorCode.INVALID_TABLE_SPAN)
 
     def test_raw_cell_budget_fails_before_the_excess_cell_is_allocated(self) -> None:
         """The sixty-fifth source cell is rejected before `_RawCell` construction."""
-        source = make_mhtml("<table><tr>" + "<td>x</td>" * 65 + "</tr></table>")
+        source = make_mhtml(
+            "<table><tr>" + "<td>x</td>" * 65 + "</tr></table>"
+        )
         created_cells = 0
 
         def create_raw_cell(*args, **kwargs):

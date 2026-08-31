@@ -34,9 +34,7 @@ def sha256_bytes(data: bytes) -> str:
 
 def artifact_reference(sha256: str) -> str:
     """Return a stable, opaque lineage reference without a filesystem path."""
-    if len(sha256) != 64 or any(
-        char not in "0123456789abcdef" for char in sha256.lower()
-    ):
+    if len(sha256) != 64 or any(char not in "0123456789abcdef" for char in sha256.lower()):
         raise ValueError("artifact sha256 must be a 64-character hexadecimal digest")
     return f"artifact:{sha256[:16].lower()}"
 
@@ -93,8 +91,5 @@ def write_lineage_json(lineage: ArtifactLineage, dest: Path | str) -> Path:
     """Write one deterministic, UTF-8 JSON lineage document and return its path."""
     out = Path(dest)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
-        json.dumps(lineage.to_dict(), indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    out.write_text(json.dumps(lineage.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return out

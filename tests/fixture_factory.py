@@ -25,11 +25,7 @@ def make_mhtml(
 
     if include_decoy:
         decoy = EmailMessage(policy=default)
-        decoy.set_content(
-            "<html><table><tr><td>DECOY</td></tr></table></html>",
-            subtype="html",
-            charset="utf-8",
-        )
+        decoy.set_content("<html><table><tr><td>DECOY</td></tr></table></html>", subtype="html", charset="utf-8")
         decoy["Content-ID"] = "<decoy-part>"
         decoy["Content-Location"] = "file:///decoy.html"
         root.attach(decoy)

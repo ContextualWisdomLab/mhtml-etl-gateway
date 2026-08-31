@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import unittest
 
+
 _ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "hourly-product-gap.yml"
 
@@ -83,9 +84,7 @@ class ForkReadOnlySchedulerContractTests(unittest.TestCase):
     def test_fork_agent_has_no_github_write_credential_or_github_mode(self) -> None:
         """The model receives evidence and NVIDIA access but no GitHub authority."""
         self.assertIn('run: opencode run --auto "$PROMPT"', self.fork_agent)
-        self.assertIn(
-            "NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", self.fork_agent
-        )
+        self.assertIn("NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", self.fork_agent)
         self.assertNotIn("opencode github run", self.fork_agent)
         self.assertNotIn("USE_GITHUB_TOKEN", self.fork_agent)
         self.assertNotIn("GH_TOKEN", self.fork_agent)

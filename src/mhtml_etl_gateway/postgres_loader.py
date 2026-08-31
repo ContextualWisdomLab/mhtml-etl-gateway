@@ -371,7 +371,7 @@ class PsycopgSink:
         candidates.discard(schema.table_name)
         if not candidates:
             return
-        query_names = sorted({*candidates, schema.table_name})
+        query_names = tuple(sorted({*candidates, schema.table_name}))
         existing_names = {
             str(row[0])
             for row in self._fetchall(

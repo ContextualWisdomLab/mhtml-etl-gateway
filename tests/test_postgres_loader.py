@@ -235,6 +235,8 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
     with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink._reject_legacy_table_split(schema)
 
+    # In ANY(%s) queries, params is a tuple containing a list: (list(query_names),)
+    # The first element is the list of parameters.
     assert legacy_name in observed[0][0]
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
+
 _ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "hourly-product-gap.yml"
 _VERSION = "1.18.15"
@@ -22,7 +23,8 @@ def _step_section(workflow_text: str, step_name: str) -> str:
 def _shell_command_text(step_text: str) -> str:
     """Normalize YAML shell continuations into their executed command text."""
     logical_lines = (
-        line.strip().removesuffix("\\").rstrip() for line in step_text.splitlines()
+        line.strip().removesuffix("\\").rstrip()
+        for line in step_text.splitlines()
     )
     return " ".join(" ".join(logical_lines).split())
 
@@ -36,12 +38,8 @@ class OpenCodeRunnerSupplyChainTests(unittest.TestCase):
         cls.workflow = _WORKFLOW.read_text(encoding="utf-8")
         cls.install_step = _step_section(cls.workflow, "Install verified OpenCode CLI")
         cls.install_command = _shell_command_text(cls.install_step)
-        cls.maintenance_step = _step_section(
-            cls.workflow, "Run OpenCode PR maintenance"
-        )
-        cls.product_step = _step_section(
-            cls.workflow, "Run OpenCode product development"
-        )
+        cls.maintenance_step = _step_section(cls.workflow, "Run OpenCode PR maintenance")
+        cls.product_step = _step_section(cls.workflow, "Run OpenCode product development")
 
     def test_dynamic_composite_installer_is_not_used(self) -> None:
         """Mutable nested actions, latest lookup, and remote script piping stay absent."""
@@ -68,17 +66,13 @@ class OpenCodeRunnerSupplyChainTests(unittest.TestCase):
         self.assertIn("tar --extract --gzip", self.install_command)
         self.assertIn("--no-same-owner", self.install_command)
         self.assertIn("--no-same-permissions", self.install_command)
-        self.assertIn(
-            'test "$actual_version" = "$OPENCODE_VERSION"', self.install_command
-        )
+        self.assertIn('test "$actual_version" = "$OPENCODE_VERSION"', self.install_command)
         self.assertLess(
             self.workflow.index("- name: Install verified OpenCode CLI"),
             self.workflow.index("- name: Run OpenCode PR maintenance"),
         )
 
-    def test_installation_step_receives_no_model_or_repository_credentials(
-        self,
-    ) -> None:
+    def test_installation_step_receives_no_model_or_repository_credentials(self) -> None:
         """Digest and version failures occur before privileged credentials are exposed."""
         prohibited = (
             "NVIDIA_API_KEY",
@@ -96,9 +90,7 @@ class OpenCodeRunnerSupplyChainTests(unittest.TestCase):
         for step in (self.maintenance_step, self.product_step):
             self.assertIn("run: opencode github run", step)
             self.assertIn("NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", step)
-            self.assertIn(
-                "MODEL: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5", step
-            )
+            self.assertIn("MODEL: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5", step)
             self.assertIn('SHARE: "false"', step)
             self.assertIn("PROMPT: |", step)
             self.assertNotIn("uses: anomalyco/opencode", step)

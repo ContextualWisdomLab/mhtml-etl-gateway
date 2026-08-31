@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+
 CATALOG_TABLE = "mhtml_ingest_artifact"
 
 # Constant DDL only — no user-controlled interpolation.

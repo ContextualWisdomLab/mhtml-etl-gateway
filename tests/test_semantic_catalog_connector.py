@@ -194,26 +194,18 @@ def test_submission_envelope_identity_changes_with_governance_context() -> None:
         approval_reference="approval_a",
     )
 
-    assert (
-        first.to_dict()
-        == build_semantic_catalog_submission_envelope(
-            manifest,
-            tenant_id="tenant_a",
-            actor="actor_a",
-            approval_reference="approval_a",
-        ).to_dict()
-    )
+    assert first.to_dict() == build_semantic_catalog_submission_envelope(
+        manifest,
+        tenant_id="tenant_a",
+        actor="actor_a",
+        approval_reference="approval_a",
+    ).to_dict()
     assert first.envelope_id != second.envelope_id
     assert first.envelope_id != changed_approval.envelope_id
     assert first.envelope_id != changed_actor.envelope_id
     assert first.requests[0].idempotency_key != second.requests[0].idempotency_key
-    assert (
-        first.requests[0].idempotency_key
-        != changed_approval.requests[0].idempotency_key
-    )
-    assert (
-        first.requests[0].idempotency_key != changed_actor.requests[0].idempotency_key
-    )
+    assert first.requests[0].idempotency_key != changed_approval.requests[0].idempotency_key
+    assert first.requests[0].idempotency_key != changed_actor.requests[0].idempotency_key
 
 
 def test_catalog_write_request_serializes_its_transport_boundary() -> None:
@@ -234,9 +226,7 @@ def test_catalog_write_request_serializes_its_transport_boundary() -> None:
 
 
 @pytest.mark.parametrize("catalog_name", ["", 42])
-def test_manifest_rejects_missing_or_non_text_catalog_name(
-    catalog_name: object,
-) -> None:
+def test_manifest_rejects_missing_or_non_text_catalog_name(catalog_name: object) -> None:
     """Catalog display names must be present text values."""
     with pytest.raises(ValueError, match="catalog_name"):
         build_semantic_catalog_manifest(_proposal(), catalog_name=catalog_name)  # type: ignore[arg-type]

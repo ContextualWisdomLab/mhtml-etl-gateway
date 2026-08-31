@@ -12,6 +12,7 @@ from mhtml_etl_gateway.semantic_catalog_handoff import (
     CatalogWriteRequest,
 )
 
+
 PUBLISHER_CONTRACT_VERSION = "1.0.0"
 _OPAQUE_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$")
 _DEFAULT_MAX_REQUESTS = 4096
@@ -85,7 +86,10 @@ class CatalogTransportResponse:
 
     def validate(self) -> None:
         """Require an HTTP-success response, explicit acceptance, and remote evidence."""
-        if type(self.status_code) is not int or not 200 <= self.status_code <= 299:
+        if (
+            type(self.status_code) is not int
+            or not 200 <= self.status_code <= 299
+        ):
             raise CatalogPublisherError("remote_status_not_success")
         if self.accepted is not True:
             raise CatalogPublisherError("remote_acceptance_required")
@@ -153,9 +157,10 @@ def _validate_request(request: CatalogWriteRequest) -> None:
     """Ensure only known graph POST requests cross the caller-owned transport."""
     if request.method != "POST" or request.path not in {NODE_ENDPOINT, EDGE_ENDPOINT}:
         raise CatalogPublisherError("invalid_catalog_request")
-    if not isinstance(
-        request.idempotency_key, str
-    ) or not request.idempotency_key.startswith("semantic_catalog_write_"):
+    if (
+        not isinstance(request.idempotency_key, str)
+        or not request.idempotency_key.startswith("semantic_catalog_write_")
+    ):
         raise CatalogPublisherError("invalid_idempotency_key")
 
 

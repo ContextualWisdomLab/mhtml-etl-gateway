@@ -69,7 +69,7 @@ def test_pipeline_rejects_missing_required_headers(sample_mhtml_path, tmp_path) 
         "</table></body></html>"
     )
     body = (
-        f"MIME-Version: 1.0\r\n"
+        f'MIME-Version: 1.0\r\n'
         f'Content-Type: multipart/related; boundary="{boundary}"\r\n\r\n'
         f"--{boundary}\r\n"
         f"Content-Type: text/html; charset=utf-8\r\n\r\n"

@@ -74,7 +74,11 @@ def discover_mhtml_files(
             matches = sorted(cur.glob(rel))
         else:
             matches = sorted(Path().glob(pattern))
-        return [p for p in matches if p.is_file() and p.suffix.lower() == ".mhtml"]
+        return [
+            p
+            for p in matches
+            if p.is_file() and p.suffix.lower() == ".mhtml"
+        ]
 
     paths: list[Path] = []
     iterator = root.rglob("*") if recursive else root.glob("*")
@@ -103,9 +107,7 @@ def run_batch(
         files = files[: max(0, limit)]
 
     # Keep operator-provided directory names out of reports and JSON output.
-    report = BatchReport(
-        source="operator-supplied-directory", files_discovered=len(files)
-    )
+    report = BatchReport(source="operator-supplied-directory", files_discovered=len(files))
     shared_sink = sink
     own_pg = False
     if shared_sink is None and dsn:
@@ -152,9 +154,7 @@ def run_batch(
                         rollback()
                     except Exception as rb_exc:
                         # Best-effort: connection may already be closed mid-batch.
-                        fr.error = (
-                            f"{fr.error}; rollback_failed={type(rb_exc).__name__}"
-                        )
+                        fr.error = f"{fr.error}; rollback_failed={type(rb_exc).__name__}"
                 if not continue_on_error:
                     report.results.append(fr)
                     raise BatchError("batch ingestion failed") from None

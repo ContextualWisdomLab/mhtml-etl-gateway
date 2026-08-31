@@ -22,31 +22,21 @@ class HtmlTableTests(unittest.TestCase):
 
     def test_first_non_empty_row_becomes_positional_header(self) -> None:
         """A SAP-style first td row is exposed as an inferred header."""
-        tables = extract(
-            "<table><tr><td>MANDT</td><td>TITLE</td></tr><tr><td>100</td><td>문의</td></tr></table>"
-        )
+        tables = extract("<table><tr><td>MANDT</td><td>TITLE</td></tr><tr><td>100</td><td>문의</td></tr></table>")
         table = tables[0]
         self.assertEqual(table.headers, ("MANDT", "TITLE"))
         self.assertEqual(table.data_row_count, 1)
-        self.assertIn(
-            "positional_header", [diagnostic.code for diagnostic in table.diagnostics]
-        )
+        self.assertIn("positional_header", [diagnostic.code for diagnostic in table.diagnostics])
 
     def test_semantic_th_header_needs_no_positional_warning(self) -> None:
         """A th row is recognized as a semantically declared header."""
-        table = extract(
-            "<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>"
-        )[0]
+        table = extract("<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>")[0]
         self.assertEqual(table.headers, ("A", "B"))
-        self.assertNotIn(
-            "positional_header", [diagnostic.code for diagnostic in table.diagnostics]
-        )
+        self.assertNotIn("positional_header", [diagnostic.code for diagnostic in table.diagnostics])
 
     def test_whitespace_and_breaks_are_normalized(self) -> None:
         """Text normalization preserves explicit line breaks and collapses spaces."""
-        table = extract(
-            "<table><tr><th> A   B </th></tr><tr><td> first <br> second  value </td></tr></table>"
-        )[0]
+        table = extract("<table><tr><th> A   B </th></tr><tr><td> first <br> second  value </td></tr></table>")[0]
         self.assertEqual(table.rows[0][0].text, "A B")
         self.assertEqual(table.rows[1][0].text, "first\nsecond value")
 
@@ -100,9 +90,7 @@ class HtmlTableTests(unittest.TestCase):
 
     def test_multiple_tables_preserve_document_order(self) -> None:
         """Top-level tables remain separate and preserve document order."""
-        tables = extract(
-            "<table><tr><td>A</td></tr></table><table><tr><td>B</td></tr></table>"
-        )
+        tables = extract("<table><tr><td>A</td></tr></table><table><tr><td>B</td></tr></table>")
         self.assertEqual([table.headers for table in tables], [("A",), ("B",)])
 
     def test_rowspan_and_colspan_expand_to_rectangular_grid(self) -> None:
@@ -121,9 +109,7 @@ class HtmlTableTests(unittest.TestCase):
 
     def test_irregular_rows_are_padded_with_empty_cells(self) -> None:
         """Short source rows normalize to the maximum logical width."""
-        table = extract(
-            "<table><tr><th>A</th><th>B</th></tr><tr><td>1</td></tr></table>"
-        )[0]
+        table = extract("<table><tr><th>A</th><th>B</th></tr><tr><td>1</td></tr></table>")[0]
         self.assertEqual(tuple(cell.text for cell in table.rows[1]), ("1", ""))
 
     def test_empty_table_is_returned_with_zero_dimensions(self) -> None:
@@ -135,18 +121,13 @@ class HtmlTableTests(unittest.TestCase):
     def test_nested_table_is_rejected(self) -> None:
         """Ambiguous nested tables fail closed rather than flatten silently."""
         with self.assertRaises(MhtmlGatewayError) as caught:
-            extract(
-                "<table><tr><td><table><tr><td>x</td></tr></table></td></tr></table>"
-            )
+            extract("<table><tr><td><table><tr><td>x</td></tr></table></td></tr></table>")
         self.assertEqual(caught.exception.code, ErrorCode.NESTED_TABLE)
 
     def test_invalid_span_is_rejected(self) -> None:
         """Non-positive or non-integer spans are invalid input."""
         for value in ("0", "-1", "abc"):
-            with (
-                self.subTest(value=value),
-                self.assertRaises(MhtmlGatewayError) as caught,
-            ):
+            with self.subTest(value=value), self.assertRaises(MhtmlGatewayError) as caught:
                 extract(f"<table><tr><td colspan='{value}'>x</td></tr></table>")
             self.assertEqual(caught.exception.code, ErrorCode.INVALID_TABLE_SPAN)
 
@@ -168,9 +149,7 @@ class HtmlTableTests(unittest.TestCase):
         """A table cannot exceed the configured source row count."""
         limits = ParseLimits(max_rows_per_table=1)
         with self.assertRaises(MhtmlGatewayError) as caught:
-            extract(
-                "<table><tr><td>a</td></tr><tr><td>b</td></tr></table>", limits=limits
-            )
+            extract("<table><tr><td>a</td></tr><tr><td>b</td></tr></table>", limits=limits)
         self.assertEqual(caught.exception.code, ErrorCode.TOO_MANY_ROWS)
 
     def test_column_limit_is_enforced_after_span_expansion(self) -> None:
@@ -191,10 +170,7 @@ class HtmlTableTests(unittest.TestCase):
         """The document-wide normalized cell budget prevents expansion abuse."""
         limits = ParseLimits(max_total_cells=3)
         with self.assertRaises(MhtmlGatewayError) as caught:
-            extract(
-                "<table><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>",
-                limits=limits,
-            )
+            extract("<table><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>", limits=limits)
         self.assertEqual(caught.exception.code, ErrorCode.TOO_MANY_CELLS)
 
     def test_orphan_cells_outside_rows_are_ignored(self) -> None:

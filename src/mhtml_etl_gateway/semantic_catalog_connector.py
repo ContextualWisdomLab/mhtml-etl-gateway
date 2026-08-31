@@ -15,6 +15,7 @@ from typing import Any
 
 from mhtml_etl_gateway.schema_proposal import SchemaProposal
 
+
 CONNECTOR_CONTRACT_VERSION = "1.0.0"
 TARGET_SYSTEM = "semantic-data-portal"
 NODE_ENDPOINT = "/graph/nodes"
@@ -142,7 +143,9 @@ def build_semantic_catalog_manifest(
     """
     display_name = _require_catalog_name(catalog_name)
     dataset_node_id = f"{_DATASET_NODE_PREFIX}{proposal.schema_proposal_id.removeprefix('schema_proposal_')}"
-    review_required = any(column.review_reasons for column in proposal.columns)
+    review_required = any(
+        column.review_reasons for column in proposal.columns
+    )
     dataset_node = CatalogNode(
         node_id=dataset_node_id,
         kind="dataset",

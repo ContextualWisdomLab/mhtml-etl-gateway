@@ -13,6 +13,7 @@ from mhtml_etl_gateway.schema_proposal import (
 )
 from mhtml_etl_gateway.sql_ident import UnsafeIdentifierError, require_safe_ident
 
+
 PG_ERD_CONTRACT_VERSION = "1.0.0"
 PG_ERD_TARGET_SYSTEM = "pg-erd-cloud"
 PG_ERD_ENDPOINT = "/api/dbml/convert"
@@ -69,7 +70,10 @@ def _require_table_name(catalog_name: str) -> str:
     if not isinstance(catalog_name, str) or not catalog_name.strip():
         raise ValueError("catalog_name must be a non-empty string")
     display_name = catalog_name.strip()
-    if any(ord(character) < 32 or ord(character) == 127 for character in display_name):
+    if any(
+        ord(character) < 32 or ord(character) == 127
+        for character in display_name
+    ):
         raise ValueError("catalog_name contains control characters")
     try:
         return require_safe_ident(to_table_name(display_name))

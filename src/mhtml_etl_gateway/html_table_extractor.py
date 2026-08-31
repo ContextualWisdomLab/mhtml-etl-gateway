@@ -92,9 +92,7 @@ class _TopLevelTableParser(HTMLParser):
                 raise TableExtractError("table cell closed without an open row")
             # Expand colspan so header/data column counts stay aligned.
             span = 1
-            raw_span = self._cell_attrs.get("colspan") or self._cell_attrs.get(
-                "COLSPAN"
-            )
+            raw_span = self._cell_attrs.get("colspan") or self._cell_attrs.get("COLSPAN")
             if raw_span:
                 try:
                     span = max(1, int(str(raw_span).strip()))
@@ -183,9 +181,7 @@ def rows_as_dicts(table: ExtractedTable) -> list[dict[str, str]]:
     """Zip headers to row values as ordered dict-like mappings."""
     out: list[dict[str, str]] = []
     for row in table.rows:
-        out.append(
-            {h: row[i] if i < len(row) else "" for i, h in enumerate(table.headers)}
-        )
+        out.append({h: row[i] if i < len(row) else "" for i, h in enumerate(table.headers)})
     return out
 
 

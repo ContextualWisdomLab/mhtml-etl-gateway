@@ -11,16 +11,13 @@ from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres
 from mhtml_etl_gateway.postgres_loader import InMemorySink, LoadError, load_table
 from mhtml_etl_gateway.schema_inference import infer_table_schema
-from mhtml_etl_gateway.validation_engine import (
-    ValidationError,
-    validate_extracted_table,
-)
+from mhtml_etl_gateway.validation_engine import ValidationError, validate_extracted_table
 
 
 def _write_mhtml(path: Path, html: str) -> None:
     boundary = "----=_NextPart_RAGGED"
     body = (
-        f"MIME-Version: 1.0\r\n"
+        f'MIME-Version: 1.0\r\n'
         f'Content-Type: multipart/related; boundary="{boundary}"\r\n\r\n'
         f"--{boundary}\r\n"
         f"Content-Type: text/html; charset=utf-8\r\n\r\n"

@@ -37,9 +37,7 @@ class ValidationResult:
     messages: tuple[str, ...] = ()
 
 
-def is_zcrht811_shaped(
-    headers: Sequence[str], *, table_name: str | None = None
-) -> bool:
+def is_zcrht811_shaped(headers: Sequence[str], *, table_name: str | None = None) -> bool:
     """Heuristic for ZCRHT811-family exports — independent of required-header check.
 
     True when table name suggests ZCRHT811, or headers include MANDT/GUID, or

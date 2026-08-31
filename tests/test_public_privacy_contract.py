@@ -24,9 +24,7 @@ class PublicPrivacyContractTests(unittest.TestCase):
         parameters = inspect.signature(inspect_mhtml_bytes).parameters
         self.assertNotIn("include_header_values", parameters)
 
-    def test_default_report_omits_source_media_location_and_table_ordinals(
-        self,
-    ) -> None:
+    def test_default_report_omits_source_media_location_and_table_ordinals(self) -> None:
         """Public JSON contains structural counts but no protected classifications."""
         source = make_mhtml(
             "<table><tr><th>customer_name</th></tr><tr><td>Alice</td></tr></table>",

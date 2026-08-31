@@ -12,6 +12,7 @@ import re
 from typing import Any
 import unicodedata
 
+
 _MAX_POSTGRES_IDENTIFIER_BYTES = 63
 _SCHEMA_PROPOSAL_PREFIX = "schema_proposal_"
 _SOURCE_HASH = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -218,7 +219,9 @@ class SchemaProposalPolicy:
                 continue
             value = getattr(self, field_definition.name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                raise ValueError(f"{field_definition.name} must be a positive integer")
+                raise ValueError(
+                    f"{field_definition.name} must be a positive integer"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,7 +326,9 @@ def _fit_identifier(value: str) -> str:
             f"source_{final_token}",
             _MAX_POSTGRES_IDENTIFIER_BYTES,
         ).rstrip("_")
-    maximum_prefix = _MAX_POSTGRES_IDENTIFIER_BYTES - len(suffix.encode("utf-8"))
+    maximum_prefix = _MAX_POSTGRES_IDENTIFIER_BYTES - len(
+        suffix.encode("utf-8")
+    )
     fitted_prefix = _truncate_utf8(prefix, maximum_prefix).rstrip("_")
     if not fitted_prefix:
         fitted_prefix = _truncate_utf8("source", maximum_prefix)
@@ -492,7 +497,9 @@ def _validate_column(
         if value is not None and not isinstance(value, str):
             raise SchemaProposalError(SchemaProposalErrorCode.INVALID_INPUT)
         if isinstance(value, str) and len(value) > policy.max_value_chars:
-            raise SchemaProposalError(SchemaProposalErrorCode.SAMPLE_VALUE_TOO_LARGE)
+            raise SchemaProposalError(
+                SchemaProposalErrorCode.SAMPLE_VALUE_TOO_LARGE
+            )
 
 
 def _column_proposal(
@@ -501,7 +508,9 @@ def _column_proposal(
 ) -> ColumnProposal:
     """Create value-free aggregate evidence for one validated protected column."""
     stripped_values = tuple(
-        value.strip() for value in column.values if value is not None and value.strip()
+        value.strip()
+        for value in column.values
+        if value is not None and value.strip()
     )
     null_count = len(column.values) - len(stripped_values)
     proposed_type, type_reasons, precision, scale = _infer_type(
@@ -578,7 +587,9 @@ def propose_schema(
         column_proposals.append(proposal)
         header_hashes.append(proposal.source_header_hash_sha256)
 
-    table_fingerprint = hashlib.sha256(_canonical_json(header_hashes)).hexdigest()
+    table_fingerprint = hashlib.sha256(
+        _canonical_json(header_hashes)
+    ).hexdigest()
     identity_payload = {
         "proposal_version": effective_policy.algorithm_version.strip(),
         "source_hash_sha256": normalized_source_hash,
