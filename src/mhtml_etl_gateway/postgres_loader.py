@@ -425,7 +425,7 @@ class PsycopgSink:
             source_artifact_path=row[2],
             source_artifact_size=row[3],
             row_count=int(row[4]),
-            status=row[5],
+            load_status_code=row[5],
             loaded_at=row[6],
         )
 
@@ -573,7 +573,7 @@ class PsycopgSink:
                     catalog_entry.source_artifact_path,
                     catalog_entry.source_artifact_size,
                     catalog_entry.row_count,
-                    catalog_entry.status,
+                    catalog_entry.load_status_code,
                     catalog_entry.loaded_at or datetime.now(timezone.utc),
                 ),
             )
@@ -645,7 +645,7 @@ def load_table(
     skipped = False
     replaced = False
 
-    if existing is not None and existing.status == "loaded":
+    if existing is not None and existing.load_status_code == "loaded":
         if on_duplicate == "skip":
             skipped = True
             entry = existing
@@ -669,12 +669,12 @@ def load_table(
 
     typed = prepare_typed_rows(schema, rows)
     entry = make_catalog_entry(
-        sha256=source_artifact_sha256,
+        source_artifact_sha256=source_artifact_sha256,
         table_name=schema.table_name,
-        path=source_artifact_path,
-        size=source_artifact_size,
+        source_artifact_path=source_artifact_path,
+        source_artifact_size=source_artifact_size,
         row_count=len(typed),
-        status="loaded",
+        load_status_code="loaded",
     )
     inserted = sink.write_artifact_rows(
         schema,
