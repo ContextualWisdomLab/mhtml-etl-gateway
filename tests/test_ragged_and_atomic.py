@@ -91,7 +91,7 @@ def test_replace_is_atomic_on_insert_failure(sample_mhtml_path: Path) -> None:
     sha = r1["source_sha256"]
     cat_before = sink.catalog_get(sha, "zcrht811_export_rows")
     assert cat_before is not None
-    assert cat_before.status == "loaded"
+    assert cat_before.load_status_code == "loaded"
     assert cat_before.row_count == count_before
 
     # Force failure inside atomic write after delete.
@@ -116,7 +116,7 @@ def test_replace_is_atomic_on_insert_failure(sample_mhtml_path: Path) -> None:
     assert sink.count_rows("zcrht811_export_rows") == count_before
     cat_after = sink.catalog_get(sha, "zcrht811_export_rows")
     assert cat_after is not None
-    assert cat_after.status == "loaded"
+    assert cat_after.load_status_code == "loaded"
     assert cat_after.row_count == cat_before.row_count
 
     # Subsequent skip must not leave 0 rows permanently.
