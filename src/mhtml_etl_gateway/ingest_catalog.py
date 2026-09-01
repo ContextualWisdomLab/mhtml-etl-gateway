@@ -121,20 +121,44 @@ class CatalogEntry:
 
 def make_catalog_entry(
     *,
-    source_artifact_sha256: str,
+    source_artifact_sha256: str | None = None,
     table_name: str,
-    source_artifact_path: str,
-    source_artifact_size: int | None,
+    source_artifact_path: str | None = None,
+    source_artifact_size: int | None = None,
     row_count: int,
-    load_status_code: str = "loaded",
+    load_status_code: str | None = None,
+    **legacy_catalog_fields: Any,
 ) -> CatalogEntry:
-    """Create a catalog record with the current UTC load timestamp."""
+    """Create a catalog record while translating deprecated legacy keywords."""
+    if "sha256" in legacy_catalog_fields:
+        if source_artifact_sha256 is not None:
+            raise TypeError("conflicting source artifact digest fields")
+        source_artifact_sha256 = legacy_catalog_fields.pop("sha256")
+    if "path" in legacy_catalog_fields:
+        if source_artifact_path is not None:
+            raise TypeError("conflicting source artifact path fields")
+        source_artifact_path = legacy_catalog_fields.pop("path")
+    if "size" in legacy_catalog_fields:
+        if source_artifact_size is not None:
+            raise TypeError("conflicting source artifact size fields")
+        source_artifact_size = legacy_catalog_fields.pop("size")
+    if "status" in legacy_catalog_fields:
+        if load_status_code is not None:
+            raise TypeError("conflicting load status fields")
+        load_status_code = legacy_catalog_fields.pop("status")
+    if legacy_catalog_fields:
+        raise TypeError("unexpected legacy catalog field")
+    if source_artifact_sha256 is None:
+        raise TypeError("source_artifact_sha256 is required")
+    if source_artifact_path is None:
+        raise TypeError("source_artifact_path is required")
+
     return CatalogEntry(
         source_artifact_sha256=source_artifact_sha256,
         table_name=table_name,
         source_artifact_path=source_artifact_path,
         source_artifact_size=source_artifact_size,
         row_count=row_count,
-        load_status_code=load_status_code,
+        load_status_code=load_status_code or "loaded",
         loaded_at=datetime.now(timezone.utc),
     )
