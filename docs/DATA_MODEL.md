@@ -75,7 +75,7 @@ All names contain at least two words and use `snake_case`.
 ### `raw_import`
 
 - `source_artifact`: immutable object-store identity, tenant, content hash, byte size, media type, encryption key reference, retention class, legal-hold state, and creation time.
-- `import_job`: requested operation, idempotency key, source artifact, requested mapping, status, and actor.
+- `import_job`: requested operation, idempotency key, source artifact, requested mapping, import status, and actor.
 - `source_table`: table ordinal, structural fingerprint, row/column counts, and parser version.
 - `source_row`: protected row artifact reference and original row coordinate; row values are not copied into audit logs.
 
@@ -104,9 +104,11 @@ External and cross-service IDs use UUIDv7 according to RFC 9562. Database surrog
 Every generated table and column name is lowercase multiword `snake_case` and
 fits PostgreSQL's 63-byte unquoted-identifier limit. Single-token columns use
 `_field`, single-token tables use `_table`, and direct unsafe names are rejected
-before DDL. The Python `CatalogEntry.status` state maps to the SQL catalog
-column `load_status_code`; an idempotent compatibility rename handles older
-catalogs.
+before DDL. The Python `CatalogEntry.load_status_code` state now matches the SQL
+catalog column `load_status_code`. `CatalogEntry.to_dict()` deliberately emits
+the established `status` wire key only at the serialization compatibility
+boundary, and the idempotent database migration still translates older
+persisted `status` columns to `load_status_code`.
 
 ## PII policy
 
