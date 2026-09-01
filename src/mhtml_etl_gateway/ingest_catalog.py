@@ -159,6 +159,8 @@ def make_catalog_entry(
         source_artifact_path=source_artifact_path,
         source_artifact_size=source_artifact_size,
         row_count=row_count,
-        load_status_code=load_status_code or "loaded",
+        load_status_code=(
+            load_status_code if load_status_code is not None else "loaded"
+        ),
         loaded_at=datetime.now(timezone.utc),
     )
