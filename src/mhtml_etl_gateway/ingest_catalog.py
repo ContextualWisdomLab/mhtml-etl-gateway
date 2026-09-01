@@ -103,38 +103,38 @@ class CatalogEntry:
     source_artifact_path: str
     source_artifact_size: int | None
     row_count: int
-    status: str
+    load_status_code: str
     loaded_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Return the catalog record in a JSON-serializable representation."""
+        """Return the catalog record using the established pipeline wire keys."""
         return {
             "source_artifact_sha256": self.source_artifact_sha256,
             "table_name": self.table_name,
             "source_artifact_path": self.source_artifact_path,
             "source_artifact_size": self.source_artifact_size,
             "row_count": self.row_count,
-            "status": self.status,
+            "status": self.load_status_code,
             "loaded_at": self.loaded_at.isoformat() if self.loaded_at else None,
         }
 
 
 def make_catalog_entry(
     *,
-    sha256: str,
+    source_artifact_sha256: str,
     table_name: str,
-    path: str,
-    size: int | None,
+    source_artifact_path: str,
+    source_artifact_size: int | None,
     row_count: int,
-    status: str = "loaded",
+    load_status_code: str = "loaded",
 ) -> CatalogEntry:
     """Create a catalog record with the current UTC load timestamp."""
     return CatalogEntry(
-        source_artifact_sha256=sha256,
+        source_artifact_sha256=source_artifact_sha256,
         table_name=table_name,
-        source_artifact_path=path,
-        source_artifact_size=size,
+        source_artifact_path=source_artifact_path,
+        source_artifact_size=source_artifact_size,
         row_count=row_count,
-        status=status,
+        load_status_code=load_status_code,
         loaded_at=datetime.now(timezone.utc),
     )
