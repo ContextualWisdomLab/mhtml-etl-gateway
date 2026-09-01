@@ -43,7 +43,7 @@ Every future database schema, table, view, materialized view, index, constraint,
 
 ## Autonomous execution
 
-The hourly loop is execution-first and work-conserving. Routine output is empty. A completed patch, new PR, failed first remedy, queued check, review delay, rate limit, provider cooldown, or external approval dependency does not terminate an invocation while another safe repository-owned action exists.
+The hourly loop is execution-first and work-conserving. Routine output is empty. Strix uses the zero-cost `orchestrator/free` route. A completed patch, new PR, failed first remedy, queued check, review delay, rate limit, provider cooldown, or external approval dependency does not terminate an invocation while another safe repository-owned action exists.
 
 Repeatedly execute:
 
