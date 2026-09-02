@@ -194,7 +194,7 @@ def _argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _output_value(value: object | None = None) -> str:
+def _output_value(value: object | None) -> str:
     """Render one newline-safe GitHub output scalar."""
     if value is None:
         return ""
