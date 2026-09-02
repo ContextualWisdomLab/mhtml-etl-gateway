@@ -217,7 +217,7 @@ The wrapper:
 - refuses execution outside `GITHUB_WORKSPACE`;
 - starts with a clean environment;
 - removes model, GitHub, OIDC, and provider credentials;
-- passes only `NVIDIA_NIM_API_KEY_CONFIGURED` to deterministic gate code;
+- still transports the legacy non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` value in `select-loop`, but deterministic gate eligibility ignores it; contextual-orchestrator provider discovery plus the `orchestrator/free` preflight is the fail-closed capability boundary;
 - is verified as `root:root` mode `0755`.
 
 Evidence files are stored under `.agent/evidence`; gate output is precreated as group-writable before unprivileged execution and appended to the protected GitHub output file by the workflow control plane.
@@ -263,7 +263,7 @@ The local scheduler never approves, enables auto-merge, merges, tags, publishes,
 
 ## Scheduler recovery
 
-If the deterministic gate fails because the NVIDIA key marker, repository identity, complete PR metadata, or durable task inventory is invalid, dispatch fails closed with a machine-readable reason. Malformed complete-queue metadata intentionally blocks mutation because selecting around an untrusted inventory could violate writer ownership. The same invocation can still perform safe control-plane diagnostics that do not depend on an untrusted write target; subsequent recurrence recollects live evidence after the integration is repaired.
+If the deterministic gate fails because repository identity, complete PR metadata, or durable task inventory is invalid, dispatch fails closed with a machine-readable reason. Provider availability is not decided by a provider-specific selector marker; the contextual-orchestrator sidecar and `orchestrator/free` preflight own that check. Malformed complete-queue metadata intentionally blocks mutation because selecting around an untrusted inventory could violate writer ownership. The same invocation can still perform safe control-plane diagnostics that do not depend on an untrusted write target; subsequent recurrence recollects live evidence after the integration is repaired.
 
 If the verified OpenCode installation fails, do not substitute the upstream composite action, `latest`, a package-manager install, or a remote installer script. Preserve the failure evidence, keep agent dispatch disabled, and repair the pinned version/digest/platform contract through reviewed repository changes.
 
