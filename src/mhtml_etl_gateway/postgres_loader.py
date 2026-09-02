@@ -290,6 +290,7 @@ class PsycopgSink:
             raise LoadError("database operation failed") from None
 
     def _fetchone(self, query, params: Sequence[Any] | None = None):
+        """Fetch exactly one row through the safe query boundary."""
         try:
             with self._conn.cursor() as cur:
                 if params is None:
@@ -303,6 +304,7 @@ class PsycopgSink:
             raise LoadError("database operation failed") from None
 
     def _fetchall(self, query, params: Sequence[Any] | None = None) -> list:
+        """Fetch all rows through the safe query boundary."""
         try:
             with self._conn.cursor() as cur:
                 if params is None:
