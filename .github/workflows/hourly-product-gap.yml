@@ -303,10 +303,115 @@ jobs:
           test "$actual_version" = "$OPENCODE_VERSION"
           echo "$install_dir" >> "$GITHUB_PATH"
 
+      - name: Provision contextual-orchestrator gateway sidecar
+        env:
+          BYTEZ_API_KEY: ${{ secrets.BYTEZ_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          NVIDIA_NIM_API_KEY_SUB: ${{ secrets.NVIDIA_NIM_API_KEY_SUB }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          # Vendors ContextualWisdomLab/contextual-orchestrator at a pinned commit and
+          # serves its fail-closed orchestrator/free pool on a loopback-only port, seeded
+          # from the org's five model-provider secrets. Mirrors the vendoring mechanism
+          # ContextualWisdomLab/.github uses for its own central review workflows
+          # (scripts/ci/contextual_orchestrator_review_sidecar.sh) and the gateway-hosting
+          # step in ContextualWisdomLab/contextual-orchestrator's own opencode-hourly-loop.yml,
+          # reusing that repository's own scripts/ci/serve_seeded_gateway.py entrypoint
+          # instead of duplicating it here. See ADR-0021.
+          orchestrator_pin_sha="8839081659df587b19642be17b9114f9dee8b666"
+          orchestrator_source="$RUNNER_TEMP/contextual-orchestrator"
+          orchestrator_host="127.0.0.1"
+          orchestrator_port="18080"
+
+          provider_secret_count=0
+          for secret_name in BYTEZ_API_KEY NVIDIA_NIM_API_KEY NVIDIA_NIM_API_KEY_SUB OPENROUTER_API_KEY OPENAI_API_KEY; do
+            if [ -n "${!secret_name:-}" ]; then
+              provider_secret_count=$((provider_secret_count + 1))
+            fi
+          done
+          if [ "$provider_secret_count" -lt 1 ]; then
+            echo "::error::at least one of BYTEZ_API_KEY / NVIDIA_NIM_API_KEY / NVIDIA_NIM_API_KEY_SUB / OPENROUTER_API_KEY / OPENAI_API_KEY is required"
+            exit 1
+          fi
+
+          gateway_token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          echo "::add-mask::$gateway_token"
+
+          rm -rf "$orchestrator_source"
+          git clone --quiet --filter=blob:none --no-checkout \
+            https://github.com/ContextualWisdomLab/contextual-orchestrator.git "$orchestrator_source"
+          git -C "$orchestrator_source" -c advice.detachedHead=false checkout --quiet "$orchestrator_pin_sha"
+          checked_out="$(git -C "$orchestrator_source" rev-parse HEAD)"
+          test "$checked_out" = "$orchestrator_pin_sha"
+
+          python3 -m pip install --quiet --disable-pip-version-check --no-cache-dir \
+            --require-hashes --no-deps -r "$orchestrator_source/requirements.lock"
+
+          cd "$orchestrator_source"
+          gateway_log="$RUNNER_TEMP/contextual-orchestrator-gateway.log"
+          PYTHONPATH="$orchestrator_source" \
+            BYTEZ_API_KEY="${BYTEZ_API_KEY:-}" \
+            NVIDIA_NIM_API_KEY="${NVIDIA_NIM_API_KEY:-}" \
+            NVIDIA_NIM_API_KEY_SUB="${NVIDIA_NIM_API_KEY_SUB:-}" \
+            OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}" \
+            OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+            CONTEXTUAL_ORCHESTRATOR_TOKEN="$gateway_token" \
+            python3 -m scripts.ci.serve_seeded_gateway \
+              --serve \
+              --auto-discover-model-agents \
+              --auth-token-key CONTEXTUAL_ORCHESTRATOR_TOKEN \
+              --host "$orchestrator_host" --port "$orchestrator_port" \
+              > "$gateway_log" 2>&1 &
+          sidecar_pid=$!
+          cd "$GITHUB_WORKSPACE"
+
+          healthz_status=""
+          for _attempt in $(seq 1 60); do
+            if ! kill -0 "$sidecar_pid" 2>/dev/null; then
+              echo "::error::contextual-orchestrator gateway exited before becoming healthy"
+              tail -100 "$gateway_log" || true
+              exit 1
+            fi
+            healthz_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $gateway_token" \
+              "http://$orchestrator_host:$orchestrator_port/healthz" 2>/dev/null || true)"
+            if [ "$healthz_status" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [ "$healthz_status" != "200" ]; then
+            echo "::error::contextual-orchestrator gateway did not become healthy within 120s"
+            tail -100 "$gateway_log" || true
+            exit 1
+          fi
+
+          # ponytail: single-attempt completion preflight, no retry/backoff. Upgrade to a
+          # bounded-retry loop (see ContextualWisdomLab/.github's
+          # scripts/ci/contextual_orchestrator_review_sidecar.sh
+          # REVIEW_PREFLIGHT_GATEWAY_MAX_ATTEMPTS) if a transient gateway 5xx proves
+          # common here too.
+          preflight_response="$RUNNER_TEMP/contextual-orchestrator-preflight.json"
+          preflight_status="$(curl -sS -o "$preflight_response" -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer $gateway_token" \
+            -H 'Content-Type: application/json' \
+            --data '{"model":"orchestrator/free","messages":[{"role":"user","content":"Reply with just OK."}],"max_tokens":4096,"stream":false}' \
+            "http://$orchestrator_host:$orchestrator_port/v1/chat/completions" 2>/dev/null || true)"
+          if [ "$preflight_status" != "200" ]; then
+            echo "::error::contextual-orchestrator orchestrator/free preflight returned HTTP ${preflight_status:-unreachable}"
+            cat "$preflight_response" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "CONTEXTUAL_ORCHESTRATOR_TOKEN=$gateway_token" >> "$GITHUB_ENV"
+          echo "gateway healthy and orchestrator/free preflight confirmed (pid $sidecar_pid)"
+
       - name: Run read-only fork triage
         env:
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
-          MODEL: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5
+          MODEL: contextual_orchestrator_gateway/orchestrator/free
           SHARE: "false"
           PROMPT: |
             Perform read-only triage for the fork pull request represented by files under
@@ -464,7 +569,7 @@ jobs:
           esac
           cd "$workspace"
           safe_path="${PATH:-/usr/local/bin:/usr/bin:/bin}"
-          unset NVIDIA_API_KEY NVIDIA_NIM_API_KEY NVIDIA_NIM_API_KEY_CONFIGURED
+          unset NVIDIA_API_KEY NVIDIA_NIM_API_KEY NVIDIA_NIM_API_KEY_CONFIGURED NVIDIA_NIM_API_KEY_SUB BYTEZ_API_KEY OPENROUTER_API_KEY CONTEXTUAL_ORCHESTRATOR_TOKEN
           unset GH_TOKEN GITHUB_TOKEN
           unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
           unset OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY
@@ -548,13 +653,118 @@ jobs:
           test "$actual_version" = "$OPENCODE_VERSION"
           echo "$install_dir" >> "$GITHUB_PATH"
 
+      - name: Provision contextual-orchestrator gateway sidecar
+        env:
+          BYTEZ_API_KEY: ${{ secrets.BYTEZ_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          NVIDIA_NIM_API_KEY_SUB: ${{ secrets.NVIDIA_NIM_API_KEY_SUB }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          # Vendors ContextualWisdomLab/contextual-orchestrator at a pinned commit and
+          # serves its fail-closed orchestrator/free pool on a loopback-only port, seeded
+          # from the org's five model-provider secrets. Mirrors the vendoring mechanism
+          # ContextualWisdomLab/.github uses for its own central review workflows
+          # (scripts/ci/contextual_orchestrator_review_sidecar.sh) and the gateway-hosting
+          # step in ContextualWisdomLab/contextual-orchestrator's own opencode-hourly-loop.yml,
+          # reusing that repository's own scripts/ci/serve_seeded_gateway.py entrypoint
+          # instead of duplicating it here. See ADR-0021.
+          orchestrator_pin_sha="8839081659df587b19642be17b9114f9dee8b666"
+          orchestrator_source="$RUNNER_TEMP/contextual-orchestrator"
+          orchestrator_host="127.0.0.1"
+          orchestrator_port="18080"
+
+          provider_secret_count=0
+          for secret_name in BYTEZ_API_KEY NVIDIA_NIM_API_KEY NVIDIA_NIM_API_KEY_SUB OPENROUTER_API_KEY OPENAI_API_KEY; do
+            if [ -n "${!secret_name:-}" ]; then
+              provider_secret_count=$((provider_secret_count + 1))
+            fi
+          done
+          if [ "$provider_secret_count" -lt 1 ]; then
+            echo "::error::at least one of BYTEZ_API_KEY / NVIDIA_NIM_API_KEY / NVIDIA_NIM_API_KEY_SUB / OPENROUTER_API_KEY / OPENAI_API_KEY is required"
+            exit 1
+          fi
+
+          gateway_token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          echo "::add-mask::$gateway_token"
+
+          rm -rf "$orchestrator_source"
+          git clone --quiet --filter=blob:none --no-checkout \
+            https://github.com/ContextualWisdomLab/contextual-orchestrator.git "$orchestrator_source"
+          git -C "$orchestrator_source" -c advice.detachedHead=false checkout --quiet "$orchestrator_pin_sha"
+          checked_out="$(git -C "$orchestrator_source" rev-parse HEAD)"
+          test "$checked_out" = "$orchestrator_pin_sha"
+
+          python3 -m pip install --quiet --disable-pip-version-check --no-cache-dir \
+            --require-hashes --no-deps -r "$orchestrator_source/requirements.lock"
+
+          cd "$orchestrator_source"
+          gateway_log="$RUNNER_TEMP/contextual-orchestrator-gateway.log"
+          PYTHONPATH="$orchestrator_source" \
+            BYTEZ_API_KEY="${BYTEZ_API_KEY:-}" \
+            NVIDIA_NIM_API_KEY="${NVIDIA_NIM_API_KEY:-}" \
+            NVIDIA_NIM_API_KEY_SUB="${NVIDIA_NIM_API_KEY_SUB:-}" \
+            OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}" \
+            OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+            CONTEXTUAL_ORCHESTRATOR_TOKEN="$gateway_token" \
+            python3 -m scripts.ci.serve_seeded_gateway \
+              --serve \
+              --auto-discover-model-agents \
+              --auth-token-key CONTEXTUAL_ORCHESTRATOR_TOKEN \
+              --host "$orchestrator_host" --port "$orchestrator_port" \
+              > "$gateway_log" 2>&1 &
+          sidecar_pid=$!
+          cd "$GITHUB_WORKSPACE"
+
+          healthz_status=""
+          for _attempt in $(seq 1 60); do
+            if ! kill -0 "$sidecar_pid" 2>/dev/null; then
+              echo "::error::contextual-orchestrator gateway exited before becoming healthy"
+              tail -100 "$gateway_log" || true
+              exit 1
+            fi
+            healthz_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $gateway_token" \
+              "http://$orchestrator_host:$orchestrator_port/healthz" 2>/dev/null || true)"
+            if [ "$healthz_status" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [ "$healthz_status" != "200" ]; then
+            echo "::error::contextual-orchestrator gateway did not become healthy within 120s"
+            tail -100 "$gateway_log" || true
+            exit 1
+          fi
+
+          # ponytail: single-attempt completion preflight, no retry/backoff. Upgrade to a
+          # bounded-retry loop (see ContextualWisdomLab/.github's
+          # scripts/ci/contextual_orchestrator_review_sidecar.sh
+          # REVIEW_PREFLIGHT_GATEWAY_MAX_ATTEMPTS) if a transient gateway 5xx proves
+          # common here too.
+          preflight_response="$RUNNER_TEMP/contextual-orchestrator-preflight.json"
+          preflight_status="$(curl -sS -o "$preflight_response" -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer $gateway_token" \
+            -H 'Content-Type: application/json' \
+            --data '{"model":"orchestrator/free","messages":[{"role":"user","content":"Reply with just OK."}],"max_tokens":4096,"stream":false}' \
+            "http://$orchestrator_host:$orchestrator_port/v1/chat/completions" 2>/dev/null || true)"
+          if [ "$preflight_status" != "200" ]; then
+            echo "::error::contextual-orchestrator orchestrator/free preflight returned HTTP ${preflight_status:-unreachable}"
+            cat "$preflight_response" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "CONTEXTUAL_ORCHESTRATOR_TOKEN=$gateway_token" >> "$GITHUB_ENV"
+          echo "gateway healthy and orchestrator/free preflight confirmed (pid $sidecar_pid)"
+
       - name: Run OpenCode PR maintenance
         if: >-
           needs.select-loop.outputs.mode == 'maintain_pull_request' &&
           needs.select-loop.outputs.pull_request_writable == 'true'
         env:
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
-          MODEL: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5
+          MODEL: contextual_orchestrator_gateway/orchestrator/free
           SHARE: "false"
           USE_GITHUB_TOKEN: "false"
           TARGET_PR_NUMBER: ${{ needs.select-loop.outputs.pull_request_number }}
@@ -645,8 +855,7 @@ jobs:
       - name: Run OpenCode product development
         if: needs.select-loop.outputs.mode == 'develop_product_gap'
         env:
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
-          MODEL: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5
+          MODEL: contextual_orchestrator_gateway/orchestrator/free
           SHARE: "false"
           USE_GITHUB_TOKEN: "false"
           PROMPT: |

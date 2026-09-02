@@ -186,7 +186,7 @@ The following are prohibited and regression-tested:
 - trusted cross-run executable cache;
 - model, GitHub, or OIDC credential binding during installation.
 
-The install step verifies platform, immutable URL, digest, archive shape, extraction ownership/permission policy, and exact runtime version before the directory enters `GITHUB_PATH`. Only later selected agent-mode steps receive `NVIDIA_API_KEY`, the fixed NVIDIA NIM model, `SHARE="false"`, and `USE_GITHUB_TOKEN="false"`.
+The install step verifies platform, immutable URL, digest, archive shape, extraction ownership/permission policy, and exact runtime version before the directory enters `GITHUB_PATH`. A subsequent step vendors and preflights the org's `contextual-orchestrator` gateway pinned to `orchestrator/free` (ADR 0021). Only later selected agent-mode steps receive `MODEL: contextual_orchestrator_gateway/orchestrator/free`, `SHARE="false"`, and `USE_GITHUB_TOKEN="false"`; no raw provider API key reaches those steps.
 
 The digest is recorded by the upstream generated Homebrew formula at commit `a72a2bfe3b4114ca10a9012c23f1b3f31924b22e`. This is release-distribution evidence, not a claim of an independent cryptographic builder attestation. The residual boundary is documented in ADR-0011, the threat model, and the upgrade/rollback runbook.
 

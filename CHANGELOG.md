@@ -4,6 +4,13 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+
+- The hourly workflow's three OpenCode invocations route scheduled model
+  traffic through the org's `contextual-orchestrator` gateway, pinned to the
+  fail-closed `orchestrator/free` pool, instead of calling NVIDIA NIM
+  directly. See ADR-0021 and `ContextualWisdomLab/mhtml-etl-gateway#60`.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware

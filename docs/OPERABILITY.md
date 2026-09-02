@@ -241,7 +241,7 @@ Operational contract:
 - installation receives no model, GitHub, or OIDC secret;
 - no cache is trusted between runs; every invocation downloads and verifies the exact bytes before use.
 
-A failed download, digest, archive-shape, platform, extraction, permission, or version check prevents both agent modes from running. The later `opencode github run` step receives `NVIDIA_API_KEY`, `MODEL`, `SHARE="false"`, `USE_GITHUB_TOKEN="false"`, and the mode-specific prompt only after verification succeeds.
+A failed download, digest, archive-shape, platform, extraction, permission, or version check prevents both agent modes from running. After verification succeeds, a dedicated step vendors and starts the org's `contextual-orchestrator` gateway (pinned commit, hash-verified dependencies, `/healthz` and a real `orchestrator/free` completion preflight; see ADR 0021) and exports an ephemeral loopback bearer token. The later `opencode github run` step then receives `MODEL: contextual_orchestrator_gateway/orchestrator/free`, `SHARE="false"`, `USE_GITHUB_TOKEN="false"`, and the mode-specific prompt; it no longer receives a raw provider API key directly.
 
 ### OpenCode upgrade and rollback procedure
 

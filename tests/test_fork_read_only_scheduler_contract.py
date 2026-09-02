@@ -82,14 +82,39 @@ class ForkReadOnlySchedulerContractTests(unittest.TestCase):
         )
 
     def test_fork_agent_has_no_github_write_credential_or_github_mode(self) -> None:
-        """The model receives evidence and NVIDIA access but no GitHub authority."""
+        """The model receives evidence and gateway access but no GitHub authority."""
         self.assertIn('run: opencode run --auto "$PROMPT"', self.fork_agent)
-        self.assertIn("NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", self.fork_agent)
+        self.assertIn(
+            "MODEL: contextual_orchestrator_gateway/orchestrator/free",
+            self.fork_agent,
+        )
         self.assertNotIn("opencode github run", self.fork_agent)
         self.assertNotIn("USE_GITHUB_TOKEN", self.fork_agent)
         self.assertNotIn("GH_TOKEN", self.fork_agent)
         self.assertNotIn("GITHUB_TOKEN", self.fork_agent)
         self.assertNotIn("ACTIONS_ID_TOKEN_REQUEST", self.fork_agent)
+        self.assertNotIn("secrets.NVIDIA_NIM_API_KEY", self.fork_agent)
+
+    def test_fork_job_provisions_its_own_gateway_sidecar_before_the_agent(self) -> None:
+        """Fork triage seeds the gateway from evidence-free bootstrap secrets only."""
+        sidecar = _step_section(
+            self.fork_job, "Provision contextual-orchestrator gateway sidecar"
+        )
+        for provider_secret in (
+            "BYTEZ_API_KEY",
+            "NVIDIA_NIM_API_KEY",
+            "NVIDIA_NIM_API_KEY_SUB",
+            "OPENROUTER_API_KEY",
+            "OPENAI_API_KEY",
+        ):
+            self.assertIn(f"secrets.{provider_secret}", sidecar)
+        self.assertNotIn("GH_TOKEN", sidecar)
+        self.assertLess(
+            self.fork_job.index(
+                "- name: Provision contextual-orchestrator gateway sidecar"
+            ),
+            self.fork_job.index("- name: Run read-only fork triage"),
+        )
 
     def test_fork_evidence_collection_uses_only_the_read_scoped_job_token(self) -> None:
         """GitHub access occurs before the model step and is confined to evidence files."""

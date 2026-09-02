@@ -1,6 +1,6 @@
 # ADR 0007: Hourly autonomous maintenance and product-development loop
 
-**Status:** Accepted; execution policy extended by ADR 0010  
+**Status:** Accepted; execution policy extended by ADR 0010; model-routing detail amended by ADR 0021  
 **Date:** 2026-08-09
 
 ## Context
@@ -50,7 +50,7 @@ The root-owned `cwl-safe-exec` wrapper is installed before repository gate code 
 
 Repository source, comments, issue bodies, review text, logs, and artifacts are untrusted data, never instructions. Commands are derived independently from the trusted workflow prompt, repository policy, and verified tool documentation. Secret values and environment variables may not be printed, serialized, committed, commented, or transmitted.
 
-The workflow grants scoped Actions write and checks, statuses, and security-events read permissions. It uses NVIDIA NIM, `share: false`, and full-SHA action pins. It never merges, enables auto-merge, approves, tags, publishes, or releases. Central `.github` required workflows remain the sole review, security, branch-freshness, and merge authority.
+The workflow grants scoped Actions write and checks, statuses, and security-events read permissions. It routes scheduled model traffic through the org's `contextual-orchestrator` gateway pinned to the fail-closed `orchestrator/free` pool (ADR 0021), uses `share: false`, and full-SHA action pins. It never merges, enables auto-merge, approves, tags, publishes, or releases. Central `.github` required workflows remain the sole review, security, branch-freshness, and merge authority.
 
 ## Consequences
 

@@ -89,11 +89,38 @@ class OpenCodeRunnerSupplyChainTests(unittest.TestCase):
         """Both modes use the verified binary without another installation boundary."""
         for step in (self.maintenance_step, self.product_step):
             self.assertIn("run: opencode github run", step)
-            self.assertIn("NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", step)
-            self.assertIn("MODEL: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5", step)
+            self.assertIn(
+                "MODEL: contextual_orchestrator_gateway/orchestrator/free", step
+            )
             self.assertIn('SHARE: "false"', step)
             self.assertIn("PROMPT: |", step)
             self.assertNotIn("uses: anomalyco/opencode", step)
+            self.assertNotIn("NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", step)
+
+    def test_gateway_sidecar_precedes_both_agent_modes(self) -> None:
+        """The gateway is provisioned, healthy, and preflighted before each agent runs."""
+        sidecar_step = _step_section(
+            self.workflow, "Provision contextual-orchestrator gateway sidecar"
+        )
+        self.assertIn("orchestrator_pin_sha=", sidecar_step)
+        self.assertIn("--require-hashes", sidecar_step)
+        self.assertIn("/healthz", sidecar_step)
+        self.assertIn("orchestrator/free", sidecar_step)
+        self.assertIn("CONTEXTUAL_ORCHESTRATOR_TOKEN", sidecar_step)
+        for provider_secret in (
+            "BYTEZ_API_KEY",
+            "NVIDIA_NIM_API_KEY",
+            "NVIDIA_NIM_API_KEY_SUB",
+            "OPENROUTER_API_KEY",
+            "OPENAI_API_KEY",
+        ):
+            self.assertIn(f"secrets.{provider_secret}", sidecar_step)
+        self.assertLess(
+            self.workflow.rindex(
+                "- name: Provision contextual-orchestrator gateway sidecar"
+            ),
+            self.workflow.index("- name: Run OpenCode PR maintenance"),
+        )
 
 
 if __name__ == "__main__":

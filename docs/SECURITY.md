@@ -98,7 +98,7 @@ The root-owned `cwl-safe-exec` wrapper is installed before repository-owned gate
 - grants repository access only through the dedicated `cwl-workspace` group;
 - refuses commands outside `GITHUB_WORKSPACE`;
 - creates a clean environment;
-- removes NVIDIA, GitHub, OIDC, OpenAI, Anthropic, Google, Strix, and OpenCode credential variables;
+- removes NVIDIA, Bytez, OpenRouter, GitHub, OIDC, OpenAI, Anthropic, Google, Strix, OpenCode, and local gateway-token credential variables;
 - passes only the non-secret boolean `NVIDIA_NIM_API_KEY_CONFIGURED` marker to gate code;
 - is owned by `root:root` and not writable by the agent identity.
 
