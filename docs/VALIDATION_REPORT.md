@@ -156,8 +156,8 @@ Security tests additionally prove that:
 
 - the root-owned secret-stripping wrapper is installed before repository gate code executes;
 - repository-controlled code runs as `cwl-untrusted` with access only through the dedicated `cwl-workspace` group;
-- model, GitHub, OIDC, OpenAI, Anthropic, Google, Strix, and OpenCode credentials are removed from the repository-code environment;
-- gate code receives only the non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` marker;
+- model, GitHub, OIDC, OpenAI, Anthropic, Google, Strix, OpenCode, Bytez, OpenRouter, and raw provider credentials are removed from the repository-code environment;
+- selector eligibility is provider-independent; the current wrapper may still transport the legacy non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` marker, but `main()` does not consume it and contextual-orchestrator preflight owns provider capability;
 - arbitrary shell and direct interpreter, package-manager, environment-inspection, and network-fetch commands are denied by default;
 - raw `gh api` access is allowed only with an explicit GET method;
 - no POST, PATCH, PUT, DELETE, field, raw-field, or input form is allowlisted;
@@ -201,7 +201,7 @@ The deterministic repository validator confirms:
 - a missing hourly scheduler returns a machine-readable validation failure rather than a stack trace;
 - prohibited Copilot credential references: 0;
 - committed `.mhtml` or `.mht` artifacts: 0;
-- NVIDIA NIM secret binding: present;
+- contextual-orchestrator provider-secret binding: present; provider-specific selector readiness is not required for dispatch;
 - OpenCode session sharing disabled in both direct modes;
 - exact-head agent-branch quality execution enabled;
 - push and pull-request quality concurrency keyed by exact head SHA.
