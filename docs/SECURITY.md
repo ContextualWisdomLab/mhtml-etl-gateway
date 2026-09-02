@@ -99,7 +99,7 @@ The root-owned `cwl-safe-exec` wrapper is installed before repository-owned gate
 - refuses commands outside `GITHUB_WORKSPACE`;
 - creates a clean environment;
 - removes NVIDIA, Bytez, OpenRouter, GitHub, OIDC, OpenAI, Anthropic, Google, Strix, OpenCode, and local gateway-token credential variables;
-- passes no provider credential or provider-specific readiness marker to gate code; contextual-orchestrator owns provider discovery, and the gateway preflight is the fail-closed capability check;
+- passes no provider credential to gate code; the current `select-loop` wrapper still carries a legacy non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` marker, but the gate entry point no longer consumes it for eligibility. contextual-orchestrator owns provider discovery, and the gateway preflight is the fail-closed capability check;
 - is owned by `root:root` and not writable by the agent identity.
 
 OpenCode denies arbitrary shell by default. Repository-controlled Python, tests, package managers, build tools, and scripts run only through the wrapper. Direct environment inspection, direct interpreter/package-manager execution, network-fetch commands, and mutating raw GitHub API forms are not intentionally allowlisted.
