@@ -5,7 +5,3 @@
 ## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
 **Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
 **Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
-
-## 2024-08-11 - Hoisting over List Comprehension Appends
-**Learning:** During large-scale row processing in `prepare_typed_rows` and `_build_row_records`, we discovered that repeated attribute lookups like `col.pg_type` over thousands of rows within standard `for` loops cause considerable Python execution overhead.
-**Action:** Always hoist invariant properties (like generating `col_types = [col.pg_type for col in schema.columns]`) BEFORE iterating over rows. Additionally, switching from iterating with manual `append()` to using list/dict comprehensions over these hoisted variables yields a solid ~10-15% performance improvement on batch loading.
