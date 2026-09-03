@@ -3,8 +3,14 @@ name: Repository Quality
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
   push:
     branches: [main, 'agent/**']
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
 
 concurrency:
   group: repository-quality-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
