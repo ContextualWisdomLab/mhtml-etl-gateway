@@ -2,3 +2,8 @@
 **Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
 **Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
 **Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
+
+## 2024-05-18 - Extracted HTML content includes raw scripts/styles
+**Vulnerability:** HTML table parser `_TopLevelTableParser` can treat active-content markup as extractable table structure or cell data when document- and table-level suppression are not applied consistently.
+**Learning:** Raw HTML extraction needs one explicit trust boundary for active-content containers. Closed `script`, `style`, `noscript`, `template`, `iframe`, and `object` subtrees must not be allowed to fabricate business tables, while malformed document chrome may recover only at a structural document boundary; ambiguous unclosed table-local content remains fail-closed.
+**Prevention:** Maintain `_suppression_stack` across both document and table scopes, suppress nested active-content markup, recover malformed document chrome only at `head`/`body`/`html` boundaries outside a table, and keep focused regression tests for fabricated tables, mismatched closers, unclosed table-local containers, chunk boundaries, and decoded inert data.

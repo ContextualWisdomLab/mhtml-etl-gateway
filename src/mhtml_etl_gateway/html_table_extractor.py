@@ -11,6 +11,18 @@ class TableExtractError(ValueError):
     """Fail-closed error when no usable table can be extracted."""
 
 
+_SUPPRESSED_CONTAINER_TAGS = {
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "iframe",
+    "object",
+}
+
+_IGNORED_VOID_RESOURCE_TAGS = {"embed"}
+_DOCUMENT_RECOVERY_END_TAGS = {"head", "body", "html"}
+
 # Chunk size for incremental HTMLParser.feed (memory-bounded incremental parse).
 _FEED_CHUNK = 256 * 1024
 
@@ -46,8 +58,36 @@ class _TopLevelTableParser(HTMLParser):
         self._cur_row: list[str] | None = None
         self._cur_cell: list[str] = []
         self._cell_attrs: dict[str, str] = {}
+        self._suppression_stack: list[str] = []
+
+    # Keep raw-text elements tokenized so the suppression stack, rather than
+    # HTMLParser's CDATA state, owns the active-content trust boundary.
+    CDATA_CONTENT_ELEMENTS = ()
+
+    def set_cdata_mode(self, elem: str, *, escapable: bool = False) -> None:
+        """Use HTMLParser CDATA mode only for active content inside a table."""
+        if self._table_depth >= 1:
+            super().set_cdata_mode(elem, escapable=escapable)
+        else:
+            self.clear_cdata_mode()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized = tag.lower()
+        if self._suppression_stack:
+            if normalized in _SUPPRESSED_CONTAINER_TAGS:
+                self._suppression_stack.append(normalized)
+            return
+        if normalized in _SUPPRESSED_CONTAINER_TAGS:
+            # Suppress active-content subtrees at document scope as well as
+            # inside tables. Otherwise a closed template/script/style can
+            # fabricate a table that competes with the real business table.
+            # Malformed head chrome is recovered only at a structural document
+            # boundary; ambiguous unclosed body content remains fail-closed.
+            self._suppression_stack.append(normalized)
+            return
+        if normalized in _IGNORED_VOID_RESOURCE_TAGS:
+            return
+
         ad = {k: (v or "") for k, v in attrs}
         if tag == "table":
             self._table_depth += 1
@@ -71,6 +111,24 @@ class _TopLevelTableParser(HTMLParser):
             self._cur_cell.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        normalized = tag.lower()
+        if self._suppression_stack:
+            if self._table_depth == 0 and normalized in _DOCUMENT_RECOVERY_END_TAGS:
+                # A malformed active-content tag in document chrome must not
+                # consume a later table after the enclosing structural region
+                # has ended. Inside a real table this recovery is forbidden.
+                self._suppression_stack.clear()
+                return
+            if normalized not in _SUPPRESSED_CONTAINER_TAGS:
+                return
+            expected = self._suppression_stack[-1]
+            if normalized != expected:
+                # A stray closer must not pop the still-open outer boundary or
+                # expose text that remains inside it. Tolerate the malformed
+                # closer and wait for the matching container end tag.
+                return
+            self._suppression_stack.pop()
+            return
         if tag == "table":
             if self._table_depth == 1 and self._cur_table is not None:
                 self.tables.append(self._cur_table)
@@ -111,7 +169,7 @@ class _TopLevelTableParser(HTMLParser):
             self._cur_row = None
 
     def handle_data(self, data: str) -> None:
-        if self._in_td and self._table_depth >= 1:
+        if self._in_td and self._table_depth >= 1 and not self._suppression_stack:
             self._cur_cell.append(data)
 
 
@@ -120,11 +178,12 @@ def _feed_parser_chunked(parser: _TopLevelTableParser, text: str) -> None:
     n = len(text)
     if n <= _FEED_CHUNK:
         parser.feed(text)
-        parser.close()
-        return
-    for i in range(0, n, _FEED_CHUNK):
-        parser.feed(text[i : i + _FEED_CHUNK])
+    else:
+        for i in range(0, n, _FEED_CHUNK):
+            parser.feed(text[i : i + _FEED_CHUNK])
     parser.close()
+    if parser._suppression_stack:
+        raise TableExtractError("unclosed suppression container")
 
 
 def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:
