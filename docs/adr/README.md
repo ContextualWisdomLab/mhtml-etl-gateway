@@ -28,6 +28,8 @@ The **status declared inside each ADR is authoritative**. This index deliberatel
 | [ADR-0019](0019-pg-erd-visualization-handoff.md) | Convert value-free schema proposals into transport-neutral pg-erd-cloud DBML visualization plans. |
 | [ADR-0020](0020-local-schema-proposal-boundary.md) | Expose a local protected MHTML-to-schema-proposal boundary without adding value disclosure or downstream transport authority. |
 
+ADR-0001, ADR-0003, and ADR-0008 now carry APA 7th locators for RFC 2557 (MHTML aggregate-document format) and RFC 2387 (`type`/`start`/first-body-part rules).
+
 ## Status vocabulary
 
 Use these values inside ADRs:
