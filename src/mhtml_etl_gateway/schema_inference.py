@@ -456,7 +456,11 @@ def values_require_text(pg_type: str, values: Iterable[object]) -> bool:
 
     if expected_type is not None:
         for v in values:
-            if v is not None and not isinstance(v, expected_type):
+            if v is None:
+                continue
+            if pg_type in {PG_BIGINT, PG_NUMERIC} and type(v) is bool:
+                return True
+            if not isinstance(v, expected_type):
                 return True
 
     return False
