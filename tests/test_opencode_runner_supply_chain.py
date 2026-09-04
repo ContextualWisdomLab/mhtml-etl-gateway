@@ -20,6 +20,22 @@ def _step_section(workflow_text: str, step_name: str) -> str:
     return workflow_text[start:] if next_step < 0 else workflow_text[start:next_step]
 
 
+def _step_sections(workflow_text: str, step_name: str) -> list[str]:
+    """Return every occurrence of a named workflow step in source order."""
+    marker = f"      - name: {step_name}"
+    sections: list[str] = []
+    offset = 0
+    while True:
+        start = workflow_text.find(marker, offset)
+        if start < 0:
+            return sections
+        next_step = workflow_text.find("\n      - name: ", start + len(marker))
+        sections.append(
+            workflow_text[start:] if next_step < 0 else workflow_text[start:next_step]
+        )
+        offset = start + len(marker)
+
+
 def _shell_command_text(step_text: str) -> str:
     """Normalize YAML shell continuations into their executed command text."""
     logical_lines = (
@@ -89,11 +105,50 @@ class OpenCodeRunnerSupplyChainTests(unittest.TestCase):
         """Both modes use the verified binary without another installation boundary."""
         for step in (self.maintenance_step, self.product_step):
             self.assertIn("run: opencode github run", step)
-            self.assertIn("NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", step)
-            self.assertIn("MODEL: nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5", step)
+            self.assertIn(
+                "MODEL: contextual_orchestrator_gateway/orchestrator/free", step
+            )
             self.assertIn('SHARE: "false"', step)
             self.assertIn("PROMPT: |", step)
             self.assertNotIn("uses: anomalyco/opencode", step)
+            self.assertNotIn("NVIDIA_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}", step)
+
+    def test_gateway_sidecar_precedes_every_agent_mode(self) -> None:
+        """Both sidecars enforce the same pinned, preflighted gateway contract."""
+        sidecar_steps = _step_sections(
+            self.workflow, "Provision contextual-orchestrator gateway sidecar"
+        )
+        self.assertEqual(len(sidecar_steps), 2)
+        for sidecar_step in sidecar_steps:
+            self.assertIn("orchestrator_pin_sha=", sidecar_step)
+            self.assertIn("--require-hashes", sidecar_step)
+            self.assertIn("/healthz", sidecar_step)
+            self.assertIn("orchestrator/free", sidecar_step)
+            self.assertIn("CONTEXTUAL_ORCHESTRATOR_TOKEN", sidecar_step)
+            for provider_secret in (
+                "BYTEZ_API_KEY",
+                "NVIDIA_NIM_API_KEY",
+                "NVIDIA_NIM_API_KEY_SUB",
+                "OPENROUTER_API_KEY",
+                "OPENAI_API_KEY",
+            ):
+                self.assertIn(f"secrets.{provider_secret}", sidecar_step)
+
+        marker = "- name: Provision contextual-orchestrator gateway sidecar"
+        first_sidecar = self.workflow.index(marker)
+        second_sidecar = self.workflow.index(marker, first_sidecar + len(marker))
+        self.assertLess(
+            first_sidecar,
+            self.workflow.index("- name: Run read-only fork triage"),
+        )
+        self.assertLess(
+            second_sidecar,
+            self.workflow.index("- name: Run OpenCode PR maintenance"),
+        )
+        self.assertLess(
+            second_sidecar,
+            self.workflow.index("- name: Run OpenCode product development"),
+        )
 
 
 if __name__ == "__main__":

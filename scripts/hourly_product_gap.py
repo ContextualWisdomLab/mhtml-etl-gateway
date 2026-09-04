@@ -149,11 +149,17 @@ def evaluate_gate(
     pull_requests: list[dict[str, Any]],
     issues: list[dict[str, Any]],
     *,
-    nvidia_key_configured: bool,
     repository_full_name: str,
+    nvidia_key_configured: bool | None = None,
 ) -> GateDecision:
-    """Choose exact-head PR maintenance first, otherwise bounded product work."""
-    if not nvidia_key_configured:
+    """Choose exact-head PR maintenance first, otherwise bounded product work.
+
+    ``nvidia_key_configured`` is retained only for direct callers that still
+    exercise the pre-gateway contract. The workflow entry point deliberately
+    omits that provider-specific signal: contextual-orchestrator owns provider
+    discovery and its sidecar preflight is the fail-closed capability boundary.
+    """
+    if nvidia_key_configured is False:
         return GateDecision(False, "blocked", "nvidia_nim_api_key_unconfigured")
     if not repository_full_name.strip():
         return GateDecision(False, "blocked", "repository_metadata_unconfigured")
@@ -207,9 +213,6 @@ def main(arguments: Sequence[str] | None = None) -> int:
     decision = evaluate_gate(
         load_records(namespace.pull_requests_json),
         load_records(namespace.issues_json),
-        nvidia_key_configured=(
-            os.environ.get("NVIDIA_NIM_API_KEY_CONFIGURED", "") == "true"
-        ),
         repository_full_name=os.environ.get("GITHUB_REPOSITORY", ""),
     )
     fields = (

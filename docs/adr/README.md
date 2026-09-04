@@ -14,7 +14,7 @@ The **status declared inside each ADR is authoritative**. This index deliberatel
 | [ADR-0004](0004-bounded-standard-library-parser.md) | Use a bounded standard-library parser boundary with explicit resource limits and fail-closed behavior. |
 | [ADR-0005](0005-metadata-only-default-output.md) | Keep the default public inspection artifact metadata-only and nonreflecting. |
 | [ADR-0006](0006-central-workflow-inheritance.md) | Inherit organization-central review/security/merge governance instead of duplicating privileged policy. |
-| [ADR-0007](0007-hourly-product-development-loop.md) | Use a bounded hourly autonomous product-development loop with NVIDIA NIM/OpenCode and central merge authority. |
+| [ADR-0007](0007-hourly-product-development-loop.md) | Use a bounded hourly autonomous product-development loop with verified OpenCode; scheduled model traffic goes through contextual-orchestrator's fail-closed `orchestrator/free` pool and central merge authority remains external. |
 | [ADR-0008](0008-mime-ambiguity-and-enterprise-compatibility.md) | Fail closed on MIME ambiguity while isolating explicitly documented enterprise compatibility deviations. |
 | [ADR-0009](0009-nonreflecting-metadata-surfaces.md) | Prevent attacker-controlled MIME/table values from entering public metadata and error surfaces. |
 | [ADR-0010](0010-work-conserving-autonomous-execution.md) | Make autonomous execution work-conserving so one blocked lane cannot terminate safe repository-owned work. |
@@ -27,6 +27,7 @@ The **status declared inside each ADR is authoritative**. This index deliberatel
 | [ADR-0018](0018-streamed-postgresql-copy.md) | Stream typed PostgreSQL rows with `COPY FROM STDIN` inside the existing atomic load transaction. |
 | [ADR-0019](0019-pg-erd-visualization-handoff.md) | Convert value-free schema proposals into transport-neutral pg-erd-cloud DBML visualization plans. |
 | [ADR-0020](0020-local-schema-proposal-boundary.md) | Expose a local protected MHTML-to-schema-proposal boundary without adding value disclosure or downstream transport authority. |
+| [ADR-0021](0021-contextual-orchestrator-gateway-routing.md) | Route scheduled model traffic through the org's contextual-orchestrator gateway, pinned to the fail-closed `orchestrator/free` pool. |
 
 ## Status vocabulary
 

@@ -1,9 +1,9 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "share": "disabled",
-  "model": "nvidia-nim/nvidia/llama-3.3-nemotron-super-49b-v1.5",
-  "small_model": "nvidia-nim/meta/llama-3.3-70b-instruct",
-  "enabled_providers": ["nvidia-nim"],
+  "model": "contextual_orchestrator_gateway/orchestrator/free",
+  "small_model": "contextual_orchestrator_gateway/orchestrator/free",
+  "enabled_providers": ["contextual_orchestrator_gateway"],
   "lsp": false,
   "mcp": {},
   "permission": {
@@ -70,34 +70,15 @@
     "external_directory": "deny"
   },
   "provider": {
-    "nvidia-nim": {
+    "contextual_orchestrator_gateway": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "NVIDIA NIM",
+      "name": "Contextual Orchestrator Gateway",
       "options": {
-        "baseURL": "https://integrate.api.nvidia.com/v1",
-        "apiKey": "{env:NVIDIA_API_KEY}"
+        "baseURL": "http://127.0.0.1:18080/v1",
+        "apiKey": "{env:CONTEXTUAL_ORCHESTRATOR_TOKEN}"
       },
       "models": {
-        "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
-          "name": "NVIDIA Llama 3.3 Nemotron Super 49B v1.5",
-          "tool_call": true,
-          "reasoning": true,
-          "options": {
-            "reasoningEffort": "high"
-          },
-          "limit": {
-            "context": 131072,
-            "output": 32768
-          }
-        },
-        "meta/llama-3.3-70b-instruct": {
-          "name": "Meta Llama 3.3 70B Instruct",
-          "tool_call": true,
-          "limit": {
-            "context": 131072,
-            "output": 16384
-          }
-        }
+        "orchestrator/free": { "name": "fail-closed zero-cost orchestration" }
       }
     }
   }

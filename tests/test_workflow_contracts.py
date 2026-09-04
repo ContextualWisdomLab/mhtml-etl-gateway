@@ -72,12 +72,24 @@ class WorkflowContractTests(unittest.TestCase):
         for reference in references:
             self.assertRegex(reference, r"^[^@]+@[0-9a-f]{40}$")
 
-    def test_hourly_loop_uses_nvidia_nim_and_never_copilot(self) -> None:
-        """The scheduler binds only the approved NIM secret contract."""
+    def test_hourly_loop_routes_through_orchestrator_free_and_never_copilot(self) -> None:
+        """The scheduler routes model traffic through the governed free gateway."""
         combined = self.hourly_text + self.opencode_text
-        self.assertIn("NVIDIA_NIM_API_KEY", combined)
-        self.assertIn("NVIDIA_API_KEY", combined)
-        self.assertIn("nvidia-nim/", combined)
+        for provider_secret in (
+            "BYTEZ_API_KEY",
+            "NVIDIA_NIM_API_KEY",
+            "NVIDIA_NIM_API_KEY_SUB",
+            "OPENROUTER_API_KEY",
+            "OPENAI_API_KEY",
+        ):
+            self.assertIn(provider_secret, combined)
+        self.assertIn("contextual_orchestrator_gateway/orchestrator/free", combined)
+        self.assertIn("orchestrator/free", self.opencode_text)
+        self.assertIn(
+            "https://github.com/ContextualWisdomLab/contextual-orchestrator.git",
+            self.hourly_text,
+        )
+        self.assertNotIn("nvidia-nim/", combined)
         self.assertNotIn("COPILOT_GITHUB_TOKEN", combined)
 
     def test_hourly_loop_never_shares_public_agent_sessions(self) -> None:

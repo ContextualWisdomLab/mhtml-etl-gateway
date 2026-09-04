@@ -77,7 +77,7 @@ The hourly workflow:
 
 - runs only from the protected default branch schedule;
 - uses a non-cancelling repository-wide concurrency group;
-- uses NVIDIA NIM and never references `COPILOT_GITHUB_TOKEN`;
+- routes all scheduled model traffic through the vendored contextual-orchestrator gateway and its fail-closed `orchestrator/free` pool; provider credentials are gateway seed inputs, not direct OpenCode targets, and `COPILOT_GITHUB_TOKEN` is never referenced;
 - passes `SHARE: "false"` in both direct OpenCode modes and `share: "disabled"` in repository configuration;
 - validates the complete open-PR inventory and uses the lowest-numbered PR only as an initial cursor;
 - treats fork heads as read-only and refetches exact live state before writes;
@@ -98,8 +98,8 @@ The root-owned `cwl-safe-exec` wrapper is installed before repository-owned gate
 - grants repository access only through the dedicated `cwl-workspace` group;
 - refuses commands outside `GITHUB_WORKSPACE`;
 - creates a clean environment;
-- removes NVIDIA, GitHub, OIDC, OpenAI, Anthropic, Google, Strix, and OpenCode credential variables;
-- passes only the non-secret boolean `NVIDIA_NIM_API_KEY_CONFIGURED` marker to gate code;
+- removes NVIDIA, Bytez, OpenRouter, GitHub, OIDC, OpenAI, Anthropic, Google, Strix, OpenCode, and local gateway-token credential variables;
+- passes no provider credential to gate code; the current `select-loop` wrapper still carries a legacy non-secret `NVIDIA_NIM_API_KEY_CONFIGURED` marker, but the gate entry point no longer consumes it for eligibility. contextual-orchestrator owns provider discovery, and the gateway preflight is the fail-closed capability check;
 - is owned by `root:root` and not writable by the agent identity.
 
 OpenCode denies arbitrary shell by default. Repository-controlled Python, tests, package managers, build tools, and scripts run only through the wrapper. Direct environment inspection, direct interpreter/package-manager execution, network-fetch commands, and mutating raw GitHub API forms are not intentionally allowlisted.
