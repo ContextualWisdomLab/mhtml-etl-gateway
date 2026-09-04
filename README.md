@@ -1,5 +1,7 @@
 # MHTML ETL Gateway
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ContextualWisdomLab/mhtml-etl-gateway)
+
 MHTML ETL Gateway is a deterministic, privacy-preserving ingestion boundary for
 enterprise MHTML exports. It can inspect untrusted MIME/HTML structure without
 rendering active content, infer governed PostgreSQL schemas, apply column mapping
