@@ -590,8 +590,9 @@ def test_postgres_sink_sql_and_transaction_contracts() -> None:
             ColumnSpec("NEW", "new_value", PG_DATE),
         ],
     )
+    from mhtml_etl_gateway.postgres_loader import prepare_typed_rows
     assert sink._columns_to_promote(
-        promotion_schema, [["x", "1", "2", "bad", None]]
+        promotion_schema, prepare_typed_rows(promotion_schema, [["x", "1", "2", "bad", None]])
     ) == ["mixed_value", "bad_value"]
 
     write_connection = Connection()
