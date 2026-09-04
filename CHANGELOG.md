@@ -4,6 +4,12 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+
+- Use Psycopg/PostgreSQL `= ANY(%s)` array binding for the legacy-table lookup
+  instead of assembling a variable-length `IN (%s, ...)` placeholder string;
+  table-name values remain bound and deterministic while the SQL text stays fixed.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware
