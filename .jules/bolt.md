@@ -5,3 +5,14 @@
 ## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
 **Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
 **Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
+## 2024-05-18 - Generator Overhead vs Method Call overhead
+**Learning:** In CPython, when iterating over list elements, local method caches (`app = list.append`) combined with explicit loop are often surprisingly fast, but using an inline list comprehension combined with the walrus operator to handle logic branching can avoid interpreter stack frame pushes entirely, yielding 10-15% speedups on data processing hot loops (from 0.28s to 0.25s over 10k rows).
+**Action:** When working on ETL data ingestion pipelines where Python interpreter overhead on `for` loops is a bottleneck, refactor generators or explicit append loops into list comprehensions or use cached `app = list.append` while hoisting static invariants (like `schema.columns`) out of the iteration logic entirely. Ensure variables populated via walrus operator inside ternary are bounded correctly (e.g. `(raw := x) if ... else y`).
+
+## 2024-05-18 - CI Failure resolution
+**Learning:** `CodeQL compatibility analysis` failed due to `bandit` finding `B608:hardcoded_sql_expressions` inside `_reject_legacy_table_split`.
+**Action:** When constructing `IN (...)` SQL queries dynamically by string joining `%s`, tools like CodeQL or Bandit might trigger a static analysis finding. With psycopg3, use Postgres' native array typing via `ANY(%s)` and a Python `list` to securely parameterize list parameters without dynamic string interpolation of variables.
+
+## 2024-05-18 - CI Reliability - Strix
+**Learning:** Strix security scanner job randomly fails with LLM errors like `HTTP 429` (Rate limits), `TimeoutError`, and "provider unavailable".
+**Action:** These are transient infrastructure failures unrelated to code changes. When `strix` fails with these errors, the only resolution is to resubmit the exact same code so that the CI pipeline re-runs the flaky job.
