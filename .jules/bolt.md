@@ -12,3 +12,7 @@
 ## 2024-05-18 - CI Failure resolution
 **Learning:** `CodeQL compatibility analysis` failed due to `bandit` finding `B608:hardcoded_sql_expressions` inside `_reject_legacy_table_split`.
 **Action:** When constructing `IN (...)` SQL queries dynamically by string joining `%s`, tools like CodeQL or Bandit might trigger a static analysis finding. With psycopg3, use Postgres' native array typing via `ANY(%s)` and a Python `list` to securely parameterize list parameters without dynamic string interpolation of variables.
+
+## 2024-05-18 - CI Reliability - Strix
+**Learning:** Strix security scanner job randomly fails with LLM errors like `HTTP 429` (Rate limits), `TimeoutError`, and "provider unavailable".
+**Action:** These are transient infrastructure failures unrelated to code changes. When `strix` fails with these errors, the only resolution is to resubmit the exact same code so that the CI pipeline re-runs the flaky job.
