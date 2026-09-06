@@ -8,3 +8,6 @@
 ## 2024-05-17 - Hot Loop Hoisting
 **Learning:** In tight data parsing loops inside `postgres_loader.py`, using `enumerate()` on `schema.columns` was causing significant overhead by repeating `pg_type` / `db_name` attribute lookups. Directly initializing dictionaries with comprehensions or appending to lists with a cached `append` function is faster. Pre-extracting schema properties outside the loop and using `type(raw) is str` instead of `isinstance` provided ~18% speedups.
 **Action:** Always pre-extract loop-invariant property lookups (like schemas) into flat lists outside of hot ETL ingestion loops, and iterate over those flat structures.
+## 2024-05-17 - Avoid string interpolation in SQL
+**Learning:** Using f-strings to build SQL `IN ({placeholders})` clauses triggers static security scanners (Bandit B608) and causes CI failures, even when the values are securely parameterized.
+**Action:** When parameterizing array-like constraints in Postgres, rely on `psycopg`'s native array adaptation `ANY(%s)` instead of interpolating placeholders into an `IN` clause. Remember to wrap the parameter list in a tuple `(list(candidates),)`. In tests mocking `_fetchall`, handle the nested tuple index `observed[0][0]`.
