@@ -215,7 +215,7 @@ def test_live_sink_rejects_parallel_legacy_table_creation() -> None:
 
 @pytest.mark.parametrize("length", [58, 63, 80])
 def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> None:
-    """The lookup must include the pre-policy name, not a suffix-stripped cut."""
+    """The lookup must bind the complete candidate set instead of interpolating it."""
     source_name = "x" * length
     legacy_name = source_name[:63]
     schema = TableSchema(
@@ -224,11 +224,12 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
         columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
     sink = object.__new__(PsycopgSink)
-    from typing import Any
-    observed: list[tuple[Any, ...]] = []
+    observed_queries: list[str] = []
+    observed_params: list[tuple[object, ...]] = []
 
     def fetchall(query, params=None):
-        observed.append(tuple(params or ()))
+        observed_queries.append(str(query))
+        observed_params.append(tuple(params or ()))
         return [(legacy_name,)]
 
     sink._fetchall = fetchall
@@ -236,7 +237,13 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
     with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink._reject_legacy_table_split(schema)
 
-    assert legacy_name in observed[0][0]
+    assert len(observed_queries) == 1
+    assert "AND table_name = ANY(%s)" in observed_queries[0]
+    assert legacy_name not in observed_queries[0]
+    assert len(observed_params[0]) == 1
+    assert isinstance(observed_params[0][0], list)
+    assert legacy_name in observed_params[0][0]
+    assert schema.table_name in observed_params[0][0]
 
 
 def test_live_sink_queries_numeric_legacy_table_candidate() -> None:
