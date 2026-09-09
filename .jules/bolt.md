@@ -5,3 +5,7 @@
 ## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
 **Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
 **Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
+
+## 2024-05-18 - Optimized prepare_typed_rows list comprehension
+**Learning:** In tight parsing loops with large row volumes, using a single list comprehension isn't always the fastest due to the need for nested property access and ternary operations combined with error handling logic. Caching properties like `col.pg_type` as a flat list outside the loop is extremely beneficial. Using conditional evaluation during generation `if i < row_len else ...` securely avoids IndexError.
+**Action:** Always pre-calculate and cache column properties into flat lists outside row loops, and safely handle shorter rows with inline bounds checking within the list construction.
