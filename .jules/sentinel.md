@@ -2,3 +2,7 @@
 **Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
 **Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
 **Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
+## 2025-02-27 - [Fix SQL Injection Vector in PostgreSQL Loader]
+**Vulnerability:** A medium severity issue (Bandit B608) where dynamic table names were being interpolated into an `IN ({placeholders})` clause using f-strings inside a `SELECT` query string.
+**Learning:** Even if the query values themselves are safely provided via parameters (e.g., `query_names`), constructing the SQL string dynamically using f-strings or string concatenation for `IN` clauses is a common anti-pattern that triggers static security scanners. It can open vectors for injection if the interpolated string is not strictly validated.
+**Prevention:** Always use parameterized static queries. For dynamic `IN` clauses in PostgreSQL (via psycopg v3), use the `= ANY(%s)` syntax and pass the values as a single array/list parameter.
