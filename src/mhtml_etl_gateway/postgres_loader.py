@@ -218,9 +218,9 @@ class InMemorySink:
                     loaded_at=loaded_at,
                 )
             )
-            self.catalog[(catalog_entry.source_artifact_sha256, catalog_entry.table_name)] = (
-                catalog_entry
-            )
+            self.catalog[
+                (catalog_entry.source_artifact_sha256, catalog_entry.table_name)
+            ] = catalog_entry
             return len(rows)
         except Exception:
             self.rows[schema.table_name] = snap_rows
@@ -329,10 +329,7 @@ class PsycopgSink:
         for column, legacy_name in zip(
             schema.columns, _legacy_column_names(schema), strict=True
         ):
-            if (
-                legacy_name != column.db_name
-                and legacy_name in existing_names
-            ):
+            if legacy_name != column.db_name and legacy_name in existing_names:
                 raise LoadError("legacy column requires explicit migration")
         from psycopg import sql as pgsql
 
@@ -475,14 +472,15 @@ class PsycopgSink:
                 }.get(col.pg_type, {col.pg_type.lower()})
                 # Keep validation lazy so large batches can short-circuit.
                 prepared = (
-                    coerce_value(str(row[i]), col.pg_type)
-                    if i < len(row) and row[i] is not None
-                    else None
+                    (
+                        coerce_value(str(row[i]), col.pg_type)
+                        if i < len(row) and row[i] is not None
+                        else None
+                    )
                     for row in rows
                 )
-                if (
-                    existing_type not in compatible_types
-                    or values_require_text(col.pg_type, prepared)
+                if existing_type not in compatible_types or values_require_text(
+                    col.pg_type, prepared
                 ):
                     to_promote.append(col.db_name)
                 continue
@@ -527,16 +525,20 @@ class PsycopgSink:
             "loaded_at = EXCLUDED.loaded_at"
         )
         row_count = len(rows)
+        pg_types = [col.pg_type for col in schema.columns]
+        num_cols = len(pg_types)
 
         def adapted_rows() -> Iterable[tuple[Any, ...]]:
             for offset, row in enumerate(rows):
                 values: list[Any] = []
-                for i, col in enumerate(schema.columns):
-                    raw = row[i] if i < len(row) else None
-                    if isinstance(raw, str):
-                        values.append(coerce_value(raw, col.pg_type))
+                app = values.append
+                row_len = len(row)
+                for i in range(num_cols):
+                    raw = row[i] if i < row_len else None
+                    if type(raw) is str:
+                        app(coerce_value(raw, pg_types[i]))
                     else:
-                        values.append(raw)
+                        app(raw)
                 values.extend(
                     [
                         source_artifact_path,
@@ -600,16 +602,27 @@ class PsycopgSink:
         return self._fetchall(query, (limit,))
 
 
-def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
+def prepare_typed_rows(
+    schema: TableSchema, rows: Sequence[Sequence[str]]
+) -> list[list[Any]]:
     """Coerce string rows to Python types according to schema."""
+    pg_types = [col.pg_type for col in schema.columns]
+    num_cols = len(pg_types)
     prepared: list[list[Any]] = []
+    app = prepared.append
     for row in rows:
-        prepared.append(
-            [
-                coerce_value(str(row[i]) if i < len(row) else "", col.pg_type)
-                for i, col in enumerate(schema.columns)
-            ]
-        )
+        row_len = len(row)
+        vals: list[Any] = []
+        vals_app = vals.append
+        for i in range(num_cols):
+            if i < row_len:
+                raw = row[i]
+                vals_app(
+                    coerce_value(raw if type(raw) is str else str(raw), pg_types[i])
+                )
+            else:
+                vals_app(coerce_value("", pg_types[i]))
+        app(vals)
     return prepared
 
 
