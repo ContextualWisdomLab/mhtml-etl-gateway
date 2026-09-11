@@ -535,7 +535,7 @@ class PsycopgSink:
                 row_len = len(row)
                 for i in range(num_cols):
                     raw = row[i] if i < row_len else None
-                    if type(raw) is str:
+                    if isinstance(raw, str):
                         app(coerce_value(raw, pg_types[i]))
                     else:
                         app(raw)
@@ -618,7 +618,7 @@ def prepare_typed_rows(
             if i < row_len:
                 raw = row[i]
                 vals_app(
-                    coerce_value(raw if type(raw) is str else str(raw), pg_types[i])
+                    coerce_value(raw if isinstance(raw, str) else str(raw), pg_types[i])
                 )
             else:
                 vals_app(coerce_value("", pg_types[i]))
