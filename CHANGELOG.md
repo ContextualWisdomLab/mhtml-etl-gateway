@@ -7,7 +7,7 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 ### Changed
 
 - Use Psycopg/PostgreSQL `= ANY(%s)` array binding for the legacy-table lookup
-  instead of assembling a variable-length `IN (%s, ...)` placeholder string;
+  instead of assembling a variable-length `IN (%s, ...)` parameter string;
   table-name values remain bound and deterministic while the SQL text stays fixed.
 
 ### Planned
