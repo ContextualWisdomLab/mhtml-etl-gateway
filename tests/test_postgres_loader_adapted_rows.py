@@ -87,11 +87,7 @@ def test_adapted_rows_coerces_string_subclasses(monkeypatch):
     schema = TableSchema(
         table_name="mhtml_test_table",
         columns=[
-            ColumnSpec(
-                source_name="item_count",
-                db_name="item_count",
-                pg_type=PG_BIGINT,
-            ),
+            ColumnSpec(source_name="item_count", db_name="item_count", pg_type=PG_BIGINT),
         ],
     )
     rows = [[StringCell("41")]]

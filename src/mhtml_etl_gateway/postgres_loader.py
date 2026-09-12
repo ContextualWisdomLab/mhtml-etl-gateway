@@ -536,7 +536,7 @@ class PsycopgSink:
                 for i in range(num_cols):
                     if i < row_len:
                         raw = row[i]
-                        if type(raw) is str:
+                        if isinstance(raw, str):
                             app(coerce_value(raw, pg_types[i]))
                         else:
                             app(raw)
