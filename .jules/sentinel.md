@@ -1,4 +1,4 @@
-## 2024-05-24 - Static Analysis Warning on Hardcoded SQL Expressions
-**Vulnerability:** Found a static analysis warning (Bandit B608) in `src/mhtml_etl_gateway/postgres_loader.py` caused by string-based query construction using f-strings for an `IN` clause: `f"AND table_name IN ({placeholders})"`. While the data was still parameterized, building queries with f-strings triggers security scanners and is generally an anti-pattern.
-**Learning:** Hardcoding string values or dynamically building queries using f-strings triggers Bandit B608 and can potentially lead to SQL injection vulnerabilities if not done carefully.
-**Prevention:** Always use parameterized queries for dynamic values, specifically native features like psycopg3's `ANY(%s)` array parameterization for `IN` clauses instead of manual string interpolation for the placeholders.
+## 2024-05-18 - [Fix DoS vulnerability in HTML colspan parsing]
+**Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
+**Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
+**Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
