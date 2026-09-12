@@ -224,10 +224,12 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
         columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
     sink = object.__new__(PsycopgSink)
-    observed: list[tuple[str, ...]] = []
+    observed_queries: list[str] = []
+    observed_params: list[tuple] = []
 
     def fetchall(query, params=None):
-        observed.append(tuple(params or ()))
+        observed_queries.append(query)
+        observed_params.append(tuple(params or ()))
         return [(legacy_name,)]
 
     sink._fetchall = fetchall
@@ -235,7 +237,19 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
     with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink._reject_legacy_table_split(schema)
 
-    assert legacy_name in observed[0][0]
+    assert len(observed_queries) == 1
+    query = observed_queries[0]
+    assert "table_name = ANY(%s)" in query
+    assert "%s" in query and query.count("%s") == 1
+    assert "IN (" not in query
+
+    assert len(observed_params) == 1
+    params = observed_params[0]
+    assert len(params) == 1
+    query_names_list = params[0]
+    assert isinstance(query_names_list, list)
+    assert legacy_name in query_names_list
+    assert schema.table_name in query_names_list
 
 
 def test_live_sink_queries_numeric_legacy_table_candidate() -> None:
