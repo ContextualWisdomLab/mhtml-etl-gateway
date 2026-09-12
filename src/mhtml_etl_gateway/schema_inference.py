@@ -22,6 +22,12 @@ SUPPORTED_PG_TYPES = frozenset(
 )
 PG_BIGINT_MIN = -(2**63)
 PG_BIGINT_MAX = 2**63 - 1
+_SYSTEM_LINEAGE_COLUMN_NAMES = (
+    "source_artifact_path",
+    "source_artifact_sha256",
+    "source_row_number",
+    "loaded_at",
+)
 
 
 class SchemaInferenceError(ValueError):
@@ -352,7 +358,9 @@ def infer_table_schema(
     """Build a TableSchema from headers + row samples."""
     if not headers:
         raise SchemaInferenceError("no headers for schema inference")
-    db_names = unique_snake_names(list(headers))
+    db_names = unique_snake_names([*_SYSTEM_LINEAGE_COLUMN_NAMES, *headers])[
+        len(_SYSTEM_LINEAGE_COLUMN_NAMES) :
+    ]
     table = to_table_name(table_name)
     columns: list[ColumnSpec] = []
     sample_rows = list(rows[:sample_limit])
