@@ -8,7 +8,7 @@ This document records product-facing technical gaps whose acceptance depends on 
 
 `PsycopgSink._reject_legacy_table_split()` protects migrations from silently creating a suffixed table beside an existing legacy table. The protected implementation generated only `%s` placeholder tokens in Python and supplied candidate table names separately as psycopg value parameters. No candidate table name was directly interpolated into SQL text, so Bandit B608 alone does not establish a reproduced SQL-injection vulnerability.
 
-The candidate refactor uses PostgreSQL `= ANY(%s)` with one Python list parameter. PostgreSQL defines `ANY(array)` as comparison against each element of the array, and Psycopg 3 separates ordinary query text from bound parameters. The purpose of this change is therefore to make the query shape static and the value boundary easier to verify, not to claim remediation of an exploit that has not been reproduced.
+The candidate refactor uses PostgreSQL `= ANY(%s)` with one Python list parameter. PostgreSQL defines `ANY(array)` as comparison against each element of the array. Psycopg 3 documents Python-list adaptation to PostgreSQL arrays and recommends `= ANY(%s)` for collection membership, while its cursor API keeps ordinary query text and bound values separate. The purpose of this change is therefore to make the query shape static and the value boundary easier to verify, not to claim remediation of an exploit that has not been reproduced.
 
 ### Domain and data invariants
 
@@ -18,17 +18,28 @@ The candidate refactor uses PostgreSQL `= ANY(%s)` with one Python list paramete
 - A lookup result matching a legacy candidate must still fail closed with `LoadError("legacy table requires explicit migration")` before schema mutation.
 - Query-shape hardening must not change transaction boundaries, catalog idempotency, lineage fields, or table-name normalization.
 
+### Decision and rejected alternatives
+
+Use one fixed predicate, `table_name = ANY(%s)`, and pass the deterministic candidate set as one Python list inside the DB-API parameter sequence.
+
+Rejected alternatives:
+
+- Keeping generated `IN (%s, ...)` text and suppressing B608 leaves unnecessary variable SQL shape and weaker auditability even though the values remain bound.
+- Interpolating candidate values into SQL would cross the value-binding boundary and create the injection risk that the predecessor did not have.
+- Treating a tuple as the PostgreSQL array value is not the documented Psycopg collection-adaptation contract used here; the bound collection is a Python list.
+- Closing a documentation-only predecessor without carrying its executable contract, traceability, and changelog delta would lose valid evidence. Those deltas are consolidated into the canonical lane instead.
+
 ### Current evidence and gap
 
-PR #79 is the canonical repair lane. Test repair on descendant `71603d25285ca35cbd71e684dbe549bc7a7f5b1c` captures both SQL text and parameters, requires `table_name = ANY(%s)`, requires exactly one placeholder and one list-valued parameter, and requires both the legacy candidate and current schema table name. That descendant also rejects the generated `IN (` query shape.
+PR #79 is the canonical repair lane. Test repair on descendant `71603d25285ca35cbd71e684dbe549bc7a7f5b1c` captures both SQL text and parameters, requires `table_name = ANY(%s)`, exactly one placeholder and one list-valued parameter, and requires both the legacy candidate and current schema table name. That descendant also rejects the generated `IN (` query shape. A second focused contract, consolidated from predecessor #42, pins `simple` / `simple_table` to the exact one-list envelope `(["simple", "simple_table"],)`.
 
-The remaining source diff still contains formatter-only changes unrelated to the lookup. Those are not part of this gap and must be ordinary-forward restored to protected-base spelling before merge.
+`CHANGELOG.md` now records the unreleased fixed-query-shape change. The remaining source diff still contains formatter-only changes unrelated to the lookup. Those are not part of this gap and must be ordinary-forward restored to protected-base spelling before merge.
 
 Exact-head hosted checks must be read from GitHub after the final content head settles; predecessor receipts are not promoted to a later commit identity.
 
 ### RED → GREEN acceptance
 
-1. **RED:** the focused regression fails when `_reject_legacy_table_split()` returns to generated `IN (%s, ...)` query text or drops any expected candidate from the single bound array.
+1. **RED:** the focused regressions fail when `_reject_legacy_table_split()` returns to generated `IN (%s, ...)` query text, binds any candidate value into SQL text, changes the one-list parameter envelope, or drops any expected candidate.
 2. **GREEN:** the minimum production delta uses structurally static `table_name = ANY(%s)` with one bound candidate array while preserving legacy rejection semantics.
 3. Full repository tests and owned statement/branch coverage remain at repository-required thresholds on the same exact head.
 4. Bandit/SAST/Security and CodeQL are evaluated on that exact head. Scanner or workflow failures are root-caused; warnings are not suppressed to manufacture GREEN.
@@ -42,6 +53,8 @@ This is a database-query refactor unless new exploit evidence establishes a secu
 ## Traceability
 
 - PostgreSQL Global Development Group. (2026). *PostgreSQL 18 documentation: Row and array comparisons*. https://www.postgresql.org/docs/18/functions-comparisons.html
+- Psycopg Team. (2026). *Psycopg 3 documentation: Adapting basic Python types — Lists adaptation*. https://www.psycopg.org/psycopg3/docs/basic/adapt.html#lists-adaptation
+- Psycopg Team. (2026). *Psycopg 3 documentation: Differences from psycopg2*. https://www.psycopg.org/psycopg3/docs/basic/from_pg2.html
 - Psycopg Team. (2026). *Psycopg 3 documentation: Cursor classes*. https://www.psycopg.org/psycopg3/docs/api/cursors.html
 - Psycopg Team. (2026). *Psycopg 3 documentation: SQL string composition*. https://www.psycopg.org/psycopg3/docs/api/sql.html
 - Repository evidence: `ContextualWisdomLab/mhtml-etl-gateway` PR #79, protected base `main@e3d21b0a44ab8430009160e4005df18351bf27c9`.
