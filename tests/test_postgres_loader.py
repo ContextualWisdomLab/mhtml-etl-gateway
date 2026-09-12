@@ -58,6 +58,58 @@ def test_inmemory_loader_with_lineage(sample_mhtml_path) -> None:
     assert "source_artifact_sha256" in result.ddl
 
 
+def test_adapted_rows_retains_string_subclasses_via_coerce_value() -> None:
+    from mhtml_etl_gateway.postgres_loader import PsycopgSink
+    from typing import Sequence, Any
+
+    class S(str):
+        pass
+
+    schema = TableSchema(
+        table_name="mhtml_rows",
+        columns=[
+            ColumnSpec("BIGINT_COL", "bigint_col", PG_BIGINT),
+        ],
+    )
+
+    rows = [[S("42")]]
+
+    class DummyPsycopgSink(PsycopgSink):
+        def __init__(self):
+            self._conn = type("Conn", (), {"commit": lambda self: None, "rollback": lambda self: None})()
+        def _execute(self, query, params=None):
+            pass
+        def _copy_rows(self, query, rows):
+            self.captured_rows = list(rows)
+
+    sink = DummyPsycopgSink()
+    sink._fetchall = lambda query, params=None: []
+
+    from mhtml_etl_gateway.ingest_catalog import CatalogEntry
+    catalog_entry = CatalogEntry(
+        source_artifact_sha256="fake_sha",
+        table_name="mhtml_rows",
+        source_artifact_path="fake_path",
+        source_artifact_size=10,
+        row_count=1,
+        status="loaded",
+    )
+
+    sink.write_artifact_rows(
+        schema=schema,
+        rows=rows,
+        source_artifact_path="fake_path",
+        source_artifact_sha256="fake_sha",
+        catalog_entry=catalog_entry,
+        replace_existing=False,
+    )
+
+    assert hasattr(sink, "captured_rows")
+    assert len(sink.captured_rows) == 1
+    # We expect BIGINT coerce_value to have translated the S("42") into an integer 42
+    assert sink.captured_rows[0][0] == 42
+
+
 def test_load_fails_without_columns() -> None:
     from mhtml_etl_gateway.schema_inference import TableSchema
 
