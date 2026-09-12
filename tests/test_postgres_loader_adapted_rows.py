@@ -1,6 +1,13 @@
-from mhtml_etl_gateway.postgres_loader import PsycopgSink
-from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec, PG_TEXT
 import psycopg
+
+from mhtml_etl_gateway.ingest_catalog import CatalogEntry
+from mhtml_etl_gateway.postgres_loader import PsycopgSink
+from mhtml_etl_gateway.schema_inference import (
+    PG_BIGINT,
+    PG_TEXT,
+    ColumnSpec,
+    TableSchema,
+)
 
 
 class DummyConn:
@@ -29,6 +36,30 @@ class DummyConn:
         pass
 
 
+class StringCell(str):
+    """String-like source cell used to preserve the public coercion contract."""
+
+
+def _catalog_entry(*, row_count: int) -> CatalogEntry:
+    return CatalogEntry(
+        source_artifact_sha256="sha256",
+        table_name="mhtml_test_table",
+        source_artifact_path="path",
+        source_artifact_size=None,
+        row_count=row_count,
+        status="loaded",
+        loaded_at=None,
+    )
+
+
+def _sink(monkeypatch) -> PsycopgSink:
+    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: DummyConn())
+    sink = PsycopgSink("dummy")
+    sink._fetchall = lambda *args: []
+    sink._execute = lambda *args: None
+    return sink
+
+
 def test_adapted_rows_coverage(monkeypatch):
     schema = TableSchema(
         table_name="mhtml_test_table",
@@ -38,29 +69,42 @@ def test_adapted_rows_coverage(monkeypatch):
         ],
     )
     rows = [["val1"], [123, 456]]
-    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: DummyConn())
-    sink = PsycopgSink("dummy")
-    sink._fetchall = lambda *args: []
-    sink._execute = lambda *args: None
+    sink = _sink(monkeypatch)
     sink._copy_rows = lambda sql, rows_iter: list(rows_iter)
-
-    from mhtml_etl_gateway.ingest_catalog import CatalogEntry
-
-    entry = CatalogEntry(
-        source_artifact_sha256="sha256",
-        table_name="mhtml_test_table",
-        source_artifact_path="path",
-        source_artifact_size=None,
-        row_count=2,
-        status="loaded",
-        loaded_at=None,
-    )
 
     sink.write_artifact_rows(
         schema=schema,
         rows=rows,
         source_artifact_path="path",
         source_artifact_sha256="sha256",
-        catalog_entry=entry,
+        catalog_entry=_catalog_entry(row_count=2),
         replace_existing=False,
     )
+
+
+def test_adapted_rows_coerces_string_subclasses(monkeypatch):
+    """Optimization must preserve the prior isinstance(str) coercion boundary."""
+    schema = TableSchema(
+        table_name="mhtml_test_table",
+        columns=[
+            ColumnSpec(source_name="count", db_name="count", pg_type=PG_BIGINT),
+        ],
+    )
+    rows = [[StringCell("41")]]
+    captured: list[tuple[object, ...]] = []
+    sink = _sink(monkeypatch)
+    sink._columns_to_promote = lambda *_args: []
+    sink._copy_rows = lambda _sql, rows_iter: captured.extend(rows_iter)
+
+    result = sink.write_artifact_rows(
+        schema=schema,
+        rows=rows,
+        source_artifact_path="path",
+        source_artifact_sha256="sha256",
+        catalog_entry=_catalog_entry(row_count=1),
+        replace_existing=False,
+    )
+
+    assert result == 1
+    assert captured[0][0] == 41
+    assert type(captured[0][0]) is int
