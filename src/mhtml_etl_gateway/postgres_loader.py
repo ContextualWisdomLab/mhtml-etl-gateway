@@ -471,7 +471,18 @@ class PsycopgSink:
                     PG_TIMESTAMP: {"timestamp without time zone"},
                 }.get(col.pg_type, {col.pg_type.lower()})
                 # Keep validation lazy so large batches can short-circuit.
-                prepared = (row[i] if i < len(row) else None for row in rows)
+                prepared = (
+                    (
+                        (
+                            coerce_value(row[i], col.pg_type)
+                            if isinstance(row[i], str)
+                            else row[i]
+                        )
+                        if i < len(row) and row[i] is not None
+                        else None
+                    )
+                    for row in rows
+                )
                 if existing_type not in compatible_types or values_require_text(
                     col.pg_type, prepared
                 ):
