@@ -137,22 +137,24 @@ def _build_row_records(
     start_row_number: int,
     loaded_at: datetime,
 ) -> list[dict[str, Any]]:
-    # Bolt: Hoist loop-invariant column names to avoid attribute lookups.
     col_names = [col.db_name for col in schema.columns]
     num_cols = len(col_names)
     records: list[dict[str, Any]] = []
     app = records.append
     for offset, row in enumerate(rows):
         row_len = len(row)
-        # Bolt: Initialize fixed attributes directly for faster dict construction.
-        record = {
-            "source_artifact_path": source_artifact_path,
-            "source_artifact_sha256": source_artifact_sha256,
-            "source_row_number": start_row_number + offset,
-            "loaded_at": loaded_at,
-        }
+        record: dict[str, Any] = {}
         for i in range(num_cols):
             record[col_names[i]] = row[i] if i < row_len else None
+        # System lineage MUST overwrite business columns on collision.
+        record.update(
+            {
+                "source_artifact_path": source_artifact_path,
+                "source_artifact_sha256": source_artifact_sha256,
+                "source_row_number": start_row_number + offset,
+                "loaded_at": loaded_at,
+            }
+        )
         app(record)
     return records
 
@@ -533,7 +535,6 @@ class PsycopgSink:
         row_count = len(rows)
 
         def adapted_rows() -> Iterable[tuple[Any, ...]]:
-            # Bolt: Hoist loop-invariant column types to avoid attribute lookups.
             col_types = [col.pg_type for col in schema.columns]
             num_cols = len(col_types)
             for offset, row in enumerate(rows):
@@ -613,7 +614,6 @@ def prepare_typed_rows(
     schema: TableSchema, rows: Sequence[Sequence[str]]
 ) -> list[list[Any]]:
     """Coerce string rows to Python types according to schema."""
-    # Bolt: Hoist loop-invariant column types to avoid attribute lookups in hot loop.
     col_types = [col.pg_type for col in schema.columns]
     num_cols = len(col_types)
     prepared: list[list[Any]] = []
