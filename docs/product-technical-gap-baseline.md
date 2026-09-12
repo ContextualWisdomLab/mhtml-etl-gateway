@@ -58,3 +58,36 @@ This is a database-query refactor unless new exploit evidence establishes a secu
 - Psycopg Team. (2026). *Psycopg 3 documentation: Cursor classes*. https://www.psycopg.org/psycopg3/docs/api/cursors.html
 - Psycopg Team. (2026). *Psycopg 3 documentation: SQL string composition*. https://www.psycopg.org/psycopg3/docs/api/sql.html
 - Repository evidence: `ContextualWisdomLab/mhtml-etl-gateway` PR #79, protected base `main@e3d21b0a44ab8430009160e4005df18351bf27c9`.
+
+## System lineage namespace collision
+
+### Problem boundary
+
+MHTML sources supply arbitrary business headers which the ETL gateway normalizes into 63-character PostgreSQL identifiers. The ETL schema definition additionally claims four reserved identifiers for system lineage (`source_artifact_path`, `source_artifact_sha256`, `source_row_number`, and `loaded_at`). If a business header normalizes exactly to one of these reserved names, the `TableSchema.create_ddl(include_lineage=True)` contract attempts to declare the same column twice, yielding invalid DDL.
+
+The repair requires reserving system identifiers during schema inference before business-name allocation.
+
+### Domain and data invariants
+
+- The four system identifiers (`source_artifact_path`, `source_artifact_sha256`, `source_row_number`, `loaded_at`) are unconditionally reserved.
+- Business column names that collide with system identifiers must be deterministically suffixed (e.g., `_2`) while remaining <=63 characters.
+- System lineage columns always retain authority and exact semantic meaning.
+- Ordinary column-name allocations must remain deterministic and reproducible.
+
+### Current evidence and gap
+
+PR #87 owns the implementation. Hosted RED was confirmed at exact head `73eb21cf1f01f476f2ca64073c3e6ddf8fc3f407` where colliding business headers caused DDL failures.
+The candidate repair sits at `68117c62ced82260027eaa116c3f8a39012fd1c0`, which pre-reserves system identifiers through the existing uniqueness allocator.
+
+Acceptance remains blocked pending full CI/CD validation.
+
+### RED → GREEN acceptance
+
+1. **RED:** The system fails or generates invalid DDL when business headers normalize to `source_artifact_path`, `source_artifact_sha256`, `source_row_number`, or `loaded_at`.
+2. **GREEN:** The system successfully processes such headers by deterministically suffixing them, yielding exactly one instance of each system identifier in the emitted DDL.
+3. Candidate repair #87 must first obtain unchanged-head Repository Quality/coverage, Security/SAST, and canonical CodeQL acceptance before the gap is marked resolved.
+4. After #87 is protected-integrated, baseline status must reference the immutable protected/release identity rather than the feature head.
+
+### Traceability
+
+- Repository evidence: `ContextualWisdomLab/mhtml-etl-gateway` PR #87.
