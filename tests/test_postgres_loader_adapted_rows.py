@@ -69,10 +69,11 @@ def test_adapted_rows_coverage(monkeypatch):
         ],
     )
     rows = [["val1"], [123, 456]]
+    captured: list[tuple[object, ...]] = []
     sink = _sink(monkeypatch)
-    sink._copy_rows = lambda sql, rows_iter: list(rows_iter)
+    sink._copy_rows = lambda _sql, rows_iter: captured.extend(rows_iter)
 
-    sink.write_artifact_rows(
+    result = sink.write_artifact_rows(
         schema=schema,
         rows=rows,
         source_artifact_path="path",
@@ -80,6 +81,12 @@ def test_adapted_rows_coverage(monkeypatch):
         catalog_entry=_catalog_entry(row_count=2),
         replace_existing=False,
     )
+
+    assert result == 2
+    assert captured == [
+        ("val1", None, "path", "sha256", 1),
+        (123, 456, "path", "sha256", 2),
+    ]
 
 
 def test_adapted_rows_coerces_string_subclasses(monkeypatch):
