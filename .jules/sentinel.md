@@ -1,4 +1,4 @@
-## 2024-05-18 - [Fix DoS vulnerability in HTML colspan parsing]
-**Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
-**Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
-**Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
+## 2026-09-13 - [SQL Injection Vector in PostgreSQL Loader]
+**Vulnerability:** Possible SQL injection vector through string-based query construction when building `IN` clauses dynamically (`f"AND table_name IN ({placeholders})"`).
+**Learning:** Even if the strings inserted are standard PostgreSQL bind markers (`%s`), using Python f-strings or string concatenation for `IN` clause generation obscures the query's security structure from static analysis tools like Bandit, leading to B608 violations.
+**Prevention:** Always use PostgreSQL's native array adaptation `ANY(%s)` instead of dynamically building `IN (%s, %s, ...)` strings. Pass the variables wrapped in a standard Python list, which `psycopg` automatically adapts safely to the PostgreSQL array type.
