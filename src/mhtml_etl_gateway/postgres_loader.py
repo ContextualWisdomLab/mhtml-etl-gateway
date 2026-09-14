@@ -534,7 +534,7 @@ class PsycopgSink:
                 values = [None] * (num_cols + 3)
                 for i in range(min(num_cols, row_len)):
                     raw = row[i]
-                    if type(raw) is str:
+                    if isinstance(raw, str):
                         values[i] = coerce_value(raw, pg_types[i])
                     else:
                         values[i] = raw
