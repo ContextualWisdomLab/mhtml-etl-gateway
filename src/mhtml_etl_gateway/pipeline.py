@@ -8,7 +8,7 @@ from typing import Any, Sequence
 
 from mhtml_etl_gateway.html_table_extractor import (
     ExtractedTable,
-    extract_primary_table,
+    select_primary_table,
 )
 from mhtml_etl_gateway.html_tables import extract_tables
 from mhtml_etl_gateway.column_mapping import (
@@ -23,7 +23,7 @@ from mhtml_etl_gateway.lineage import (
     write_lineage_json,
 )
 from mhtml_etl_gateway.mime_parser import parse_mhtml_bytes
-from mhtml_etl_gateway.mhtml_parser import extract_html_bytes, read_mhtml_file
+from mhtml_etl_gateway.mhtml_parser import read_mhtml_file, select_html_part
 from mhtml_etl_gateway.models import ParseLimits
 from mhtml_etl_gateway.postgres_loader import (
     InMemorySink,
@@ -58,6 +58,10 @@ class ExtractResult:
     source_path: str
     source_sha256: str
     source_size: int
+    # Newer owner paths populate the exact selected MIME/table locator. The
+    # default preserves compatibility for caller-constructed legacy results;
+    # receipt issuance never accepts an absent selection identity.
+    selected_component: str | None = None
 
 
 def _default_table_name(path: Path) -> str:
@@ -71,14 +75,17 @@ def extract_table(path: str | Path, *, data: bytes | None = None) -> ExtractResu
     """Parse MHTML file/bytes and return headers + data rows (no DB).
 
     Reads the file once when ``data`` is None; HTML part is sliced from that
-    buffer (no second disk read).
+    buffer (no second disk read). The returned component identity records the
+    zero-based selected MIME-part and top-level-table ordinals from this same
+    extraction pass.
     """
     p = Path(path)
     if data is None:
         data = read_mhtml_file(p)
     digest = sha256_bytes(data)
-    html = extract_html_bytes(data)
-    table = extract_primary_table(html)
+    html_selection = select_html_part(data)
+    table_selection = select_primary_table(html_selection.payload)
+    table = table_selection.table
     return ExtractResult(
         headers=list(table.headers),
         rows=[list(r) for r in table.rows],
@@ -86,6 +93,10 @@ def extract_table(path: str | Path, *, data: bytes | None = None) -> ExtractResu
         source_path=artifact_reference(digest),
         source_sha256=digest,
         source_size=len(data),
+        selected_component=(
+            f"mime-part:{html_selection.mime_part_index}."
+            f"table:{table_selection.table_index}"
+        ),
     )
 
 
