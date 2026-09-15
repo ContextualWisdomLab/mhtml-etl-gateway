@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from uuid import UUID
 
 import pytest
 
+import mhtml_etl_gateway.extraction_receipt as receipt_module
 from mhtml_etl_gateway.extraction_receipt import (
     EXTRACTION_RECEIPT_SCHEMA_VERSION,
     EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT,
@@ -96,6 +98,20 @@ def test_owner_types_cannot_be_caller_constructed() -> None:
         )
 
 
+def test_owner_serialization_rejects_structurally_valid_authority_substitution() -> None:
+    receipt = extract_table_with_receipt("ignored.mhtml", data=_source()).receipt
+    substitutions = {
+        "implementation_release": "v9.9.9@" + "2" * 40,
+        "configuration_sha256": "1" * 64,
+        "selected_component": "primary-table:index-0",
+    }
+    for field, value in substitutions.items():
+        forged = copy.copy(receipt)
+        object.__setattr__(forged, field, value)
+        with pytest.raises(ValueError):
+            forged.to_json()
+
+
 def test_canonical_wire_rejects_mutable_release_noncanonical_and_oversized_input() -> None:
     receipt = extract_table_with_receipt("ignored.mhtml", data=_source()).receipt
     wire = receipt.to_json()
@@ -108,6 +124,19 @@ def test_canonical_wire_rejects_mutable_release_noncanonical_and_oversized_input
         ValidatedExtractionReceiptWireV1.from_json(
             "x" * (EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT + 1)
         )
+
+
+def test_utf8_byte_limit_fails_before_json_deserialization(monkeypatch) -> None:
+    multibyte_wire = '"' + ("가" * 3_000) + '"'
+    assert len(multibyte_wire) < EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT
+    assert len(multibyte_wire.encode("utf-8")) > EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT
+
+    def unexpected_json_loads(_wire: str):
+        raise AssertionError("oversized UTF-8 wire reached json.loads")
+
+    monkeypatch.setattr(receipt_module.json, "loads", unexpected_json_loads)
+    with pytest.raises(ValueError):
+        ValidatedExtractionReceiptWireV1.from_json(multibyte_wire)
 
 
 def test_binding_changes_when_derivation_authority_changes() -> None:
