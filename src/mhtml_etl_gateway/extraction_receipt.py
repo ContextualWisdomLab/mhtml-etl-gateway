@@ -55,7 +55,7 @@ _CONFIGURATION_SHA256 = hashlib.sha256(
         separators=(",", ":"),
     ).encode("ascii")
 ).hexdigest()
-_RECEIPT_FIELDS = {
+_RECEIPT_FIELD_NAMES = (
     "schema_version",
     "receipt_id",
     "source_artifact_ref",
@@ -68,7 +68,8 @@ _RECEIPT_FIELDS = {
     "implementation_release",
     "configuration_sha256",
     "selected_component",
-}
+)
+_RECEIPT_FIELDS = frozenset(_RECEIPT_FIELD_NAMES)
 
 
 def _require(condition: bool) -> None:
@@ -154,9 +155,22 @@ def _validate_payload(payload: dict[str, object]) -> None:
     )
 
 
-@dataclass(frozen=True, slots=True)
+def _populate_frozen_record(instance: object, payload: dict[str, object]) -> None:
+    """Populate one init-disabled frozen owner/wire record inside this module only."""
+    for name in _RECEIPT_FIELD_NAMES:
+        object.__setattr__(instance, name, payload[name])
+
+
+@dataclass(frozen=True, slots=True, init=False)
 class ExtractionReceiptV1:
-    """Owner-issued value-free receipt for one exact MHTML table extraction."""
+    """Owner-issued value-free receipt for one exact MHTML table extraction.
+
+    The public constructor is disabled. Receipts are minted only by the owner
+    extraction function after it executes the transformation and commits its
+    exact output digest. Python object privacy is not an authentication boundary;
+    persisted/external restoration still belongs to an authenticated owner
+    repository or service.
+    """
 
     schema_version: str
     receipt_id: str
@@ -170,6 +184,14 @@ class ExtractionReceiptV1:
     implementation_release: str
     configuration_sha256: str
     selected_component: str
+
+    @classmethod
+    def _mint(cls, payload: dict[str, object]) -> "ExtractionReceiptV1":
+        """Mint a validated owner record for the private owner extraction path."""
+        _validate_payload(payload)
+        instance = object.__new__(cls)
+        _populate_frozen_record(instance, payload)
+        return instance
 
     def to_json(self) -> str:
         """Return canonical value-free JSON for this owner-issued receipt."""
@@ -192,9 +214,14 @@ class ExtractionReceiptV1:
         return _output_sha256(headers, rows) == self.output_sha256
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class ValidatedExtractionReceiptWireV1:
-    """Canonical structurally valid receipt bytes without owner authentication."""
+    """Canonical structurally valid receipt bytes without owner authentication.
+
+    The public constructor is disabled so callers cannot manufacture a value
+    already labelled as validated. Use :meth:`from_json` for structural checks;
+    the result still does not authenticate owner issuance.
+    """
 
     schema_version: str
     receipt_id: str
@@ -220,20 +247,37 @@ class ValidatedExtractionReceiptWireV1:
         _require(type(payload) is dict)
         _validate_payload(payload)
         _require(_canonical_json(payload) == wire)
-        return cls(**payload)
+        instance = object.__new__(cls)
+        _populate_frozen_record(instance, payload)
+        return instance
 
     def binding_sha256(self) -> str:
         """Return the structural receipt binding without claiming owner authentication."""
         return hashlib.sha256(_canonical_json(asdict(self)).encode("utf-8")).hexdigest()
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class ReceiptBoundExtractResult:
-    """Immutable protected extraction output paired with its owner-issued receipt."""
+    """Immutable protected extraction output paired by the owner with its receipt."""
 
     headers: tuple[str, ...]
     rows: tuple[tuple[str, ...], ...]
     receipt: ExtractionReceiptV1
+
+    @classmethod
+    def _bind(
+        cls,
+        headers: tuple[str, ...],
+        rows: tuple[tuple[str, ...], ...],
+        receipt: ExtractionReceiptV1,
+    ) -> "ReceiptBoundExtractResult":
+        """Create an internally verified output/receipt pair after owner extraction."""
+        _require(receipt.matches_output(headers, rows))
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "headers", headers)
+        object.__setattr__(instance, "rows", rows)
+        object.__setattr__(instance, "receipt", receipt)
+        return instance
 
 
 def extract_table_with_receipt(
@@ -250,19 +294,20 @@ def extract_table_with_receipt(
     extracted = extract_table(path, data=data)
     headers = tuple(extracted.headers)
     rows = tuple(tuple(row) for row in extracted.rows)
-    receipt = ExtractionReceiptV1(
-        schema_version=EXTRACTION_RECEIPT_SCHEMA_VERSION,
-        receipt_id=_new_uuid7(),
-        source_artifact_ref=extracted.source_path,
-        source_sha256=extracted.source_sha256,
-        source_size_bytes=extracted.source_size,
-        output_sha256=_output_sha256(headers, rows),
-        output_kind=_OUTPUT_KIND,
-        output_normalization=_OUTPUT_NORMALIZATION,
-        extraction_contract=_EXTRACTION_CONTRACT,
-        implementation_release=_IMPLEMENTATION_RELEASE,
-        configuration_sha256=_CONFIGURATION_SHA256,
-        selected_component=_SELECTED_COMPONENT,
-    )
+    payload: dict[str, object] = {
+        "schema_version": EXTRACTION_RECEIPT_SCHEMA_VERSION,
+        "receipt_id": _new_uuid7(),
+        "source_artifact_ref": extracted.source_path,
+        "source_sha256": extracted.source_sha256,
+        "source_size_bytes": extracted.source_size,
+        "output_sha256": _output_sha256(headers, rows),
+        "output_kind": _OUTPUT_KIND,
+        "output_normalization": _OUTPUT_NORMALIZATION,
+        "extraction_contract": _EXTRACTION_CONTRACT,
+        "implementation_release": _IMPLEMENTATION_RELEASE,
+        "configuration_sha256": _CONFIGURATION_SHA256,
+        "selected_component": _SELECTED_COMPONENT,
+    }
+    receipt = ExtractionReceiptV1._mint(payload)
     receipt.to_json()
-    return ReceiptBoundExtractResult(headers=headers, rows=rows, receipt=receipt)
+    return ReceiptBoundExtractResult._bind(headers, rows, receipt)

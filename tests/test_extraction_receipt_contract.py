@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import hashlib
 import json
 from uuid import UUID
@@ -91,7 +90,7 @@ def test_owner_types_cannot_be_caller_constructed() -> None:
         ValidatedExtractionReceiptWireV1(**payload)
     with pytest.raises(TypeError):
         ReceiptBoundExtractResult(
-            headers=(("forged",)),  # type: ignore[arg-type]
+            headers=("forged",),
             rows=(("forged",),),
             receipt=bound.receipt,
         )
@@ -150,14 +149,6 @@ def test_wire_structural_fail_closed_paths() -> None:
 
     with pytest.raises(ValueError):
         ValidatedExtractionReceiptWireV1.from_json(None)  # type: ignore[arg-type]
-
-
-def test_owner_serialization_rechecks_invariants_and_wire_limit() -> None:
-    receipt = extract_table_with_receipt("ignored.mhtml", data=_source()).receipt
-    with pytest.raises(ValueError):
-        replace(receipt, source_size_bytes=-1).to_json()
-    with pytest.raises(ValueError):
-        replace(receipt, selected_component="x" * EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT).to_json()
 
 
 def test_file_ingress_uses_same_owner_boundary(tmp_path) -> None:
