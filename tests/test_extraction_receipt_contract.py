@@ -171,6 +171,7 @@ def test_wire_structural_fail_closed_paths() -> None:
         _wire(receipt, output_normalization="unknown"),
         _wire(receipt, extraction_contract="main"),
         _wire(receipt, selected_component="latest/component"),
+        "\ud800",
     ]
     for wire in invalid_wires:
         with pytest.raises(ValueError):

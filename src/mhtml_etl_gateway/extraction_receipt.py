@@ -26,7 +26,7 @@ EXTRACTION_RECEIPT_SCHEMA_VERSION = "mhtml_etl_gateway.extraction_receipt.v1"
 """Canonical wire-schema identity for extraction receipts."""
 
 EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT = 8 * 1024
-"""Maximum raw JSON receipt envelope accepted before deserialization."""
+"""Maximum UTF-8 bytes accepted from an already-decoded JSON string before parsing."""
 
 _EXTRACTION_CONTRACT = "mhtml_etl_gateway.extract_table@1"
 _IMPLEMENTATION_RELEASE = "v0.4.0@779254927abb1e7cee80fd949907ccd03f9fc7be"
@@ -111,8 +111,8 @@ def _canonical_json(payload: dict[str, object]) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-def _validate_payload(payload: dict[str, object]) -> None:
-    """Validate structural receipt invariants without authenticating owner state."""
+def _validate_structural_payload(payload: dict[str, object]) -> None:
+    """Validate wire structure and immutable-locator syntax without authenticating issuance."""
     _require(set(payload) == _RECEIPT_FIELDS)
     _require(payload["schema_version"] == EXTRACTION_RECEIPT_SCHEMA_VERSION)
 
@@ -155,6 +155,27 @@ def _validate_payload(payload: dict[str, object]) -> None:
     )
 
 
+def _validate_owner_payload(payload: dict[str, object]) -> None:
+    """Require the exact authority tuple that this owner implementation can mint."""
+    _validate_structural_payload(payload)
+    _require(payload["implementation_release"] == _IMPLEMENTATION_RELEASE)
+    _require(payload["configuration_sha256"] == _CONFIGURATION_SHA256)
+    _require(payload["selected_component"] == _SELECTED_COMPONENT)
+
+
+def _validate_wire_byte_limit(wire: object) -> str:
+    """Bound UTF-8 work before JSON parsing while acknowledging caller-owned string allocation."""
+    _require(type(wire) is str)
+    typed_wire = wire
+    _require(len(typed_wire) <= EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT)
+    try:
+        utf8_length = len(typed_wire.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise ValueError("invalid extraction receipt") from exc
+    _require(utf8_length <= EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT)
+    return typed_wire
+
+
 def _populate_frozen_record(instance: object, payload: dict[str, object]) -> None:
     """Populate one init-disabled frozen owner/wire record inside this module only."""
     for name in _RECEIPT_FIELD_NAMES:
@@ -188,17 +209,17 @@ class ExtractionReceiptV1:
     @classmethod
     def _mint(cls, payload: dict[str, object]) -> "ExtractionReceiptV1":
         """Mint a validated owner record for the private owner extraction path."""
-        _validate_payload(payload)
+        _validate_owner_payload(payload)
         instance = object.__new__(cls)
         _populate_frozen_record(instance, payload)
         return instance
 
     def to_json(self) -> str:
-        """Return canonical value-free JSON for this owner-issued receipt."""
+        """Return canonical value-free JSON after rechecking exact owner authority."""
         payload = asdict(self)
-        _validate_payload(payload)
+        _validate_owner_payload(payload)
         wire = _canonical_json(payload)
-        _require(len(wire) <= EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT)
+        _require(len(wire.encode("utf-8")) <= EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT)
         return wire
 
     def binding_sha256(self) -> str:
@@ -239,14 +260,14 @@ class ValidatedExtractionReceiptWireV1:
     @classmethod
     def from_json(cls, wire: str) -> "ValidatedExtractionReceiptWireV1":
         """Validate bounded canonical JSON without promoting it to owner-issued state."""
-        _require(type(wire) is str and len(wire) <= EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT)
+        bounded_wire = _validate_wire_byte_limit(wire)
         try:
-            payload = json.loads(wire)
+            payload = json.loads(bounded_wire)
         except (json.JSONDecodeError, UnicodeError) as exc:
             raise ValueError("invalid extraction receipt") from exc
         _require(type(payload) is dict)
-        _validate_payload(payload)
-        _require(_canonical_json(payload) == wire)
+        _validate_structural_payload(payload)
+        _require(_canonical_json(payload) == bounded_wire)
         instance = object.__new__(cls)
         _populate_frozen_record(instance, payload)
         return instance
@@ -272,6 +293,7 @@ class ReceiptBoundExtractResult:
         receipt: ExtractionReceiptV1,
     ) -> "ReceiptBoundExtractResult":
         """Create an internally verified output/receipt pair after owner extraction."""
+        receipt.to_json()
         _require(receipt.matches_output(headers, rows))
         instance = object.__new__(cls)
         object.__setattr__(instance, "headers", headers)
@@ -309,5 +331,4 @@ def extract_table_with_receipt(
         "selected_component": _SELECTED_COMPONENT,
     }
     receipt = ExtractionReceiptV1._mint(payload)
-    receipt.to_json()
     return ReceiptBoundExtractResult._bind(headers, rows, receipt)
