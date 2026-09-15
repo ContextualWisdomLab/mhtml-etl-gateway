@@ -5,3 +5,11 @@
 ## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
 **Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
 **Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
+
+## 2024-09-14 - Pre-allocating list and caching length instead of list comprehension and enumerate
+**Learning:** Checking lengths (`i < len(row)`) inside a list comprehension iteration (especially with `enumerate`) on a fast-path data ingestion sequence has noticeable python overhead (since it evaluates expressions at every cycle dynamically) and triggers branching paths inside the comprehensions for missing values.
+**Action:** When building 2D data schemas on millions of items (like row building logic), replace `[val for i, col in enumerate(cols)]` with an explicit pre-allocated `[None] * num_cols` index assignment combined with caching length variables out-of-bounds (e.g. `row_len = len(row)`) and bounding `min(num_cols, row_len)` over iterations.
+
+## 2024-09-14 - Python List Comprehensions vs Manual Loops
+**Learning:** In CPython, list comprehensions are heavily optimized in C and are often significantly faster than manual `for` loops with pre-allocated arrays (e.g., `new_row = [None] * N`) and index assignment. Replacing a list comprehension with a manual loop to perform bounds checking can actually slow down execution and introduce type/null bugs.
+**Action:** When optimizing loop bottlenecks, retain list comprehensions where possible. Instead of dismantling the comprehension, hoist invariant lookups (like iterating over a cached list of types) and avoid repeatedly re-evaluating properties like `len(row)` per iteration.
