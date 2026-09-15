@@ -23,6 +23,14 @@ class MimePart:
     payload: bytes
 
 
+@dataclass(frozen=True)
+class SelectedHtmlPart:
+    """HTML payload paired with its stable zero-based MIME-part ordinal."""
+
+    payload: bytes
+    mime_part_index: int
+
+
 def _decode_part_payload(part) -> bytes | None:
     """Decode a MIME part payload, tolerating non-standard CTE values (SAP Excel)."""
     raw = part.get_payload(decode=True)
@@ -99,22 +107,40 @@ def parse_mhtml_parts(data: bytes) -> list[MimePart]:
     return parts
 
 
+def select_html_part(data: bytes) -> SelectedHtmlPart:
+    """Select the primary HTML payload and preserve its ordered MIME-part identity."""
+
+    parts = parse_mhtml_parts(data)
+    html_parts = [
+        (index, part)
+        for index, part in enumerate(parts)
+        if part.content_type == "text/html"
+    ]
+    if not html_parts:
+        for index, part in enumerate(parts):
+            head = part.payload[:8192].lower()
+            if b"<html" in head or b"<table" in head:
+                return SelectedHtmlPart(
+                    payload=part.payload,
+                    mime_part_index=index,
+                )
+        raise MhtmlParseError("no HTML part found in MHTML")
+    # Preserve the existing shipped selection policy while exposing which
+    # concrete part won. The policy itself remains versioned separately.
+    index, selected = max(html_parts, key=lambda item: len(item[1].payload))
+    return SelectedHtmlPart(
+        payload=selected.payload,
+        mime_part_index=index,
+    )
+
+
 def extract_html_bytes(data: bytes) -> bytes:
     """Return the primary HTML part payload from MHTML bytes (fail-closed).
 
     Returns a view/reference to the part payload (one HTML buffer), not a second
     full-file re-encode of the entire MHTML when the HTML part is already decoded.
     """
-    parts = parse_mhtml_parts(data)
-    html_parts = [p for p in parts if p.content_type == "text/html"]
-    if not html_parts:
-        for p in parts:
-            head = p.payload[:8192].lower()
-            if b"<html" in head or b"<table" in head:
-                return p.payload
-        raise MhtmlParseError("no HTML part found in MHTML")
-    # Prefer the largest HTML part (worksheet body) — single buffer, no copy.
-    return max(html_parts, key=lambda p: len(p.payload)).payload
+    return select_html_part(data).payload
 
 
 def read_mhtml_file(path: str | Path, *, chunk_size: int = 8 * 1024 * 1024) -> bytes:
