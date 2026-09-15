@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import hashlib
 import json
 from uuid import UUID
@@ -40,6 +41,12 @@ def _output_digest(headers: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) 
     return hashlib.sha256(canonical).hexdigest()
 
 
+def _wire(receipt, **changes: object) -> str:
+    payload = json.loads(receipt.to_json())
+    payload.update(changes)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
 def test_real_extraction_mints_value_free_immutable_receipt() -> None:
     source = _source()
 
@@ -53,7 +60,9 @@ def test_real_extraction_mints_value_free_immutable_receipt() -> None:
     assert receipt.source_artifact_ref == f"artifact:{receipt.source_sha256[:16]}"
     assert receipt.output_sha256 == _output_digest(bound.headers, bound.rows)
     assert receipt.implementation_release == IMMUTABLE_RELEASE
-    assert UUID(receipt.receipt_id).version == 7
+    parsed_id = UUID(receipt.receipt_id)
+    assert parsed_id.version == 7
+    assert parsed_id.variant == "specified in RFC 4122"
 
     wire = receipt.to_json()
     for protected_value in ("이름", "점수", "민수", "지현"):
@@ -76,24 +85,16 @@ def test_canonical_wire_rejects_mutable_release_noncanonical_and_oversized_input
 
     with pytest.raises(ValueError):
         ValidatedExtractionReceiptWireV1.from_json(" " + wire)
-
-    payload = json.loads(wire)
-    payload["implementation_release"] = "main"
     with pytest.raises(ValueError):
-        ValidatedExtractionReceiptWireV1.from_json(
-            json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        )
-
+        ValidatedExtractionReceiptWireV1.from_json(_wire(receipt, implementation_release="main"))
     with pytest.raises(ValueError):
         ValidatedExtractionReceiptWireV1.from_json(
             "x" * (EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT + 1)
         )
 
 
-def test_binding_changes_when_any_derivation_authority_changes() -> None:
+def test_binding_changes_when_derivation_authority_changes() -> None:
     receipt = extract_table_with_receipt("ignored.mhtml", data=_source()).receipt
-    baseline = json.loads(receipt.to_json())
-
     alternatives = {
         "output_sha256": "0" * 64,
         "configuration_sha256": "1" * 64,
@@ -101,11 +102,51 @@ def test_binding_changes_when_any_derivation_authority_changes() -> None:
         "selected_component": "primary-table:index-0",
     }
     for field, value in alternatives.items():
-        changed = dict(baseline)
-        changed[field] = value
-        wire = json.dumps(changed, sort_keys=True, separators=(",", ":"))
-        validated = ValidatedExtractionReceiptWireV1.from_json(wire)
+        validated = ValidatedExtractionReceiptWireV1.from_json(_wire(receipt, **{field: value}))
         assert validated.binding_sha256() != receipt.binding_sha256()
+
+
+def test_wire_structural_fail_closed_paths() -> None:
+    receipt = extract_table_with_receipt("ignored.mhtml", data=_source()).receipt
+
+    invalid_wires = [
+        "{",
+        "[]",
+        json.dumps({"schema_version": EXTRACTION_RECEIPT_SCHEMA_VERSION}),
+        _wire(receipt, schema_version="mhtml_etl_gateway.extraction_receipt.v2"),
+        _wire(receipt, receipt_id="not-a-uuid"),
+        _wire(receipt, receipt_id="00000000-0000-4000-8000-000000000000"),
+        _wire(receipt, source_sha256="A" * 64),
+        _wire(receipt, output_sha256="bad"),
+        _wire(receipt, configuration_sha256="bad"),
+        _wire(receipt, source_artifact_ref="artifact:0000000000000000"),
+        _wire(receipt, source_size_bytes=True),
+        _wire(receipt, output_kind="text"),
+        _wire(receipt, output_normalization="unknown"),
+        _wire(receipt, extraction_contract="main"),
+        _wire(receipt, selected_component="latest/component"),
+    ]
+    for wire in invalid_wires:
+        with pytest.raises(ValueError):
+            ValidatedExtractionReceiptWireV1.from_json(wire)
+
+    with pytest.raises(ValueError):
+        ValidatedExtractionReceiptWireV1.from_json(None)  # type: ignore[arg-type]
+
+
+def test_owner_serialization_rechecks_invariants_and_wire_limit() -> None:
+    receipt = extract_table_with_receipt("ignored.mhtml", data=_source()).receipt
+    with pytest.raises(ValueError):
+        replace(receipt, source_size_bytes=-1).to_json()
+    with pytest.raises(ValueError):
+        replace(receipt, selected_component="x" * EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT).to_json()
+
+
+def test_file_ingress_uses_same_owner_boundary(tmp_path) -> None:
+    source_path = tmp_path / "source.mhtml"
+    source_path.write_bytes(_source())
+    bound = extract_table_with_receipt(source_path)
+    assert bound.receipt.matches_output(bound.headers, bound.rows)
 
 
 def test_schema_constant_is_versioned_and_canonical() -> None:
