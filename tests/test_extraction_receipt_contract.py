@@ -98,7 +98,7 @@ def test_owner_types_cannot_be_caller_constructed() -> None:
         )
 
 
-def test_owner_serialization_rejects_structurally_valid_authority_substitution() -> None:
+def test_owner_mint_and_serialization_reject_structurally_valid_authority_substitution() -> None:
     receipt = extract_table_with_receipt("ignored.mhtml", data=_source()).receipt
     substitutions = {
         "implementation_release": "v9.9.9@" + "2" * 40,
@@ -106,6 +106,11 @@ def test_owner_serialization_rejects_structurally_valid_authority_substitution()
         "selected_component": "primary-table:index-0",
     }
     for field, value in substitutions.items():
+        foreign_payload = json.loads(receipt.to_json())
+        foreign_payload[field] = value
+        with pytest.raises(ValueError):
+            ExtractionReceiptV1._mint(foreign_payload)
+
         forged = copy.copy(receipt)
         object.__setattr__(forged, field, value)
         with pytest.raises(ValueError):
