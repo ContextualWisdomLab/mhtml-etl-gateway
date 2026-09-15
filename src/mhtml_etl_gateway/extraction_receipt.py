@@ -32,8 +32,8 @@ _EXTRACTION_CONTRACT = "mhtml_etl_gateway.extract_table@1"
 _IMPLEMENTATION_RELEASE = "v0.4.0@779254927abb1e7cee80fd949907ccd03f9fc7be"
 _OUTPUT_KIND = "table"
 _OUTPUT_NORMALIZATION = "headers_rows_canonical_json_v1"
-_SELECTED_COMPONENT = "primary-table:largest-usable"
 _SAFE_COMPONENT = re.compile(r"[a-z0-9][a-z0-9._:-]{0,127}\Z")
+_CONCRETE_COMPONENT = re.compile(r"mime-part:[0-9]+\.table:[0-9]+\Z")
 _IMMUTABLE_RELEASE = re.compile(
     r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?@[0-9a-f]{40}\Z"
 )
@@ -156,11 +156,15 @@ def _validate_structural_payload(payload: dict[str, object]) -> None:
 
 
 def _validate_owner_payload(payload: dict[str, object]) -> None:
-    """Require the exact authority tuple that this owner implementation can mint."""
+    """Require the exact static authority tuple and concrete selection shape this owner mints."""
     _validate_structural_payload(payload)
     _require(payload["implementation_release"] == _IMPLEMENTATION_RELEASE)
     _require(payload["configuration_sha256"] == _CONFIGURATION_SHA256)
-    _require(payload["selected_component"] == _SELECTED_COMPONENT)
+    selected_component = payload["selected_component"]
+    _require(
+        type(selected_component) is str
+        and _CONCRETE_COMPONENT.fullmatch(selected_component) is not None
+    )
 
 
 def _validate_wire_byte_limit(wire: object) -> str:
@@ -180,6 +184,11 @@ def _populate_frozen_record(instance: object, payload: dict[str, object]) -> Non
     """Populate one init-disabled frozen owner/wire record inside this module only."""
     for name in _RECEIPT_FIELD_NAMES:
         object.__setattr__(instance, name, payload[name])
+
+
+def _owner_payload(instance: "ExtractionReceiptV1") -> dict[str, object]:
+    """Return only canonical wire fields from an owner receipt, excluding mint state."""
+    return {name: getattr(instance, name) for name in _RECEIPT_FIELD_NAMES}
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -205,6 +214,7 @@ class ExtractionReceiptV1:
     implementation_release: str
     configuration_sha256: str
     selected_component: str
+    _minted_selected_component: str
 
     @classmethod
     def _mint(cls, payload: dict[str, object]) -> "ExtractionReceiptV1":
@@ -212,12 +222,18 @@ class ExtractionReceiptV1:
         _validate_owner_payload(payload)
         instance = object.__new__(cls)
         _populate_frozen_record(instance, payload)
+        object.__setattr__(
+            instance,
+            "_minted_selected_component",
+            payload["selected_component"],
+        )
         return instance
 
     def to_json(self) -> str:
         """Return canonical value-free JSON after rechecking exact owner authority."""
-        payload = asdict(self)
+        payload = _owner_payload(self)
         _validate_owner_payload(payload)
+        _require(self.selected_component == self._minted_selected_component)
         wire = _canonical_json(payload)
         _require(len(wire.encode("utf-8")) <= EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT)
         return wire
@@ -314,6 +330,7 @@ def extract_table_with_receipt(
     the output digest is committed into the receipt.
     """
     extracted = extract_table(path, data=data)
+    _require(type(extracted.selected_component) is str)
     headers = tuple(extracted.headers)
     rows = tuple(tuple(row) for row in extracted.rows)
     payload: dict[str, object] = {
@@ -328,7 +345,7 @@ def extract_table_with_receipt(
         "extraction_contract": _EXTRACTION_CONTRACT,
         "implementation_release": _IMPLEMENTATION_RELEASE,
         "configuration_sha256": _CONFIGURATION_SHA256,
-        "selected_component": _SELECTED_COMPONENT,
+        "selected_component": extracted.selected_component,
     }
     receipt = ExtractionReceiptV1._mint(payload)
     return ReceiptBoundExtractResult._bind(headers, rows, receipt)
