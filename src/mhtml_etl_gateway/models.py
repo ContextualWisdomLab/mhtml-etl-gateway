@@ -49,6 +49,7 @@ class MhtmlDocument:
     root_content_location: str | None
     root_content_id: str | None
     diagnostics: tuple[Diagnostic, ...]
+    root_mime_part_index: int = 0
 
 
 @dataclass(frozen=True, slots=True)

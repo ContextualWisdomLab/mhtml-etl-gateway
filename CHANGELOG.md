@@ -4,10 +4,28 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- Add a value-free owner-issued extraction receipt contract that binds exact
+  source and canonical table-output digests to extractor policy, concrete
+  selected MIME/table ordinals, and an immutable implementation-release field.
+
+### Changed
+
+- Route the production table-extraction and receipt path through the canonical
+  bounded RFC 2387 root resolver: an explicit `start` is authoritative and,
+  without `start`, a non-HTML first direct body part fails closed instead of
+  falling through to a later HTML leaf.
+- Keep MIME-root selection policy separate from the concrete value-free
+  `mime-part:<n>.table:<n>` component identity produced by the same owner pass.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware
   APIs, and authenticated governed CWL connectors.
+- Promote the extraction receipt only after its implementation-release field is
+  bound to the future immutable release that actually contains the receipt and
+  RFC 2387 owner-path implementation; `v0.4.0` is only the existing baseline.
 
 ## [0.4.0] — 2026-08-12
 

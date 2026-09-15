@@ -171,29 +171,32 @@ def _is_empty_related_container(message: Message) -> bool:
     return isinstance(payload, str) and not payload.strip()
 
 
-def _select_html_root(message: Message, parts: list[Message]) -> Message:
-    """Select the authoritative HTML root using RFC 2387 semantics."""
+def _select_html_root(
+    message: Message,
+    parts: list[Message],
+) -> tuple[Message, int]:
+    """Select the authoritative HTML root and its bounded body-entity ordinal."""
     if (
         message.get_content_type().lower() == "text/html"
         and not message.is_multipart()
     ):
-        return message
+        return message, 0
     if message.get_content_type().lower() != "multipart/related":
         raise MhtmlGatewayError(ErrorCode.INVALID_MIME)
 
     start = _normalize_content_id(message.get_param("start"))
     if start is not None:
         matches = [
-            part
-            for part in parts
+            (index, part)
+            for index, part in enumerate(parts)
             if _normalize_content_id(part.get("Content-ID")) == start
         ]
         if not matches:
             raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
-        root = matches[0]
+        root_index, root = matches[0]
         if root.is_multipart() or root.get_content_type().lower() != "text/html":
             raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
-        return root
+        return root, root_index
 
     direct_payload = message.get_payload()
     if (
@@ -205,7 +208,7 @@ def _select_html_root(message: Message, parts: list[Message]) -> Message:
     root = direct_payload[0]
     if root.is_multipart() or root.get_content_type().lower() != "text/html":
         raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
-    return root
+    return root, 0
 
 
 def _related_type_diagnostics(
@@ -300,7 +303,7 @@ def parse_mhtml_bytes(
         raise MhtmlGatewayError(ErrorCode.MISSING_HTML_ROOT)
     body_parts = _bounded_body_parts(message, effective_limits)
     _validate_mime_structure(message, body_parts)
-    root = _select_html_root(message, body_parts)
+    root, root_mime_part_index = _select_html_root(message, body_parts)
     related_diagnostics = _related_type_diagnostics(message, root)
     html_text, decoding_diagnostics = _decode_html(root, effective_limits)
     return MhtmlDocument(
@@ -309,6 +312,7 @@ def parse_mhtml_bytes(
         root_content_location=root.get("Content-Location"),
         root_content_id=_normalize_content_id(root.get("Content-ID")),
         diagnostics=related_diagnostics + decoding_diagnostics,
+        root_mime_part_index=root_mime_part_index,
     )
 
 
