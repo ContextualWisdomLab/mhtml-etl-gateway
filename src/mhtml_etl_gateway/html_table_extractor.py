@@ -33,6 +33,14 @@ class ExtractedTable:
         return len(self.rows)
 
 
+@dataclass(frozen=True)
+class SelectedExtractedTable:
+    """Extracted table paired with its stable zero-based top-level table ordinal."""
+
+    table: ExtractedTable
+    table_index: int
+
+
 class _TopLevelTableParser(HTMLParser):
     """Extract top-level tables only; nested tables contribute text to parent cells."""
 
@@ -166,15 +174,24 @@ def extract_tables_from_html(html: str | bytes) -> list[ExtractedTable]:
     return results
 
 
-def extract_primary_table(html: str | bytes) -> ExtractedTable:
-    """Return the largest usable table or fail closed."""
+def select_primary_table(html: str | bytes) -> SelectedExtractedTable:
+    """Select the largest usable table and preserve its top-level table ordinal."""
+
     tables = extract_tables_from_html(html)
     if not tables:
         raise TableExtractError("no HTML tables found")
-    best = max(tables, key=lambda t: t.column_count * max(t.row_count, 1))
+    index, best = max(
+        enumerate(tables),
+        key=lambda item: item[1].column_count * max(item[1].row_count, 1),
+    )
     if not best.headers:
         raise TableExtractError("primary table has no headers")
-    return best
+    return SelectedExtractedTable(table=best, table_index=index)
+
+
+def extract_primary_table(html: str | bytes) -> ExtractedTable:
+    """Return the largest usable table or fail closed."""
+    return select_primary_table(html).table
 
 
 def rows_as_dicts(table: ExtractedTable) -> list[dict[str, str]]:
