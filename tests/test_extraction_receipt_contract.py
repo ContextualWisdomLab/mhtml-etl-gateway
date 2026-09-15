@@ -12,6 +12,8 @@ import pytest
 from mhtml_etl_gateway.extraction_receipt import (
     EXTRACTION_RECEIPT_SCHEMA_VERSION,
     EXTRACTION_RECEIPT_WIRE_BYTE_LIMIT,
+    ExtractionReceiptV1,
+    ReceiptBoundExtractResult,
     ValidatedExtractionReceiptWireV1,
     extract_table_with_receipt,
 )
@@ -77,6 +79,22 @@ def test_one_receipt_cannot_validate_different_extracted_output() -> None:
 
     assert bound.receipt.matches_output(bound.headers, bound.rows)
     assert not bound.receipt.matches_output(bound.headers, changed_rows)
+
+
+def test_owner_types_cannot_be_caller_constructed() -> None:
+    bound = extract_table_with_receipt("ignored.mhtml", data=_source())
+    payload = json.loads(bound.receipt.to_json())
+
+    with pytest.raises(TypeError):
+        ExtractionReceiptV1(**payload)
+    with pytest.raises(TypeError):
+        ValidatedExtractionReceiptWireV1(**payload)
+    with pytest.raises(TypeError):
+        ReceiptBoundExtractResult(
+            headers=(("forged",)),  # type: ignore[arg-type]
+            rows=(("forged",),),
+            receipt=bound.receipt,
+        )
 
 
 def test_canonical_wire_rejects_mutable_release_noncanonical_and_oversized_input() -> None:
