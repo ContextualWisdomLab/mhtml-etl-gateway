@@ -126,7 +126,7 @@ The manifest contains value-free dataset/column graph requests compatible with
 caller-owned. The envelope makes the actor, tenant, approval reference, and
 stable per-request idempotency keys explicit while authentication, retry policy,
 and network submission remain outside the gateway. See the
-[connector contract](docs/SEMANTIC_CATALOG_CONNECTOR.md).
+[connector contract](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/SEMANTIC_CATALOG_CONNECTOR.md).
 
 For a design-first database diagram, build a pg-erd-cloud request plan from the
 same proposal:
@@ -142,7 +142,7 @@ plan = build_pg_erd_visualization_plan(
 
 The plan targets `/api/dbml/convert`, contains no raw values or DBML records,
 and leaves transport/authentication to the caller. See the
-[pg-erd-cloud connector contract](docs/PG_ERD_CONNECTOR.md).
+[pg-erd-cloud connector contract](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/PG_ERD_CONNECTOR.md).
 
 ## Batch loading
 
@@ -191,15 +191,15 @@ of certification.
 
 ## Documentation and standards
 
-Start with [PRD](docs/PRD.md), [TRD](docs/TRD.md),
-[ARCHITECTURE](docs/ARCHITECTURE.md), [UML](docs/UML.md),
-[DATA_MODEL](docs/DATA_MODEL.md), and [ERD](docs/ERD.md). Operational and
-assurance material is in [OPERABILITY](docs/OPERABILITY.md),
-[THREAT_MODEL](docs/THREAT_MODEL.md), [TEST_STRATEGY](docs/TEST_STRATEGY.md),
-[COMPLIANCE_CONTROL_MAP](docs/COMPLIANCE_CONTROL_MAP.md), and
-[VALIDATION_REPORT](docs/VALIDATION_REPORT.md). Decisions are indexed in
-[docs/adr](docs/adr/README.md), and standards/papers are recorded in
-[docs/doctoring/REFERENCES.md](docs/doctoring/REFERENCES.md) using APA 7th style.
+Start with [PRD](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/PRD.md), [TRD](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/TRD.md),
+[ARCHITECTURE](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/ARCHITECTURE.md), [UML](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/UML.md),
+[DATA_MODEL](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/DATA_MODEL.md), and [ERD](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/ERD.md). Operational and
+assurance material is in [OPERABILITY](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/OPERABILITY.md),
+[THREAT_MODEL](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/THREAT_MODEL.md), [TEST_STRATEGY](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/TEST_STRATEGY.md),
+[COMPLIANCE_CONTROL_MAP](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/COMPLIANCE_CONTROL_MAP.md), and
+[VALIDATION_REPORT](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/VALIDATION_REPORT.md). Decisions are indexed in
+[docs/adr](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/tree/main/docs/adr), and standards/papers are recorded in
+docs/doctoring/REFERENCES.md using APA 7th style.
 
 The design considers NIST SSDF, OWASP ASVS, ISO/IEC 27001, CSAP readiness, SOC 2
 Trust Services Criteria, RFC 2387/RFC 2557, OpenAPI, OpenTelemetry, SPDX, and
@@ -224,4 +224,4 @@ Customer artifacts and real operator paths must never enter the repository.
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/LICENSE).
