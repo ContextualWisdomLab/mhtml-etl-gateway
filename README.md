@@ -199,7 +199,7 @@ assurance material is in [OPERABILITY](https://github.com/ContextualWisdomLab/mh
 [COMPLIANCE_CONTROL_MAP](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/COMPLIANCE_CONTROL_MAP.md), and
 [VALIDATION_REPORT](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/main/docs/VALIDATION_REPORT.md). Decisions are indexed in
 [docs/adr](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/tree/main/docs/adr), and standards/papers are recorded in
-docs/doctoring/REFERENCES.md using APA 7th style.
+The repository cites references using APA 7th style.
 
 The design considers NIST SSDF, OWASP ASVS, ISO/IEC 27001, CSAP readiness, SOC 2
 Trust Services Criteria, RFC 2387/RFC 2557, OpenAPI, OpenTelemetry, SPDX, and
