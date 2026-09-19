@@ -1,7 +1,15 @@
-## 2024-03-08 - Fast Path Datetime Parsing
-**Learning:** `datetime.fromisoformat()` in Python 3.11+ natively handles standard space-separated timestamps (like `2024-01-01 12:00:00`), but it also erroneously accepts pure dates (like `2024-01-01`). When using it to distinguish between DATE and TIMESTAMP data types via type inference, it requires an explicit check (like `if " " in s or "T" in s or "t" in s:`) to ensure time components actually exist before parsing it as a timestamp.
-**Action:** When optimizing date/time parsing with `fromisoformat()` during type inference, always add explicit length/content checks to ensure correct type identification (preventing dates from being inferred as timestamps).
+## 2026-02-12 - [Tight Loop List Comprehension Performance]
+**Learning:** In CPython, list comprehensions are heavily optimized in C and generally outperform manual `for` loops with pre-allocated arrays (e.g., `[None] * N`) and index assignment. When optimizing loop bottlenecks, retain list comprehensions where possible. Optimize them by hoisting invariant lookups (like iterating over a cached list) and caching properties like `len(row)` outside the comprehension, rather than dismantling the comprehension into a manual bounds-checking loop.
+**Action:** Retain list comprehensions for high-performance loops. Use `if (row_len := len(row)) >= c` to pre-evaluate sequence lengths outside inner loop branches.
 
-## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
-**Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
-**Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
+## 2026-02-13 - [Truthiness vs Explicit Checks in Tight Loops]
+**Learning:** In Python tight loops, leveraging implicit truthiness (e.g., `if v and str(v).strip()`) evaluates significantly faster than explicit type and value checks (e.g., `if v is not None and str(v).strip() != ''`).
+**Action:** Favor truthiness checks for conditional evaluation inside fast ingestion loops where `None` and empty strings share semantic equivalence.
+
+## 2026-03-01 - [Fast Dictionary Initialization in Hot Loops]
+**Learning:** When constructing repetitive dictionaries in hot data ingestion loops, explicitly initializing keys directly as a dictionary (e.g., `{ "key": val }`) is significantly faster than initializing an empty dict and assigning items or using `dict.copy()` on a pre-allocated base record.
+**Action:** When building rows for PostgreSQL, combine standard dictionary comprehension for varying schema columns with `.update(base_record)` for static lineage metadata.
+
+## 2026-09-19 - [Optimize Dictionary and Row parsing using Hoisting]
+**Learning:** `prepare_typed_rows` and `_build_row_records` inside `mhtml_etl_gateway/postgres_loader.py` are critical row processing logic. Moving the length check outside inner list comprehension loops (`len(row)`) and flattening out the columns parameter cache outside the row loop significantly speeds them up. Using the Walrus operator helps, but list comprehensions combined with an `if (row_len := len(row)) >= num_cols` check branch perfectly to avoid checking index bounds per-column for correctly formed rows.
+**Action:** Apply this transformation logic to `.mhtml_etl_gateway/postgres_loader.py` to boost ingestion loops.
