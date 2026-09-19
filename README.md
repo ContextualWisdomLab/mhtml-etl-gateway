@@ -198,8 +198,7 @@ assurance material is in [OPERABILITY](https://github.com/ContextualWisdomLab/mh
 [THREAT_MODEL](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/e3d21b0a44ab8430009160e4005df18351bf27c9/docs/THREAT_MODEL.md), [TEST_STRATEGY](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/e3d21b0a44ab8430009160e4005df18351bf27c9/docs/TEST_STRATEGY.md),
 [COMPLIANCE_CONTROL_MAP](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/e3d21b0a44ab8430009160e4005df18351bf27c9/docs/COMPLIANCE_CONTROL_MAP.md), and
 [VALIDATION_REPORT](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/blob/e3d21b0a44ab8430009160e4005df18351bf27c9/docs/VALIDATION_REPORT.md). Decisions are indexed in
-[docs/adr](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/tree/e3d21b0a44ab8430009160e4005df18351bf27c9/docs/adr), and standards/papers are recorded in
-The repository cites references using APA 7th style.
+[docs/adr](https://github.com/ContextualWisdomLab/mhtml-etl-gateway/tree/e3d21b0a44ab8430009160e4005df18351bf27c9/docs/adr), and the repository cites standards and research using APA 7th style.
 
 The design considers NIST SSDF, OWASP ASVS, ISO/IEC 27001, CSAP readiness, SOC 2
 Trust Services Criteria, RFC 2387/RFC 2557, OpenAPI, OpenTelemetry, SPDX, and
