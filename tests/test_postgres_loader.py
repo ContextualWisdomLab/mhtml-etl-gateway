@@ -310,3 +310,20 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
     assert result.get("catalog")
+
+def test_build_row_records_missing_columns():
+    from mhtml_etl_gateway import postgres_loader as postgres_loader_mod
+    from datetime import datetime
+    from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec
+    schema = TableSchema(
+        table_name="test",
+        columns=[ColumnSpec(db_name="c1", pg_type="TEXT", source_name="c1"), ColumnSpec(db_name="c2", pg_type="TEXT", source_name="c2")],
+        source_table_name="test"
+    )
+    rows = [["a"]]
+    records = postgres_loader_mod._build_row_records(
+        schema, rows,
+        source_artifact_path="p", source_artifact_sha256="s", start_row_number=1, loaded_at=datetime.now()
+    )
+    assert records[0]["c1"] == "a"
+    assert records[0]["c2"] is None
