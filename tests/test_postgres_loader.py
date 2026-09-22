@@ -293,6 +293,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
 
+
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
     reason="No PostgreSQL DSN set (MHTML_ETL_DSN / DATABASE_URL)",
@@ -310,3 +311,112 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
     assert result.get("catalog")
+
+
+def test_load_table_ragged_rows(monkeypatch):
+    from mhtml_etl_gateway.postgres_loader import load_table, RowSink
+    from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec
+
+    schema = TableSchema(
+        table_name="t_test",
+        columns=[
+            ColumnSpec(source_name="col1", db_name="col_one", pg_type="TEXT"),
+            ColumnSpec(source_name="col2", db_name="col_two", pg_type="TEXT"),
+        ],
+    )
+
+    rows = [["val1"]]
+
+    class DummySink(RowSink):
+        def ensure_catalog(self):
+            pass
+
+        def ensure_table(self, schema):
+            pass
+
+        def catalog_get(self, sha, name):
+            return None
+
+        def write_artifact_rows(self, schema, rows, **kw):
+            return len(rows)
+
+        def _execute(self, query, params=None):
+            return None
+
+        def _fetchall(self, query, params=None):
+            return []
+
+        def _copy_rows(self, query, rows):
+            pass
+
+    from unittest.mock import Mock
+
+    mock_sink = DummySink()
+    mock_sink._conn = Mock()
+
+    # 64 char hex string for sha256
+    sha256 = "a" * 64
+    from mhtml_etl_gateway.pipeline import artifact_reference
+
+    ref = artifact_reference(sha256)
+
+    load_table(
+        schema=schema,
+        rows=rows,
+        sink=mock_sink,
+        source_artifact_path=ref,
+        source_artifact_sha256=sha256,
+    )
+
+
+def test_write_artifact_rows_ragged(monkeypatch):
+    from mhtml_etl_gateway.postgres_loader import RowSink, PsycopgSink, CatalogEntry
+    from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec
+    from unittest.mock import Mock
+    import psycopg
+
+    schema = TableSchema(
+        table_name="t_test",
+        columns=[
+            ColumnSpec(source_name="col1", db_name="col_one", pg_type="TEXT"),
+            ColumnSpec(source_name="col2", db_name="col_two", pg_type="TEXT"),
+        ],
+    )
+
+    mock_conn = Mock()
+    mock_conn.commit = Mock()
+    mock_cursor = Mock()
+    mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+    mock_cursor.__exit__ = Mock(return_value=None)
+    mock_conn.cursor.return_value = mock_cursor
+
+    mock_copy_context = Mock()
+    mock_copy_context.__enter__ = Mock(return_value=Mock(write=Mock()))
+    mock_copy_context.__exit__ = Mock(return_value=None)
+    mock_cursor.copy.return_value = mock_copy_context
+    mock_cursor.fetchall.return_value = []
+
+    def fake_connect(*args, **kwargs):
+        return mock_conn
+
+    monkeypatch.setattr(psycopg, "connect", fake_connect)
+
+    sink = PsycopgSink("fake_dsn")
+    catalog = CatalogEntry(
+        source_artifact_sha256="a" * 64,
+        table_name="t_test",
+        source_artifact_path="path",
+        source_artifact_size=None,
+        row_count=1,
+        status="loaded",
+        loaded_at=None,
+    )
+
+    sink.write_artifact_rows(
+        schema=schema,
+        rows=[["val1"]],
+        source_artifact_path="path",
+        source_artifact_sha256="a" * 64,
+        catalog_entry=catalog,
+        replace_existing=False,
+    )
