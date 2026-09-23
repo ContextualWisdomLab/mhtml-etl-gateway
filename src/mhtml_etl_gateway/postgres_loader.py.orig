@@ -374,14 +374,15 @@ class PsycopgSink:
         candidates.discard(schema.table_name)
         if not candidates:
             return
-        query_names = sorted({*candidates, schema.table_name})
+        query_names = tuple(sorted({*candidates, schema.table_name}))
+        placeholders = ", ".join("%s" for _ in query_names)
         existing_names = {
             str(row[0])
             for row in self._fetchall(
                 "SELECT table_name FROM information_schema.tables "
                 "WHERE table_schema = current_schema() "
-                "AND table_name = ANY(%s)",
-                ([str(qn) for qn in query_names],),
+                f"AND table_name IN ({placeholders})",
+                query_names,
             )
         }
         matching_legacy = sorted(candidates & existing_names)

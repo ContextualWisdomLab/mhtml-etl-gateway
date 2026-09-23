@@ -1,0 +1,26 @@
+--- tests/test_postgres_loader.py
++++ tests/test_postgres_loader.py
+@@ -227,7 +227,7 @@
+     observed: list[tuple[str, ...]] = []
+
+     def fetchall(query, params=None):
+-        observed.append(params[0] if params else ())
++        observed.append(tuple(params[0]) if params else ())
+         return [(legacy_name,)]
+
+     sink._fetchall = fetchall
+@@ -247,13 +247,7 @@
+         columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
+     )
+     sink = object.__new__(PsycopgSink)
+-    observed: list[tuple[str, ...]] = []
+-
+-    def fetchall(query, params=None):
+-        observed.append(params[0] if params else ())
+-        return [(legacy_name,)]
+-
+-    sink._fetchall = fetchall
++    sink._fetchall = lambda query, params=None: [(legacy_name,)]
+
+     with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
+         sink._reject_legacy_table_split(schema)
