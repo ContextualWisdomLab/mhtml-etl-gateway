@@ -293,6 +293,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
 
+
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
     reason="No PostgreSQL DSN set (MHTML_ETL_DSN / DATABASE_URL)",
@@ -310,3 +311,60 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
     assert result.get("catalog")
+
+
+def test_adapted_rows_short_row_coverage(monkeypatch):
+    from mhtml_etl_gateway.postgres_loader import PsycopgSink
+    import psycopg
+    from unittest.mock import Mock
+
+    mock_conn = Mock()
+    mock_cursor = Mock()
+    mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+    mock_cursor.__exit__ = Mock(return_value=None)
+    mock_conn.cursor.return_value = mock_cursor
+    mock_cursor.fetchall.return_value = [("col_1", "text"), ("col_2", "text")]
+
+    mock_copy = Mock()
+    mock_copy_ctx = Mock()
+    mock_copy_ctx.write = Mock()
+    mock_copy.__enter__ = Mock(return_value=mock_copy_ctx)
+    mock_copy.__exit__ = Mock(return_value=None)
+    mock_cursor.copy.return_value = mock_copy
+
+    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: mock_conn)
+
+    sink = PsycopgSink("dummy_dsn")
+
+    from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec
+
+    schema = TableSchema(
+        table_name="safe_multiword_table",
+        columns=[
+            ColumnSpec("col_1", "safe_multiword_col_1", "text"),
+            ColumnSpec("col_2", "safe_multiword_col_2", "text"),
+        ],
+    )
+
+    rows = [["a"]]
+
+    from mhtml_etl_gateway.ingest_catalog import CatalogEntry
+
+    entry = CatalogEntry(
+        source_artifact_sha256="abc" * 21 + "a",
+        table_name="safe_multiword_table",
+        source_artifact_path="artifact:abc",
+        source_artifact_size=1,
+        row_count=1,
+        status="loaded",
+        loaded_at=None,
+    )
+
+    sink.write_artifact_rows(
+        schema=schema,
+        rows=rows,
+        source_artifact_path="artifact:abc",
+        source_artifact_sha256="abc" * 21 + "a",
+        catalog_entry=entry,
+        replace_existing=False,
+    )
