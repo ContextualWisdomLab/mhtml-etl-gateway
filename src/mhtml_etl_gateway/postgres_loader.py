@@ -473,7 +473,12 @@ class PsycopgSink:
                 # Keep validation lazy so large batches can short-circuit.
                 prepared = (
                     (
-                        coerce_value(str(row[i]), col.pg_type)
+                        (
+                            coerce_value(
+                                row[i] if isinstance(row[i], str) else str(row[i]),
+                                col.pg_type,
+                            )
+                        )
                         if i < len(row) and row[i] is not None
                         else None
                     )
@@ -609,7 +614,14 @@ def prepare_typed_rows(
         row_len = len(row)
         app(
             [
-                coerce_value(str(row[i]) if i < row_len else "", pg_types[i])
+                coerce_value(
+                    (
+                        (row[i] if isinstance(row[i], str) else str(row[i]))
+                        if i < row_len
+                        else ""
+                    ),
+                    pg_types[i],
+                )
                 for i in range(num_cols)
             ]
         )
