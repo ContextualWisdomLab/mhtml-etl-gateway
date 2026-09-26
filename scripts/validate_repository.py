@@ -130,6 +130,15 @@ def _validation_errors() -> list[str]:
         f"customer-like MHTML artifact must not be committed: {path}"
         for path in source_artifacts
     )
+    patch_byproducts = sorted(
+        path
+        for pattern in ("*.orig", "*.patch")
+        for path in Path(".").rglob(pattern)
+        if ".git" not in path.parts
+    )
+    errors.extend(
+        f"patch byproduct must not be committed: {path}" for path in patch_byproducts
+    )
     for path in REQUIRED_DOCUMENTS:
         if path.is_file() and _PLACEHOLDER.search(
             path.read_text(encoding="utf-8")

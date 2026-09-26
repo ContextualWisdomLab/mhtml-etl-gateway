@@ -4,6 +4,11 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+
+- Repository validation rejects `.orig` backups and `.patch` transcripts so
+  patch-application byproducts cannot be shipped with source or tests.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware
