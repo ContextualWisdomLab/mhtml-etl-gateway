@@ -193,11 +193,33 @@ class _TableParser(HTMLParser):
 
 def _normalize_text(fragments: list[str]) -> str:
     """Normalize cell whitespace while preserving explicit line breaks."""
+    if not fragments:
+        return ""
+
+    # Fast path: ~80% of cells are single, clean text fragments without internal whitespace runs
+    if len(fragments) == 1:
+        text = fragments[0]
+        # Fast exit for empty or whitespace-only cells
+        if not text.strip(" \t\n\r\f\v"):
+            return ""
+        # Fast exit for cells without any whitespace characters that need normalization
+        if "\n" not in text and "\r" not in text and "  " not in text and "\t" not in text and "\f" not in text and "\v" not in text:
+            return text.strip()
+
     text = "".join(fragments).replace("\r\n", "\n").replace("\r", "\n")
+
+    # Fast path: Check joined text to avoid splitting and iterating when no normalization is needed
+    if "\n" not in text and "  " not in text and "\t" not in text and "\v" not in text and "\f" not in text:
+        return text.strip()
+
     lines = []
     for line in text.split("\n"):
-        normalized = _WHITESPACE_RUN.sub(" ", line).strip()
-        lines.append(normalized)
+        # Fast path: Skip the expensive regex substitution if the line doesn't have runs of whitespace
+        if "  " in line or "\t" in line or "\f" in line or "\v" in line:
+            lines.append(_WHITESPACE_RUN.sub(" ", line).strip())
+        else:
+            lines.append(line.strip())
+
     compact = "\n".join(lines)
     compact = _NEWLINE_PADDING.sub("\n", compact)
     compact = _EXTRA_NEWLINES.sub("\n\n", compact)
