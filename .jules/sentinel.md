@@ -4,6 +4,6 @@
 **Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
 
 ## 2026-09-25 - [Fix B608 Hardcoded SQL Expression]
-**Vulnerability:** Possible SQL injection vector through string-based query construction using f-strings for IN clauses.
-**Learning:** Avoid string interpolation (f-strings) to construct IN ({placeholders}) clauses for SQL queries, as it triggers static security scanner (Bandit B608) warnings.
-**Prevention:** Use psycopg3's native ANY(%s) array parameterization instead, wrapping the list in a tuple.
+**Finding:** Bandit B608 flagged an f-string that interpolated only internally generated `%s` placeholders; the table names themselves remained bound parameters, so current evidence does not establish an exploitable SQL-injection path.
+**Learning:** Even safe placeholder-only SQL interpolation is difficult for static analysis and future maintainers to distinguish from value interpolation.
+**Prevention:** Use psycopg3's native `ANY(%s)` array parameterization, passing the candidate-name list as one bound value, so query structure stays constant.

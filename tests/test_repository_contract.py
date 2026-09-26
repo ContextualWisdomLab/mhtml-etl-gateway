@@ -144,6 +144,37 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn("nested/unsafe.yaml", messages)
             self.assertIn("prohibited scheduler credential", messages)
 
+    def test_repository_validator_rejects_patch_byproducts(self) -> None:
+        """Patch backup and transcript files cannot ship as repository content."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".github/workflows").mkdir(parents=True)
+            (root / "src").mkdir()
+            (root / "scripts").mkdir()
+            (root / ".github/workflows/hourly-product-gap.yml").write_text(
+                "env:\n  KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}\n"
+                "with:\n  share: false\n  SHARE: \"false\"\n"
+                "other:\n  SHARE: \"false\"\n",
+                encoding="utf-8",
+            )
+            (root / "src/loader.py.orig").write_text("old source", encoding="utf-8")
+            (root / "repair.patch").write_text("diff --git", encoding="utf-8")
+
+            return_code, payload = _run_validator(root)
+
+            self.assertEqual(return_code, 1)
+            self.assertEqual(
+                [
+                    error
+                    for error in payload["errors"]
+                    if "patch byproduct must not be committed" in error
+                ],
+                [
+                    "patch byproduct must not be committed: repair.patch",
+                    "patch byproduct must not be committed: src/loader.py.orig",
+                ],
+            )
+
     def test_missing_hourly_workflow_returns_machine_readable_failure(self) -> None:
         """Deleting the scheduler cannot escape as an unstructured file error."""
         with tempfile.TemporaryDirectory() as directory:
