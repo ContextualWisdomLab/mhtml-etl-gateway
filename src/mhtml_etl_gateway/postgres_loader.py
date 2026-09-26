@@ -602,15 +602,15 @@ class PsycopgSink:
 
 def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
     """Coerce string rows to Python types according to schema."""
-    prepared: list[list[Any]] = []
-    for row in rows:
-        prepared.append(
-            [
-                coerce_value(str(row[i]) if i < len(row) else "", col.pg_type)
-                for i, col in enumerate(schema.columns)
-            ]
-        )
-    return prepared
+    pg_types = [col.pg_type for col in schema.columns]
+    num_cols = len(pg_types)
+    r = range(num_cols)
+    return [
+        [coerce_value(row[i], pg_types[i]) for i in r]
+        if len(row) >= num_cols else
+        [coerce_value(row[i] if i < len(row) else "", pg_types[i]) for i in r]
+        for row in rows
+    ]
 
 
 def load_table(
