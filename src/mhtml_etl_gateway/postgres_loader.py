@@ -602,8 +602,11 @@ class PsycopgSink:
         return self._fetchall(query, (limit,))
 
 
-def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
-    """Coerce string rows to Python types according to schema."""
+def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[Any]]) -> list[list[Any]]:
+    """Coerce string rows to Python types according to schema.
+
+    Native values are preserved. Missing trailing cells become None.
+    """
     cols = tuple((col.pg_type, i) for i, col in enumerate(schema.columns))
     prepared: list[list[Any]] = []
     for row in rows:
