@@ -8,3 +8,7 @@
 ## 2024-09-24 - Hoist Invariants in Data Ingestion Loops
 **Learning:** Extracting invariant loop checks, like checking list bounds directly inside nested comprehensions, degrades performance in tight Python ingestion loops. Hoisting `len(col_types)` and list length checks outside the hot loops speeds up the preparation logic significantly. Also, checking `if type(x) is str` instead of `isinstance` offers minor performance gains in tight loops.
 **Action:** Always pre-calculate sequence lengths and hoist loop-invariant dictionary/list references before entering a massive row parsing tight loop.
+
+## 2026-09-25 - Mocking Postgres Connections in Pytest
+**Learning:** When using pytest `monkeypatch.setattr()` to mock `psycopg.connect()` for checking database context paths in unit tests, standard string connections can't be resolved locally causing DB errors. The proper way to test is to supply a Mock connection implementing cursor operations like `__enter__` and `__exit__`. A critical thing with `psycopg` v3's `cursor.copy()` is that it returns a context manager that should be mocked properly (with `__enter__` and `__exit__`), and its context yields an object implementing `.write()`.
+**Action:** Always provide full ContextManager mocks for DB cursor and copy operations in `psycopg` to satisfy strict coverage requirements.
