@@ -2,8 +2,7 @@
 **Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
 **Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
 **Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
-## 2024-10-25 - Fix possible SQL Injection via dynamically constructed string
-
-**Vulnerability:** A Bandit scan (B608) flagged a dynamic query in `src/mhtml_etl_gateway/postgres_loader.py` that utilized Python f-strings to inject query placeholders for a SQL `IN (...)` statement: `f"AND table_name IN ({placeholders})"`. This could allow possible SQL injection if parameters are not thoroughly sanitized.
-**Learning:** Hardcoded string formatting for SQL queries must be strictly avoided. The `psycopg` library (v3+) supports PostgreSQL array adaptation perfectly when you use `ANY(%s)` and pass a Python `list` instance. The list must explicitly be a `list` rather than a generic tuple otherwise psycopg cannot adapt it.
-**Prevention:** Rather than manually joining placeholders `", ".join("%s" for ...)` for an `IN` clause, use the parameterizer format `AND field = ANY(%s)` and provide the items inside a Python list via `(list(items),)`. Be aware that mock verifications checking parameters should account for the list index nesting, typically resulting in assertions on `observed[0][0]`.
+## 2024-10-25 - Fix string-based query B608
+**Vulnerability:** A static analysis tool flagged a dynamic query utilizing f-strings for an IN statement.
+**Learning:** Hardcoded string formatting for queries should be avoided. The driver supports array adaptation perfectly when using ANY and passing a Python list instance.
+**Prevention:** Rather than joining placeholders manually, use the parameterizer format AND field = ANY and provide the items inside a list.
