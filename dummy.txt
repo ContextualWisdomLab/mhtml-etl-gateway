@@ -1,2 +1,0 @@
-Just exploring what happened. Wait, the failure is "No APPROVED or CHANGES_REQUESTED from opencode-agent on the current head."
-As memory says: "If GitHub Actions CI jobs like `opencode-review` or `CodeQL compatibility analysis` fail with messages indicating they are waiting for a 'terminal verdict' or 'exact-head verdict' (e.g., 'The dispatch workflow will rerun this exact failed job...'), this is an intended asynchronous waiting mechanism, not a codebase error. No code changes are required to fix this specific transitional state."

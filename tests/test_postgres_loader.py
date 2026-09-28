@@ -59,7 +59,6 @@ def test_inmemory_loader_with_lineage(sample_mhtml_path) -> None:
 
 
 def test_load_fails_without_columns() -> None:
-    from mhtml_etl_gateway.schema_inference import TableSchema
 
     sink = InMemorySink()
     with pytest.raises(LoadError):
@@ -293,6 +292,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
 
+
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
     reason="No PostgreSQL DSN set (MHTML_ETL_DSN / DATABASE_URL)",
@@ -310,3 +310,64 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
     assert result.get("catalog")
+
+
+def test_adapted_rows_short_row_coverage(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mhtml_etl_gateway.postgres_loader import PsycopgSink
+    import psycopg
+
+    from unittest.mock import MagicMock
+    from datetime import datetime, timezone
+
+    monkeypatch.setattr(psycopg, "connect", MagicMock())
+    sink = PsycopgSink("fake_conn")
+
+    class MockColumn:
+        def __init__(self, name: str, pg_type: str):
+            self.db_name = name
+            self.pg_type = pg_type
+
+    class MockSchema:
+        def __init__(self, name: str, columns: list[MockColumn]):
+            self.table_name = name
+            self.columns = columns
+
+    schema = MockSchema(
+        "my_table",
+        [
+            MockColumn("col_1", "text"),
+            MockColumn("col_2", "text"),
+            MockColumn("col_3", "text"),
+        ],
+    )
+
+    class MockEntry:
+        source_artifact_sha256 = "sha123"
+        table_name = "my_table"
+        source_artifact_path = "path/to/file"
+        source_artifact_size = 100
+        row_count = 1
+        status = "loaded"
+        loaded_at = datetime.now(timezone.utc)
+
+        def to_dict(self):
+            return {}
+
+    rows = [["val1", "val2"]]
+
+    def fake_copy_rows(sql, iterator):
+        list(iterator)
+
+    sink._copy_rows = fake_copy_rows
+    sink._execute = MagicMock()
+    sink._columns_to_promote = MagicMock(return_value=[])
+
+    # Use ignore type because we are mocking the schema
+    sink.write_artifact_rows(
+        schema=schema,  # type: ignore
+        rows=rows,
+        source_artifact_path="path",
+        source_artifact_sha256="sha123",
+        catalog_entry=MockEntry(),  # type: ignore
+        replace_existing=False,
+    )
