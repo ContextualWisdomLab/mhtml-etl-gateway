@@ -315,17 +315,18 @@ class WorkflowContractTests(unittest.TestCase):
             self.ci_text,
         )
 
-    def test_pr_ci_cancels_only_superseded_heads_for_the_same_pr(self) -> None:
-        """PR runs coalesce by PR while non-PR runs remain isolated."""
+    def test_agent_branches_run_exact_head_ci_without_duplicate_work(self) -> None:
+        """Agent pushes materialize CI and share one SHA key with PR runs."""
         self.assertIn("branches: [main, 'agent/**']", self.ci_text)
         workflow_header = self.ci_text.split("permissions:", 1)[0]
         self.assertIn(
-            "${{ github.workflow }}-${{ github.repository }}-",
+            "github.event.pull_request.head.sha || github.sha",
             workflow_header,
         )
-        self.assertIn("format('pr-{0}', github.event.pull_request.number)", workflow_header)
-        self.assertIn("format('run-{0}', github.run_id)", workflow_header)
-        self.assertIn("cancel-in-progress: true", workflow_header)
+        self.assertNotIn(
+            "github.event.pull_request.number || github.ref",
+            workflow_header,
+        )
 
 
 if __name__ == "__main__":
