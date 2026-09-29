@@ -228,6 +228,11 @@ class HtmlTableTests(unittest.TestCase):
             extract("<table><tr><td rowspan='3'>A</td></tr></table>", limits=limits)
         self.assertEqual(caught.exception.code, ErrorCode.TOO_MANY_ROWS)
 
+    def test_normalize_empty_fragments(self) -> None:
+        """Text normalization safely handles an empty list of fragments."""
+        from mhtml_etl_gateway.html_tables import _normalize_text
+        self.assertEqual(_normalize_text([]), "")
+
 
 if __name__ == "__main__":
     unittest.main()

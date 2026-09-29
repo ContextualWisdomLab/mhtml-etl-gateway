@@ -193,7 +193,15 @@ class _TableParser(HTMLParser):
 
 def _normalize_text(fragments: list[str]) -> str:
     """Normalize cell whitespace while preserving explicit line breaks."""
+    if not fragments:
+        return ""
     text = "".join(fragments).replace("\r\n", "\n").replace("\r", "\n")
+
+    # ⚡ Bolt: Fast path for single-line text (the vast majority of cells)
+    # Avoids unnecessary list allocation, joining, and multi-line regexes
+    if "\n" not in text:
+        return _WHITESPACE_RUN.sub(" ", text).strip()
+
     lines = []
     for line in text.split("\n"):
         normalized = _WHITESPACE_RUN.sub(" ", line).strip()
