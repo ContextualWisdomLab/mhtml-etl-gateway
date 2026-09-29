@@ -293,6 +293,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
 
+
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
     reason="No PostgreSQL DSN set (MHTML_ETL_DSN / DATABASE_URL)",
@@ -310,3 +311,75 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
     assert result.get("catalog")
+
+
+def test_adapted_rows_coverage(monkeypatch):
+    import psycopg
+
+    class DummyConn:
+        def cursor(self):
+            class Cursor:
+                def execute(self, *a, **k):
+                    pass
+
+                def fetchall(self):
+                    return []
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    pass
+
+                def copy(self, *a, **k):
+                    class Copy:
+                        def write_row(self, r):
+                            pass
+
+                        def __enter__(self):
+                            return self
+
+                        def __exit__(self, *a):
+                            pass
+
+                    return Copy()
+
+            return Cursor()
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+    monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: DummyConn())
+
+    schema = TableSchema(
+        "my_table",
+        [
+            ColumnSpec("col_one", "col_one", "text"),
+            ColumnSpec("col_two", "col_two", "text"),
+        ],
+    )
+    sink = PsycopgSink("dummy://")
+
+    class DummyEntry:
+        source_artifact_sha256 = "sha"
+        table_name = "my_table"
+        source_artifact_path = "p"
+        source_artifact_size = 0
+        row_count = 1
+        status = "loaded"
+        loaded_at = None
+
+        def to_dict(self):
+            return {}
+
+    sink.write_artifact_rows(
+        schema,
+        [["short"], [1, 2], [3]],
+        source_artifact_path="p",
+        source_artifact_sha256="sha",
+        catalog_entry=DummyEntry(),
+        replace_existing=False,
+    )
