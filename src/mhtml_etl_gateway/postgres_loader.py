@@ -608,9 +608,9 @@ def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> li
     pg_types = [col.pg_type for col in schema.columns]
     num_cols = len(pg_types)
     return [
-        [coerce_value(row[i], pg_types[i]) for i in range(num_cols)]
+        [coerce_value(str(row[i]), pg_types[i]) for i in range(num_cols)]
         if len(row) >= num_cols else
-        [coerce_value(row[i] if i < len(row) else "", pg_types[i]) for i in range(num_cols)]
+        [coerce_value(str(row[i]) if i < len(row) else "", pg_types[i]) for i in range(num_cols)]
         for row in rows
     ]
 
