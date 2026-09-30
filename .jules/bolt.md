@@ -5,7 +5,3 @@
 ## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
 **Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
 **Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
-
-## 2024-09-30 - List Comprehension Fast-Paths for Nested Sequences
-**Learning:** For optimal Python performance in list comprehensions mapping varying-length nested sequences, evaluate sequence length outside the inner loop to branch logic cleanly (e.g., `[ [... for i in range(c)] if len(row) >= c else [... check bounds inside ...] ]`). This avoids executing bounds-checking conditionals and unnecessary string casting inside the inner loop for the common 'perfectly-formed row' cases.
-**Action:** Always extract invariant conditions and fast-paths outside inner loops in list comprehensions when processing huge amounts of data.
