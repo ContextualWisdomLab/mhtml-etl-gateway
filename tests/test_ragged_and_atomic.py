@@ -11,13 +11,16 @@ from mhtml_etl_gateway.lineage import artifact_reference
 from mhtml_etl_gateway.pipeline import convert_mhtml_to_postgres
 from mhtml_etl_gateway.postgres_loader import InMemorySink, LoadError, load_table
 from mhtml_etl_gateway.schema_inference import infer_table_schema
-from mhtml_etl_gateway.validation_engine import ValidationError, validate_extracted_table
+from mhtml_etl_gateway.validation_engine import (
+    ValidationError,
+    validate_extracted_table,
+)
 
 
 def _write_mhtml(path: Path, html: str) -> None:
     boundary = "----=_NextPart_RAGGED"
     body = (
-        f'MIME-Version: 1.0\r\n'
+        f"MIME-Version: 1.0\r\n"
         f'Content-Type: multipart/related; boundary="{boundary}"\r\n\r\n'
         f"--{boundary}\r\n"
         f"Content-Type: text/html; charset=utf-8\r\n\r\n"
@@ -129,3 +132,37 @@ def test_replace_is_atomic_on_insert_failure(sample_mhtml_path: Path) -> None:
     )
     assert r_skip["skipped"] is True
     assert sink.count_rows("zcrht811_export_rows") == count_before
+
+
+def test_prepare_typed_rows_empty_row():
+    """Ensure that completely empty rows trigger the ragged missing loop correctly."""
+    from mhtml_etl_gateway.postgres_loader import prepare_typed_rows
+    from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec
+
+    schema = TableSchema(
+        table_name="test",
+        columns=[
+            ColumnSpec(source_name="col1", db_name="col1", pg_type="TEXT"),
+            ColumnSpec(source_name="col2", db_name="col2", pg_type="TEXT"),
+        ],
+    )
+    # Empty ragged row
+    res = prepare_typed_rows(schema, [[]])
+    assert res == [[None, None]]
+
+
+def test_prepare_typed_rows_ragged():
+    """Ensure that partially complete ragged rows trigger both branches correctly."""
+    from mhtml_etl_gateway.postgres_loader import prepare_typed_rows
+    from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec
+
+    schema = TableSchema(
+        table_name="test",
+        columns=[
+            ColumnSpec(source_name="col1", db_name="col1", pg_type="TEXT"),
+            ColumnSpec(source_name="col2", db_name="col2", pg_type="TEXT"),
+        ],
+    )
+    # Ragged row
+    res = prepare_typed_rows(schema, [["val1"]])
+    assert res == [["val1", None]]
