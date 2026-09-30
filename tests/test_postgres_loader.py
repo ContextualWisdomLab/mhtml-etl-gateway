@@ -235,7 +235,7 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
     with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink._reject_legacy_table_split(schema)
 
-    assert isinstance(observed[0][0], list)
+    assert type(observed[0][0]) is list
     assert legacy_name in observed[0][0]
 
 
