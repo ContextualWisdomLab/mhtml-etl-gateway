@@ -1,6 +1,6 @@
 # MHTML ETL Gateway Context
 
-Read `AGENTS.md` first. This repository implements a deterministic MHTML inspection boundary, not browser automation and not yet a PostgreSQL loader.
+Read `AGENTS.md` first. This repository implements deterministic MHTML inspection, value-free schema proposal, and bounded local PostgreSQL loading. It is not browser automation or an authenticated network service.
 
 ## Architecture invariants
 
@@ -12,8 +12,8 @@ Read `AGENTS.md` first. This repository implements a deterministic MHTML inspect
 6. Missing `multipart/related` `type` is accepted only as a diagnosed enterprise compatibility deviation; a present type must match the selected root.
 7. Public inspection output contains no cell-derived values, raw source location, location scheme, source-controlled media classifications, decoded HTML, or resource payload.
 8. The public Python and CLI contracts have no header-value disclosure switch. Future header access requires authenticated source custody and immutable audit.
-9. A future schema engine proposes; a human or policy approves before persistent DDL.
-10. Future loading flows through immutable raw, staging, normalized, and audit layers and cannot complete before reconciliation balances.
+9. The schema engine proposes; a human or policy approves before persistent DDL.
+10. The current loader uses atomic per-artifact transactions; future staging, normalized, reconciliation, and audit layers cannot complete before reconciliation balances.
 11. PII remains usable only inside authorized protected workflows with strong access and lifecycle controls rather than destructive masking.
 12. Future database object names contain at least two words, preferably `snake_case`; persistent external identifiers use UUIDv7.
 13. Central `.github` workflows own review, security, branch freshness, approval, and merge. Local agents never approve, auto-merge, merge, tag, publish, or release.
@@ -24,9 +24,9 @@ Read `AGENTS.md` first. This repository implements a deterministic MHTML inspect
 
 ## Current implementation
 
-The current package safely inspects MHTML and produces value-free source/table metadata. It includes bounded MIME/cardinality/depth validation, strict decoding, pre-allocation table-span controls, fixed public errors, a typed CLI/API, exact-head CI, and an isolated work-conserving autonomous maintenance loop.
+The current package safely inspects MHTML, produces value-free schema proposals, loads validated rows through transactional Psycopg `COPY FROM STDIN`, and builds caller-owned Semantic Data Portal and pg-erd-cloud handoff artifacts. It includes bounded MIME/cardinality/depth validation, strict decoding, pre-allocation table-span controls, fixed public errors, a typed CLI/API, exact-head CI, and an isolated work-conserving autonomous maintenance loop.
 
-PostgreSQL writes, schema inference, API services, tenant storage, external connectors, SBOM/provenance publication, and production release are later bounded slices. Do not claim those capabilities before fresh exact-head evidence exists.
+Authenticated API services, tenant storage, remote connector submission, complete staging and reconciliation, SBOM/provenance publication, and production release remain later bounded slices. The current handoff artifacts perform no network, authentication, retry, or persistence. Do not claim later capabilities before fresh exact-head evidence exists.
 
 ## Autonomous loop behavior
 

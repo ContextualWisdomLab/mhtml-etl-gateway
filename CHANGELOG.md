@@ -4,6 +4,11 @@ All notable changes follow Keep a Changelog, and versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+
+- Align AGENTS and CLAUDE guidance with the shipped 0.4.0 schema-proposal,
+  transactional PostgreSQL loading, and value-free connector boundaries.
+
 ### Planned
 
 - Staging schemas, rejection quarantine, reconciliation, replay, tenant-aware
