@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -50,6 +51,25 @@ class RepositoryContractTests(unittest.TestCase):
             ],
             [],
         )
+
+    def test_agent_guidance_matches_current_package_capabilities(self) -> None:
+        """Agent guidance names the shipped version and current bounded features."""
+        project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+        version = project["project"]["version"]
+        agents = Path("AGENTS.md").read_text(encoding="utf-8")
+        claude = Path("CLAUDE.md").read_text(encoding="utf-8")
+        self.assertIn(version, agents)
+        self.assertNotIn("does not yet infer schemas, write PostgreSQL", agents)
+        self.assertNotIn("not yet a PostgreSQL loader", claude)
+        for capability in (
+            "schema proposal",
+            "PostgreSQL",
+            "Semantic Data Portal",
+            "pg-erd-cloud",
+        ):
+            with self.subTest(capability=capability):
+                self.assertIn(capability, agents)
+                self.assertIn(capability, claude)
 
     def test_public_python_docstrings_include_scripts(self) -> None:
         """Production helper scripts meet the package documentation contract."""
