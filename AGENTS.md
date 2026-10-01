@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-Version `0.1.0` deterministically inspects untrusted enterprise MHTML and emits value-free structural evidence. It does not yet infer schemas, write PostgreSQL, run a service API, or execute external connectors. The broader product will evolve into a governed ingestion gateway, but implementation claims must never exceed fresh exact-head evidence.
+Version `0.4.0` deterministically inspects untrusted enterprise MHTML, produces value-free schema proposals, loads validated rows through transactional PostgreSQL `COPY FROM STDIN`, and builds caller-owned Semantic Data Portal and pg-erd-cloud handoff artifacts. It does not run an authenticated service API, perform network submission, store remote credentials, or claim complete staging, reconciliation, tenant, or production-release controls. Implementation claims must never exceed fresh exact-head evidence.
 
 Keep source custody, MIME parsing, table extraction, protected schema proposal, approval, loading, lineage, and connectors modular so each component works independently and inside a larger CWL MSA ecosystem.
 
@@ -25,7 +25,7 @@ Do not destroy authorized operational PII through default masking when that woul
 
 ## Database conventions
 
-Every future database schema, table, view, materialized view, index, constraint, sequence, function, trigger, role, and policy name contains at least two words. Prefer `snake_case`. External and cross-service identifiers use opaque UUIDv7 values; never expose sequential numeric identifiers as persistent public IDs.
+Every generated or future database schema, table, view, materialized view, index, constraint, sequence, function, trigger, role, and policy name contains at least two words. Prefer `snake_case`. External and cross-service identifiers use opaque UUIDv7 values; never expose sequential numeric identifiers as persistent public IDs.
 
 ## Engineering workflow
 
