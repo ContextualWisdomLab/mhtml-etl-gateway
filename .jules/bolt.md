@@ -5,3 +5,6 @@
 ## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
 **Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
 **Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
+## 2025-02-27 - Fast Path Row Building
+**Learning:** In data ingestion loops, bounds checking `i < len(row)` inside a list comprehension causes massive overhead for perfectly-formed rows. Using a fast-path outer branch `if len(row) >= num_cols` with separate comprehensions significantly speeds up processing.
+**Action:** Pre-calculate expected length and split row iteration into perfectly-formed fast paths and short/ragged fallback paths.
