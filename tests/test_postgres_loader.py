@@ -293,6 +293,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
 
+
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
     reason="No PostgreSQL DSN set (MHTML_ETL_DSN / DATABASE_URL)",
@@ -310,3 +311,41 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
     assert result.get("catalog")
+
+
+def test_build_row_records_handles_ragged_rows():
+    from mhtml_etl_gateway.postgres_loader import _build_row_records
+    from mhtml_etl_gateway.schema_inference import TableSchema, ColumnSpec
+    from datetime import datetime, timezone
+
+    schema = TableSchema(
+        table_name="test",
+        columns=[
+            ColumnSpec(source_name="col1", db_name="col1", pg_type="text"),
+            ColumnSpec(source_name="col2", db_name="col2", pg_type="text"),
+            ColumnSpec(source_name="col3", db_name="col3", pg_type="text"),
+        ],
+    )
+
+    rows = [
+        ["val1", "val2"],  # missing one column
+        ["val1", "val2", "val3", "val4"],  # extra column
+    ]
+
+    records = _build_row_records(
+        schema=schema,
+        rows=rows,
+        source_artifact_path="test.mhtml",
+        source_artifact_sha256="123",
+        start_row_number=1,
+        loaded_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert len(records) == 2
+    assert records[0]["col1"] == "val1"
+    assert records[0]["col2"] == "val2"
+    assert records[0]["col3"] is None
+
+    assert records[1]["col1"] == "val1"
+    assert records[1]["col2"] == "val2"
+    assert records[1]["col3"] == "val3"
