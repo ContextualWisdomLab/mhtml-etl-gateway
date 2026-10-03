@@ -2,3 +2,7 @@
 **Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
 **Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
 **Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
+## 2024-10-03 - [Fix Bandit B608 (SQL Injection Vector) in Postgres Loader]
+**Vulnerability:** A Bandit B608 warning flagged a potential SQL injection vector due to hardcoded string construction for an `IN ({placeholders})` clause in `src/mhtml_etl_gateway/postgres_loader.py`.
+**Learning:** Even if `table_name` is relatively sanitized, using f-strings to inject placeholders for `IN` clauses triggers static security scanner warnings (Bandit B608) and is generally bad practice. `psycopg3` natively supports array parameterization with `ANY(%s)`, which is cleaner and safer. We also need to wrap array arguments in a `list` inside a `tuple` (e.g. `(list(query_names),)`) for `psycopg` to handle it correctly.
+**Prevention:** Avoid string formatting for building `IN` queries. Instead, use `ANY(%s)` and pass a list in the params.
