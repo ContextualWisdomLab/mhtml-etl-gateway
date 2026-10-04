@@ -92,7 +92,9 @@ class _TopLevelTableParser(HTMLParser):
                 raise TableExtractError("table cell closed without an open row")
             # Expand colspan so header/data column counts stay aligned.
             span = 1
-            raw_span = self._cell_attrs.get("colspan") or self._cell_attrs.get("COLSPAN")
+            raw_span = self._cell_attrs.get("colspan") or self._cell_attrs.get(
+                "COLSPAN"
+            )
             if raw_span:
                 try:
                     span = max(1, int(str(raw_span).strip()))
@@ -179,10 +181,18 @@ def extract_primary_table(html: str | bytes) -> ExtractedTable:
 
 def rows_as_dicts(table: ExtractedTable) -> list[dict[str, str]]:
     """Zip headers to row values as ordered dict-like mappings."""
-    out: list[dict[str, str]] = []
-    for row in table.rows:
-        out.append({h: row[i] if i < len(row) else "" for i, h in enumerate(table.headers)})
-    return out
+    # ⚡ Bolt: Fast path optimization using dict(zip) instead of index-based
+    # dictionary comprehensions. List concatenation is faster for padded/ragged rows
+    # because it avoids inner-loop bounds checking conditionals.
+    num_headers = len(table.headers)
+    return [
+        (
+            dict(zip(table.headers, row))
+            if len(row) >= num_headers
+            else dict(zip(table.headers, row + [""] * (num_headers - len(row))))
+        )
+        for row in table.rows
+    ]
 
 
 def assert_headers_present(table: ExtractedTable, required: Sequence[str]) -> None:
