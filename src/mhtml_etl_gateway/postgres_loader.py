@@ -218,9 +218,9 @@ class InMemorySink:
                     loaded_at=loaded_at,
                 )
             )
-            self.catalog[(catalog_entry.source_artifact_sha256, catalog_entry.table_name)] = (
-                catalog_entry
-            )
+            self.catalog[
+                (catalog_entry.source_artifact_sha256, catalog_entry.table_name)
+            ] = catalog_entry
             return len(rows)
         except Exception:
             self.rows[schema.table_name] = snap_rows
@@ -329,10 +329,7 @@ class PsycopgSink:
         for column, legacy_name in zip(
             schema.columns, _legacy_column_names(schema), strict=True
         ):
-            if (
-                legacy_name != column.db_name
-                and legacy_name in existing_names
-            ):
+            if legacy_name != column.db_name and legacy_name in existing_names:
                 raise LoadError("legacy column requires explicit migration")
         from psycopg import sql as pgsql
 
@@ -374,15 +371,14 @@ class PsycopgSink:
         candidates.discard(schema.table_name)
         if not candidates:
             return
-        query_names = tuple(sorted({*candidates, schema.table_name}))
-        placeholders = ", ".join("%s" for _ in query_names)
+        query_names = sorted({*candidates, schema.table_name})
         existing_names = {
             str(row[0])
             for row in self._fetchall(
                 "SELECT table_name FROM information_schema.tables "
                 "WHERE table_schema = current_schema() "
-                f"AND table_name IN ({placeholders})",
-                query_names,
+                "AND table_name = ANY(%s)",
+                (list(query_names),),
             )
         }
         matching_legacy = sorted(candidates & existing_names)
@@ -475,14 +471,15 @@ class PsycopgSink:
                 }.get(col.pg_type, {col.pg_type.lower()})
                 # Keep validation lazy so large batches can short-circuit.
                 prepared = (
-                    coerce_value(str(row[i]), col.pg_type)
-                    if i < len(row) and row[i] is not None
-                    else None
+                    (
+                        coerce_value(str(row[i]), col.pg_type)
+                        if i < len(row) and row[i] is not None
+                        else None
+                    )
                     for row in rows
                 )
-                if (
-                    existing_type not in compatible_types
-                    or values_require_text(col.pg_type, prepared)
+                if existing_type not in compatible_types or values_require_text(
+                    col.pg_type, prepared
                 ):
                     to_promote.append(col.db_name)
                 continue
@@ -600,7 +597,9 @@ class PsycopgSink:
         return self._fetchall(query, (limit,))
 
 
-def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
+def prepare_typed_rows(
+    schema: TableSchema, rows: Sequence[Sequence[str]]
+) -> list[list[Any]]:
     """Coerce string rows to Python types according to schema."""
     prepared: list[list[Any]] = []
     for row in rows:
