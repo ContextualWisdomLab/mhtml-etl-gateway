@@ -293,6 +293,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
 
+
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),
     reason="No PostgreSQL DSN set (MHTML_ETL_DSN / DATABASE_URL)",
@@ -310,3 +311,25 @@ def test_live_postgres_load(sample_mhtml_path) -> None:
     assert result["inserted_rows"] >= 1
     assert result["queryable"]["db_row_count"] >= 1
     assert result.get("catalog")
+
+
+def test_build_row_records_missing_cols():
+    from mhtml_etl_gateway.postgres_loader import _build_row_records
+    from mhtml_etl_gateway.schema_inference import TableSchema
+    from datetime import datetime, timezone
+
+    class MockColumn:
+        def __init__(self, db_name):
+            self.db_name = db_name
+
+    schema = TableSchema("test", [MockColumn("c1"), MockColumn("c2")])
+    records = _build_row_records(
+        schema,
+        [["v1"]],
+        source_artifact_path="p",
+        source_artifact_sha256="s",
+        start_row_number=1,
+        loaded_at=datetime.now(timezone.utc),
+    )
+    assert records[0]["c1"] == "v1"
+    assert records[0]["c2"] is None

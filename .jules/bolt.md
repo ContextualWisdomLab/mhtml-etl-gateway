@@ -5,3 +5,7 @@
 ## 2024-08-10 - O(N) Loop Invariants & Generator Short-Circuiting in Large Data Set Processing
 **Learning:** Checking constant conditions (`pg_type == ...`) inside a tight per-cell loop during validation causes massive overhead on large data streams (like PostgreSQL batch loads), as strings are compared for every cell repeatedly. Additionally, using list comprehensions (`[...]`) to slice data for validation forces memory allocation and entire iteration, preventing short-circuiting.
 **Action:** When iterating over millions of items, hoist loop-invariant conditions (like type checks based on column types) outside the loop. Determine the expected validation type once, then run a simplified tight loop. Furthermore, use generator expressions (`(...)`) combined with short-circuiting evaluation instead of list comprehensions, so that validation can fail early and save both memory and CPU cycles.
+
+## 2024-10-06 - Dictionary Comprehensions vs zip in Python Tight Loops
+**Learning:** For performance optimization in hot data ingestion loops, constructing dictionaries from parallel sequences (like headers and row values) in perfectly aligned cases is significantly faster using `dict(zip(keys, values))` rather than using index-based dictionary comprehensions (like `{keys[i]: values[i] ...}`) or creating empty dictionaries and assigning keys manually.
+**Action:** When mapping rows to schemas for database insertion in large loops, use `dict(zip(column_names, row_values))` combined with list slicing, and cache the column names outside the loop.
