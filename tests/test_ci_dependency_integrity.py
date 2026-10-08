@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 QUALITY_LOCK = ROOT / "requirements-quality.txt"
@@ -91,7 +90,7 @@ class CiDependencyIntegrityTests(unittest.TestCase):
             "        if: github.event_name == 'pull_request'\n"
             "        env:\n"
             "          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n"
-            "        run: test \"$(git rev-parse HEAD)\" = \"$EXPECTED_HEAD_SHA\""
+            '        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"'
         )
         self.assertIn(verification, workflow)
 

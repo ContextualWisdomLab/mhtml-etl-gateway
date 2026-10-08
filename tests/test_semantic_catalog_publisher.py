@@ -75,7 +75,9 @@ def _accepted_responses(count: int) -> list[CatalogTransportResponse]:
     ]
 
 
-def test_publish_returns_value_free_remote_receipt_and_preserves_request_order() -> None:
+def test_publish_returns_value_free_remote_receipt_and_preserves_request_order() -> (
+    None
+):
     """A complete handoff records remote IDs without copying any request body."""
     envelope = _envelope()
     transport = RecordingTransport(_accepted_responses(len(envelope.requests)))
@@ -106,7 +108,9 @@ def test_evidence_serializes_its_control_proof() -> None:
 
 def test_transport_protocol_method_is_explicitly_unimplemented() -> None:
     """The protocol documents the required adapter method without providing one."""
-    request = CatalogWriteRequest("POST", "/graph/nodes", "semantic_catalog_write_1", {})
+    request = CatalogWriteRequest(
+        "POST", "/graph/nodes", "semantic_catalog_write_1", {}
+    )
     with pytest.raises(NotImplementedError):
         CatalogTransport.send(object(), request)
 
@@ -117,7 +121,11 @@ def test_transport_protocol_method_is_explicitly_unimplemented() -> None:
         ("actor_authenticated", False, "actor_authentication_required"),
         ("tenant_authorized", False, "tenant_authorization_required"),
         ("approval_verified", False, "approval_verification_required"),
-        ("immutable_audit_reference", "audit with spaces", "immutable_audit_reference_required"),
+        (
+            "immutable_audit_reference",
+            "audit with spaces",
+            "immutable_audit_reference_required",
+        ),
     ],
 )
 def test_evidence_requires_every_caller_owned_control(

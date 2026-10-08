@@ -10,7 +10,11 @@ SAMPLE_MHTML = FIXTURES / "zcrht811_sample.MHTML"
 
 # Optional real CRM sample: set MHTML_ETL_REAL_SAMPLE to an absolute .MHTML path locally.
 # Never hardcode machine/user data paths in the repository.
-REAL_CRM_SMALL = Path(os.environ["MHTML_ETL_REAL_SAMPLE"]) if os.environ.get("MHTML_ETL_REAL_SAMPLE") else None
+REAL_CRM_SMALL = (
+    Path(os.environ["MHTML_ETL_REAL_SAMPLE"])
+    if os.environ.get("MHTML_ETL_REAL_SAMPLE")
+    else None
+)
 
 
 @pytest.fixture

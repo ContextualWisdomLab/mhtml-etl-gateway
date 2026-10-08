@@ -134,7 +134,9 @@ class HourlyProductGapTests(unittest.TestCase):
         generated = pull_request(16)["head"]
         self.assertEqual(len(generated["sha"]), 40)  # type: ignore[index]
 
-    def test_gate_marks_fork_pr_read_only_instead_of_assuming_write_access(self) -> None:
+    def test_gate_marks_fork_pr_read_only_instead_of_assuming_write_access(
+        self,
+    ) -> None:
         """A fork PR can be diagnosed but cannot be treated as a writable lease."""
         decision = evaluate_gate(
             [pull_request(5, head_repository="outside/fork")],
@@ -204,7 +206,9 @@ class HourlyProductGapTests(unittest.TestCase):
             ),
         )
 
-    def test_pr_maintenance_is_not_blocked_by_stale_product_task_duplicates(self) -> None:
+    def test_pr_maintenance_is_not_blocked_by_stale_product_task_duplicates(
+        self,
+    ) -> None:
         """Queue-hygiene issues do not halt the selected PR repair run."""
         issues = [
             {"number": 7, "labels": [{"name": "agent-task"}]},
@@ -237,7 +241,9 @@ class HourlyProductGapTests(unittest.TestCase):
             ),
         )
 
-    def test_gate_rejects_malformed_durable_task_number_when_queue_is_empty(self) -> None:
+    def test_gate_rejects_malformed_durable_task_number_when_queue_is_empty(
+        self,
+    ) -> None:
         """An agent task without a positive integer number fails closed."""
         issues = [{"number": "7", "labels": [{"name": "agent-task"}]}]
         self.assertEqual(
@@ -250,7 +256,9 @@ class HourlyProductGapTests(unittest.TestCase):
             GateDecision(False, "blocked", "agent_task_metadata_invalid"),
         )
 
-    def test_gate_stops_for_multiple_active_agent_tasks_when_queue_is_empty(self) -> None:
+    def test_gate_stops_for_multiple_active_agent_tasks_when_queue_is_empty(
+        self,
+    ) -> None:
         """Ambiguous durable product work fails closed when there is no PR."""
         issues = [
             {"number": 7, "labels": [{"name": "agent-task"}]},

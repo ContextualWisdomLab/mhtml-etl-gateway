@@ -161,7 +161,9 @@ def _safe_load_summary(result: dict[str, object]) -> dict[str, object]:
     queryable = result.get("queryable")
     row_count = queryable.get("db_row_count") if isinstance(queryable, dict) else None
     lineage = result.get("lineage")
-    artifact_ref = lineage.get("source_artifact_path") if isinstance(lineage, dict) else None
+    artifact_ref = (
+        lineage.get("source_artifact_path") if isinstance(lineage, dict) else None
+    )
     return {
         "artifact_ref": artifact_ref,
         "data_row_count": result.get("data_row_count"),
@@ -236,7 +238,10 @@ def _run_load(args: argparse.Namespace) -> int:
     on_duplicate: OnDuplicate = args.on_duplicate
     try:
         if not args.dry_run and not args.dsn:
-            print("error: a database DSN is required unless --dry-run is used", file=sys.stderr)
+            print(
+                "error: a database DSN is required unless --dry-run is used",
+                file=sys.stderr,
+            )
             return 2
         result = convert_mhtml_to_postgres(
             path,
@@ -261,7 +266,9 @@ def _run_load(args: argparse.Namespace) -> int:
         print(f"artifact_ref: {summary['artifact_ref']}")
         print(f"sha256: {summary['sha256']}")
         print(f"skipped: {summary['skipped']}")
-        print(f"headers ({len(summary['headers'])}): {', '.join(summary['headers'][:12])}")
+        print(
+            f"headers ({len(summary['headers'])}): {', '.join(summary['headers'][:12])}"
+        )
         print(f"data_rows: {summary['data_row_count']}")
         print(f"table: {summary['table_name']}")
         print(f"inserted_rows: {summary['inserted_rows']}")
@@ -278,7 +285,10 @@ def _run_batch(args: argparse.Namespace) -> int:
     required = _parse_required_headers(args.required_headers)
     on_duplicate: OnDuplicate = args.on_duplicate
     if not args.dry_run and not args.dsn:
-        print("error: a database DSN is required unless --dry-run is used", file=sys.stderr)
+        print(
+            "error: a database DSN is required unless --dry-run is used",
+            file=sys.stderr,
+        )
         return 2
 
     try:
