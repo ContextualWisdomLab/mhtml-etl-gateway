@@ -72,6 +72,47 @@ def test_load_fails_without_columns() -> None:
         )
 
 
+def test_build_row_records_handles_ragged_rows_and_lists() -> None:
+    from mhtml_etl_gateway.postgres_loader import _build_row_records
+    from mhtml_etl_gateway.schema_inference import ColumnSpec
+    from datetime import datetime
+
+    schema = TableSchema(
+        table_name="test",
+        columns=[
+            ColumnSpec(source_name="A", db_name="a", pg_type="text"),
+            ColumnSpec(source_name="B", db_name="b", pg_type="text"),
+        ],
+    )
+
+    rows = [
+        ["1", "2"],  # exact len
+        ("3", "4"),  # tuple exact len
+        ["5"],  # list short
+        ("6",),  # tuple short
+        ["7", "8", "9"],  # list long
+        ("10", "11", "12"),  # tuple long
+    ]
+
+    dt = datetime.now()
+    records = _build_row_records(
+        schema=schema,
+        rows=rows,
+        source_artifact_path="path",
+        source_artifact_sha256="sha",
+        start_row_number=1,
+        loaded_at=dt,
+    )
+
+    assert len(records) == 6
+    assert records[0]["a"] == "1" and records[0]["b"] == "2"
+    assert records[1]["a"] == "3" and records[1]["b"] == "4"
+    assert records[2]["a"] == "5" and records[2]["b"] is None
+    assert records[3]["a"] == "6" and records[3]["b"] is None
+    assert records[4]["a"] == "7" and records[4]["b"] == "8"  # truncates extra
+    assert records[5]["a"] == "10" and records[5]["b"] == "11"  # truncates extra
+
+
 def test_load_rejects_non_opaque_source_reference() -> None:
     schema = TableSchema(
         table_name="mhtml_rows",
@@ -292,6 +333,7 @@ def test_catalog_status_migration_has_explicit_fail_closed_up_and_down_paths() -
         assert "RAISE EXCEPTION" in ddl
         assert "column_name = 'status'" in ddl
         assert "column_name = 'load_status_code'" in ddl
+
 
 @pytest.mark.skipif(
     not os.environ.get("MHTML_ETL_DSN") and not os.environ.get("DATABASE_URL"),

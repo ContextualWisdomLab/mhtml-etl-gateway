@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import unittest
 
-
 _ROOT = Path(__file__).resolve().parents[1]
 _CONFIG = _ROOT / "opencode.jsonc"
 

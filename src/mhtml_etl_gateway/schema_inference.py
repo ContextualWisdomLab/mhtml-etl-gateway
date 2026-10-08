@@ -8,7 +8,6 @@ from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Iterable, Mapping, Sequence
 
-
 # PostgreSQL type names used by the gateway.
 PG_TEXT = "TEXT"
 PG_BOOLEAN = "BOOLEAN"
@@ -359,7 +358,9 @@ def infer_table_schema(
     for i, src in enumerate(headers):
         samples = [str(r[i]) if i < len(r) else "" for r in sample_rows]
         pg_type = infer_pg_type(samples)
-        columns.append(ColumnSpec(source_name=str(src), db_name=db_names[i], pg_type=pg_type))
+        columns.append(
+            ColumnSpec(source_name=str(src), db_name=db_names[i], pg_type=pg_type)
+        )
     return TableSchema(
         table_name=table,
         columns=columns,

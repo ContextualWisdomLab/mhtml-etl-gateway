@@ -60,7 +60,9 @@ class CliTests(unittest.TestCase):
 
         payload = json.loads(stdout.getvalue())
         self.assertEqual(return_code, 0)
-        self.assertRegex(payload["schema_proposal_id"], r"^schema_proposal_[0-9a-f]{32}$")
+        self.assertRegex(
+            payload["schema_proposal_id"], r"^schema_proposal_[0-9a-f]{32}$"
+        )
         self.assertEqual(payload["columns"][0]["target_column_name"], "due_date")
         self.assertEqual(payload["columns"][0]["proposed_type"], "date")
         rendered = stdout.getvalue()
@@ -116,18 +118,14 @@ class CliTests(unittest.TestCase):
             path.write_bytes(make_mhtml("<table><tr><th>A</th></tr></table>"))
             stderr = StringIO()
             with redirect_stderr(stderr):
-                return_code = main(
-                    ["propose", str(path), "--max-source-bytes", "0"]
-                )
+                return_code = main(["propose", str(path), "--max-source-bytes", "0"])
             payload = json.loads(stderr.getvalue())
             self.assertEqual(return_code, 2)
             self.assertEqual(payload["error_code"], "invalid_argument")
 
             stderr = StringIO()
             with redirect_stderr(stderr):
-                return_code = main(
-                    ["propose", str(path), "--max-source-bytes", "1"]
-                )
+                return_code = main(["propose", str(path), "--max-source-bytes", "1"])
             payload = json.loads(stderr.getvalue())
             self.assertEqual(return_code, 2)
             self.assertEqual(payload["error_code"], "source_too_large")
@@ -148,7 +146,9 @@ class CliTests(unittest.TestCase):
         with redirect_stderr(stderr):
             return_code = main([])
         self.assertEqual(return_code, 2)
-        self.assertEqual(json.loads(stderr.getvalue())["error_code"], "invalid_argument")
+        self.assertEqual(
+            json.loads(stderr.getvalue())["error_code"], "invalid_argument"
+        )
 
     def test_invalid_positive_limit_is_json(self) -> None:
         """A non-positive resource budget uses the same fixed argument error."""
@@ -157,11 +157,11 @@ class CliTests(unittest.TestCase):
             path.write_bytes(make_mhtml("<table></table>"))
             stderr = StringIO()
             with redirect_stderr(stderr):
-                return_code = main(
-                    ["inspect", str(path), "--max-source-bytes", "0"]
-                )
+                return_code = main(["inspect", str(path), "--max-source-bytes", "0"])
         self.assertEqual(return_code, 2)
-        self.assertEqual(json.loads(stderr.getvalue())["error_code"], "invalid_argument")
+        self.assertEqual(
+            json.loads(stderr.getvalue())["error_code"], "invalid_argument"
+        )
 
     def test_removed_header_disclosure_flag_is_json_error(self) -> None:
         """The former header-value option is rejected without usage reflection."""
@@ -170,11 +170,11 @@ class CliTests(unittest.TestCase):
             path.write_bytes(make_mhtml("<table><tr><th>A</th></tr></table>"))
             stderr = StringIO()
             with redirect_stderr(stderr):
-                return_code = main(
-                    ["inspect", str(path), "--include-header-values"]
-                )
+                return_code = main(["inspect", str(path), "--include-header-values"])
         self.assertEqual(return_code, 2)
-        self.assertEqual(json.loads(stderr.getvalue())["error_code"], "invalid_argument")
+        self.assertEqual(
+            json.loads(stderr.getvalue())["error_code"], "invalid_argument"
+        )
 
     def test_module_entrypoint_returns_cli_status(self) -> None:
         """The package module delegates to the same CLI implementation."""

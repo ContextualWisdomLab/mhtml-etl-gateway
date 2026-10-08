@@ -9,7 +9,11 @@ import unittest
 from mhtml_etl_gateway.errors import ErrorCode, MhtmlGatewayError
 from email.message import Message
 
-from mhtml_etl_gateway.mime_parser import _raw_payload_bytes, parse_mhtml_bytes, parse_mhtml_file
+from mhtml_etl_gateway.mime_parser import (
+    _raw_payload_bytes,
+    parse_mhtml_bytes,
+    parse_mhtml_file,
+)
 from mhtml_etl_gateway.models import ParseLimits
 from tests.fixture_factory import make_mhtml, make_standalone_html
 
@@ -89,7 +93,9 @@ class MimeParserTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, ErrorCode.INVALID_MIME)
         self.assertNotIn("customer/secret", caught.exception.message)
 
-    def test_duplicate_root_content_location_is_rejected_without_reflection(self) -> None:
+    def test_duplicate_root_content_location_is_rejected_without_reflection(
+        self,
+    ) -> None:
         """Multiple source labels fail closed instead of leaking or choosing one."""
         source = (
             b"MIME-Version: 1.0\r\n"
@@ -154,7 +160,10 @@ class MimeParserTests(unittest.TestCase):
             content_transfer_encoding="text/html",
         )
         document = parse_mhtml_bytes(source)
-        self.assertIn("identity_transfer_encoding", [diagnostic.code for diagnostic in document.diagnostics])
+        self.assertIn(
+            "identity_transfer_encoding",
+            [diagnostic.code for diagnostic in document.diagnostics],
+        )
         self.assertNotIn("text/html", repr(document.diagnostics))
 
     def test_missing_related_type_is_accepted_with_diagnostic(self) -> None:
@@ -166,7 +175,9 @@ class MimeParserTests(unittest.TestCase):
         )
         document = parse_mhtml_bytes(source)
         self.assertIn("root", document.html_text)
-        self.assertIn("missing_related_type", [item.code for item in document.diagnostics])
+        self.assertIn(
+            "missing_related_type", [item.code for item in document.diagnostics]
+        )
 
     def test_related_type_must_match_selected_root_without_reflection(self) -> None:
         """A contradictory compound-object type fails closed without echoing it."""
@@ -200,7 +211,9 @@ class MimeParserTests(unittest.TestCase):
         )
         self.assertIn("root", parse_mhtml_bytes(source).html_text)
 
-    def test_escaped_quote_in_noncritical_parameter_cannot_split_parameters(self) -> None:
+    def test_escaped_quote_in_noncritical_parameter_cannot_split_parameters(
+        self,
+    ) -> None:
         """An escaped quote keeps semicolons inside a quoted parameter value."""
         source = (
             b"MIME-Version: 1.0\r\n"
@@ -214,7 +227,7 @@ class MimeParserTests(unittest.TestCase):
         """Nested MIME comments remain outside the security-critical parameter set."""
         source = (
             b"MIME-Version: 1.0\r\n"
-            b'Content-Type: multipart/related; boundary=abc (outer (inner)); '
+            b"Content-Type: multipart/related; boundary=abc (outer (inner)); "
             b'type="text/html"; start="<root>"\r\n\r\n'
             b"--abc\r\nContent-Type: text/html; charset=utf-8\r\nContent-ID: <root>\r\n\r\n<html>root</html>\r\n--abc--\r\n"
         )
@@ -248,7 +261,7 @@ class MimeParserTests(unittest.TestCase):
         """An explicit start identifier cannot resolve ambiguously."""
         source = (
             b"MIME-Version: 1.0\r\n"
-            b"Content-Type: multipart/related; boundary=abc; start=\"<root>\"\r\n\r\n"
+            b'Content-Type: multipart/related; boundary=abc; start="<root>"\r\n\r\n'
             b"--abc\r\nContent-Type: text/html; charset=utf-8\r\nContent-ID: <root>\r\n\r\n<html>one</html>\r\n"
             b"--abc\r\nContent-Type: text/html; charset=utf-8\r\nContent-ID: <root>\r\n\r\n<html>two</html>\r\n--abc--\r\n"
         )

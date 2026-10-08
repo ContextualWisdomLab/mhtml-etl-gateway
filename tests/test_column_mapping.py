@@ -58,7 +58,10 @@ def test_json_mapping_attaches_comments_by_qualified_source(tmp_path: Path) -> N
         "ZCRHT811.TITLE": "title_field",
     }
     assert report.unmatched == ()
-    assert schema.comment_map() == {"erdat_field": "VOC 작성일자", "title_field": "상담 제목"}
+    assert schema.comment_map() == {
+        "erdat_field": "VOC 작성일자",
+        "title_field": "상담 제목",
+    }
     assert "COMMENT ON COLUMN voc_rows.erdat_field IS E'VOC 작성일자';" in schema.ddl()
     assert "COMMENT ON COLUMN voc_rows.title_field IS E'상담 제목';" in schema.ddl()
 
@@ -120,7 +123,9 @@ def test_pptx_mapping_reads_text_layer_and_expression_suffixes(tmp_path: Path) -
     assert all("3. 상담 내역(상세)" in value for value in schema.comment_map().values())
 
 
-def test_pipeline_result_and_ddl_include_column_comments(sample_mhtml_path, tmp_path: Path) -> None:
+def test_pipeline_result_and_ddl_include_column_comments(
+    sample_mhtml_path, tmp_path: Path
+) -> None:
     mapping = tmp_path / "mapping.json"
     mapping.write_text(
         json.dumps(
@@ -150,7 +155,9 @@ def test_pipeline_result_and_ddl_include_column_comments(sample_mhtml_path, tmp_
     assert "COMMENT ON COLUMN zcrht811_export_rows.title_field" in result["ddl"]
 
 
-def test_pipeline_redacts_input_path_and_filename_derived_table_name(sample_mhtml_path) -> None:
+def test_pipeline_redacts_input_path_and_filename_derived_table_name(
+    sample_mhtml_path,
+) -> None:
     result = convert_mhtml_to_postgres(sample_mhtml_path)
     serialized = json.dumps(result, ensure_ascii=False, default=str)
 

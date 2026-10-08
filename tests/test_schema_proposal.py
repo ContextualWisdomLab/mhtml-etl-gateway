@@ -15,7 +15,6 @@ from mhtml_etl_gateway.schema_proposal import (
     propose_schema,
 )
 
-
 _SOURCE_HASH = "a" * 64
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -99,9 +98,7 @@ class SchemaProposalTests(unittest.TestCase):
         """Blank-only evidence does not invent a concrete PostgreSQL type."""
         proposal = propose_schema(
             _SOURCE_HASH,
-            (
-                ProtectedColumnInput("emptyValue", (None, "", "   "), complete=True),
-            ),
+            (ProtectedColumnInput("emptyValue", (None, "", "   "), complete=True),),
         ).columns[0]
         self.assertEqual(proposal.proposed_type, PostgresType.TEXT)
         self.assertTrue(proposal.nullable)
@@ -406,7 +403,9 @@ class SchemaProposalTests(unittest.TestCase):
         cases = (
             (
                 SchemaProposalErrorCode.INVALID_SOURCE_HASH,
-                lambda: propose_schema("not-a-hash", (ProtectedColumnInput("A", ("1",)),)),
+                lambda: propose_schema(
+                    "not-a-hash", (ProtectedColumnInput("A", ("1",)),)
+                ),
             ),
             (
                 SchemaProposalErrorCode.INVALID_INPUT,
@@ -498,8 +497,10 @@ class SchemaProposalTests(unittest.TestCase):
     def test_production_module_has_no_ddl_network_or_database_escape(self) -> None:
         """The proposal layer remains a pure in-process decision artifact."""
         source = (
-            _ROOT / "src/mhtml_etl_gateway/schema_proposal.py"
-        ).read_text(encoding="utf-8").lower()
+            (_ROOT / "src/mhtml_etl_gateway/schema_proposal.py")
+            .read_text(encoding="utf-8")
+            .lower()
+        )
         forbidden = (
             "create table",
             "alter table",
