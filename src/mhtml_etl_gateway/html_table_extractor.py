@@ -179,10 +179,17 @@ def extract_primary_table(html: str | bytes) -> ExtractedTable:
 
 def rows_as_dicts(table: ExtractedTable) -> list[dict[str, str]]:
     """Zip headers to row values as ordered dict-like mappings."""
-    out: list[dict[str, str]] = []
-    for row in table.rows:
-        out.append({h: row[i] if i < len(row) else "" for i, h in enumerate(table.headers)})
-    return out
+    headers = table.headers
+    num_cols = len(headers)
+
+    # ⚡ Bolt Optimization: Use dict(zip()) for significantly faster initialization
+    # and branch the bounds check outside the inner dictionary creation.
+    return [
+        dict(zip(headers, row))
+        if len(row) >= num_cols else
+        dict(zip(headers, list(row) + [""] * (num_cols - len(row))))
+        for row in table.rows
+    ]
 
 
 def assert_headers_present(table: ExtractedTable, required: Sequence[str]) -> None:

@@ -602,14 +602,35 @@ class PsycopgSink:
 
 def prepare_typed_rows(schema: TableSchema, rows: Sequence[Sequence[str]]) -> list[list[Any]]:
     """Coerce string rows to Python types according to schema."""
+    # ⚡ Bolt Optimization:
+    # 1. Hoist property lookups (col.pg_type) and len() calls out of the loop.
+    # 2. Split logic for perfectly-formed vs ragged rows to avoid per-cell bounds checking.
+    # 3. Use standard loops with a cached list.append reference for a clean balance of performance and readability.
+    num_cols = len(schema.columns)
+    col_types = [col.pg_type for col in schema.columns]
+
     prepared: list[list[Any]] = []
+    app = prepared.append
+
     for row in rows:
-        prepared.append(
-            [
-                coerce_value(str(row[i]) if i < len(row) else "", col.pg_type)
-                for i, col in enumerate(schema.columns)
-            ]
-        )
+        row_len = len(row)
+        if row_len >= num_cols:
+            # Fast path: Perfectly-formed row.
+            app([
+                coerce_value(row[i] if type(row[i]) is str else str(row[i]), col_types[i])
+                for i in range(num_cols)
+            ])
+        else:
+            # Slow path: Ragged row requiring padding.
+            app(
+                [
+                    coerce_value(row[i] if type(row[i]) is str else str(row[i]), col_types[i])
+                    for i in range(row_len)
+                ] + [
+                    coerce_value("", col_types[i])
+                    for i in range(row_len, num_cols)
+                ]
+            )
     return prepared
 
 
