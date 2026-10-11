@@ -2,3 +2,7 @@
 **Vulnerability:** Uncontrolled resource consumption leading to Denial of Service (DoS) in HTML table extraction. The HTML parser blindly trusted the `colspan` attribute from user-provided MHTML files and expanded columns accordingly in a loop.
 **Learning:** We must not blindly trust size-related attributes like `colspan` or `rowspan` parsed from untrusted HTML/MHTML sources. An attacker could specify artificially large sizes, forcing unbounded loops and enormous memory allocation, crashing the ETL gateway pipeline.
 **Prevention:** Bound looping constructs driven by user input. In this case, `colspan` has been bounded to `100000`, failing closed aggressively and returning a `TableExtractError` when the limit is exceeded.
+## 2024-10-11 - [Fix Medium Severity SQL Injection Vulnerability in postgres_loader]
+**Vulnerability:** A possible SQL injection vulnerability was found due to string-based query construction when using `.join()` to construct `IN` parameters. Bandit identified this with the code B608.
+**Learning:** Using f-strings or string interpolation to dynamically generate `IN (...)` parameter placeholders is a dangerous security practice that static scanners flag as SQL injection vectors, as it could allow untrusted data (even if indirect or internally processed) to bypass SQL parameterization mechanisms.
+**Prevention:** Always use parameterized lists with `psycopg3` natively (i.e. `table_name = ANY(%s)`) passing a Python `list` into the cursor parameter, instead of string concatenation to dynamically build IN lists.
