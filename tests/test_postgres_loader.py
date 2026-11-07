@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from types import SimpleNamespace
 
+from typing import Any
 import pytest
 
 from mhtml_etl_gateway.ingest_catalog import (
@@ -224,7 +225,7 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
         columns=[ColumnSpec("VALUE", "value_field", PG_TEXT)],
     )
     sink = object.__new__(PsycopgSink)
-    observed: list[tuple[str, ...]] = []
+    observed: list[tuple[Any, ...]] = []
 
     def fetchall(query, params=None):
         observed.append(tuple(params or ()))
@@ -235,7 +236,8 @@ def test_live_sink_rejects_full_boundary_legacy_table_candidate(length: int) -> 
     with pytest.raises(LoadError, match=r"legacy table requires explicit migration"):
         sink._reject_legacy_table_split(schema)
 
-    assert legacy_name in observed[0]
+    assert type(observed[0][0]) is list
+    assert legacy_name in observed[0][0]
 
 
 def test_live_sink_queries_numeric_legacy_table_candidate() -> None:
